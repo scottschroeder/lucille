@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::{io::Read, path};
 
 const ADSUBS: &str = "/home/scott/Dropbox/Development/ArrestedDevelopmentSubs";
-const FILE: &str = "Arrested Development - 1x03 - Bringing Up Buster.HDTV.en.srt";
 
 fn is_srt(p: &path::Path) -> bool {
     let oext = p.extension();
@@ -46,7 +45,19 @@ fn read_file<P: AsRef<path::Path>>(tpath: P) -> Result<String> {
     let mut f = std::fs::File::open(tpath)?;
     let mut v = Vec::new();
     f.read_to_end(&mut v)?;
-    Ok(String::from_utf8(v)?)
+
+    Ok(match String::from_utf8(v) {
+        Ok(s) => s,
+        Err(e) => {
+            let v = e.into_bytes();
+            // SRT files are WINDOWS_1252 by default, but there is no requirement, so who knows
+            let (text, encoding, replacements) = encoding_rs::WINDOWS_1252.decode(v.as_slice());
+            if replacements {
+                log::warn!("could not decode {:?} accurately with {}", tpath, encoding.name());
+            }
+            text.to_string()
+        }
+    })
 }
 
 // TODO actually parse SRT
@@ -91,14 +102,6 @@ pub fn script_splitter(s: &str) -> Vec<String> {
         })
         .map(|s| s.to_owned())
         .collect()
-}
-
-fn parse(text: &str) -> Result<()> {
-    let s = srt::parser::parse_srt_from_slice(text.as_bytes())?;
-    for sub in s.subs {
-        log::debug!("{:#?}", sub);
-    }
-    Ok(())
 }
 
 pub fn parse_adsubs() -> Result<HashMap<String, String>> {

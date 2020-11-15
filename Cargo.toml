@@ -15,7 +15,7 @@ log = "0.4"
 anyhow = "1"
 
 
-srt = "0.1"
+encoding_rs = "0.8.26"
 walkdir = "2.3"
 
 tantivy = "0.13.2"
