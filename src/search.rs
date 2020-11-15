@@ -116,10 +116,14 @@ pub fn search(q: &str, eps: &HashMap<String, String>) -> tantivy::Result<()> {
 
     // we'll only need one doc for this example.
     for (e_name, e_script) in eps {
-        index_writer.add_document(doc!(
-            title => e_name.as_str(),
-            body => e_script.as_str(),
-        ));
+        for (idx, line_text) in crate::srt_loader::script_splitter(e_script)
+        .iter()
+        .enumerate() {
+            index_writer.add_document(doc!(
+                title => e_name.as_str(),
+                body => line_text.as_str(),
+            ));
+        }
     }
     index_writer.commit()?;
     // let index = build_index(eps)?;
@@ -135,7 +139,7 @@ pub fn search(q: &str, eps: &HashMap<String, String>) -> tantivy::Result<()> {
 
     let snippet_generator = SnippetGenerator::create(&searcher, &*query, body)?;
 
-    // println!("{:?}", top_docs);
+    println!("{:?}", top_docs);
 
     for (score, doc_address) in top_docs {
         let doc = searcher.doc(doc_address)?;

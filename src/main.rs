@@ -2,6 +2,7 @@ use anyhow::Result;
 
 mod srt_loader;
 mod search;
+mod srt;
 
 fn main() -> Result<()> {
     color_backtrace::install();

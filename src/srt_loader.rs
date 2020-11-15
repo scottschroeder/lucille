@@ -51,6 +51,8 @@ fn read_file<P: AsRef<path::Path>>(tpath: P) -> Result<String> {
 
 // TODO actually parse SRT
 fn srt_to_script(s: &str) -> Result<String> {
+    let vsub = crate::srt::parse(s);
+    // log::debug!("{:#?}", vsub);
     let mut r = String::new();
     let mut reset = 2;
     for line in s.lines() {
@@ -69,6 +71,28 @@ fn srt_to_script(s: &str) -> Result<String> {
     Ok(r)
 }
 
+pub fn script_splitter(s: &str) -> Vec<String> {
+    s.split(". ")
+        .flat_map(|s| s.split('!'))
+        .flat_map(|s| s.split("<i>"))
+        .flat_map(|s| s.split("</i>"))
+        .flat_map(|s| s.split('?'))
+        .flat_map(|s| s.split('{'))
+        .flat_map(|s| s.split('}'))
+        .flat_map(|s| s.split('['))
+        .flat_map(|s| s.split(']'))
+        .filter_map(|s| {
+            let s = s.trim();
+            if s.is_empty() {
+                None
+            } else {
+                Some(s)
+            }
+        })
+        .map(|s| s.to_owned())
+        .collect()
+}
+
 fn parse(text: &str) -> Result<()> {
     let s = srt::parser::parse_srt_from_slice(text.as_bytes())?;
     for sub in s.subs {
@@ -76,7 +100,6 @@ fn parse(text: &str) -> Result<()> {
     }
     Ok(())
 }
-
 
 pub fn parse_adsubs() -> Result<HashMap<String, String>> {
     Ok(list_subs(ADSUBS)?)
