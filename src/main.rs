@@ -31,8 +31,8 @@ fn main() -> Result<()> {
 fn test_fn(args: &clap::ArgMatches) -> Result<()> {
     let subs = srt_loader::parse_adsubs()?;
     let q = args.value_of("query").unwrap_or("default");
-    let r = search::search(q, &subs);
-    log::info!("{:#?}", r);
+    // let r = search::search(q, &subs);
+    // log::info!("{:#?}", r);
     Ok(())
 }
 

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::{io::Read, path};
+use crate::srt::Subtitle;
 
 const ADSUBS: &str = "/home/scott/Dropbox/Development/ArrestedDevelopmentSubs";
 
@@ -18,7 +19,7 @@ fn rough_title(p: &path::Path) -> String {
     fname.to_string()
 }
 
-fn list_subs<P: AsRef<path::Path>>(root: P) -> Result<HashMap<String, String>> {
+fn list_subs<P: AsRef<path::Path>>(root: P) -> Result<HashMap<String, Vec<Subtitle>>> {
     let root = root.as_ref();
     let mut subs = HashMap::new();
     for dir in walkdir::WalkDir::new(root)
@@ -29,7 +30,7 @@ fn list_subs<P: AsRef<path::Path>>(root: P) -> Result<HashMap<String, String>> {
         let name = rough_title(dir.path());
         log::trace!("open subtitles {:?}", dir.path());
 
-        match read_file(dir.path()).and_then(|s| srt_to_script(s.as_ref())) {
+        match read_file(dir.path()).and_then(|s| { crate::srt::parse(s.as_str()) }) {
             Ok(s) => {
                 subs.insert(name, s);
             }
@@ -62,7 +63,6 @@ fn read_file<P: AsRef<path::Path>>(tpath: P) -> Result<String> {
 
 // TODO actually parse SRT
 fn srt_to_script(s: &str) -> Result<String> {
-    let vsub = crate::srt::parse(s);
     // log::debug!("{:#?}", vsub);
     let mut r = String::new();
     let mut reset = 2;
@@ -104,6 +104,6 @@ pub fn script_splitter(s: &str) -> Vec<String> {
         .collect()
 }
 
-pub fn parse_adsubs() -> Result<HashMap<String, String>> {
+pub fn parse_adsubs() -> Result<HashMap<String, Vec<Subtitle>>> {
     Ok(list_subs(ADSUBS)?)
 }
