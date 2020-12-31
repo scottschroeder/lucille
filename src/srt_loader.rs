@@ -1,9 +1,73 @@
+use crate::srt::Subtitle;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::{io::Read, path};
-use crate::srt::Subtitle;
 
 const ADSUBS: &str = "/home/scott/Dropbox/Development/ArrestedDevelopmentSubs";
+
+pub fn generate_multi_window(
+    size: usize,
+    max_window: usize,
+) -> impl Iterator<Item = (usize, usize)> {
+    (0..max_window).flat_map(move |window| (0..(size - window)).map(move |s| (s, s + window + 1)))
+}
+
+pub struct Episode {
+    pub title: String,
+    pub script: String,
+    pub subs: Vec<Subtitle>,
+    pub index: Vec<usize>,
+}
+
+pub struct Clip<'a> {
+    pub title: &'a str,
+    pub text: &'a str,
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Episode {
+    fn from_subs(title: String, subs: Vec<Subtitle>) -> Episode {
+        let mut script = String::new();
+        let mut index = Vec::new();
+
+        for sub in &subs {
+            for line in sub.text.lines() {
+                let text = line.trim().trim_start_matches('-').trim();
+                script.push_str(" ");
+                script.push_str(text);
+            }
+            index.push(script.len())
+        }
+
+        Episode {
+            title,
+            script,
+            subs,
+            index,
+        }
+    }
+    fn extract_window(&self, start: usize, end: usize) -> &str {
+        let start_byte = self.index[start];
+        let end_byte = if end < self.index.len() {
+            self.index[end]
+        } else {
+            self.script.len()
+        };
+        &self.script[start_byte..end_byte]
+    }
+
+    pub fn slices<'a>(&'a self, max_window: usize) -> impl Iterator<Item = Clip<'a>> + 'a {
+        generate_multi_window(self.subs.len(), max_window).map(move |(start, end)| {
+            Clip {
+                title: self.title.as_str(),
+                text: self.extract_window(start, end),
+                start,
+                end,
+            }
+        })
+    }
+}
 
 fn is_srt(p: &path::Path) -> bool {
     let oext = p.extension();
@@ -30,7 +94,7 @@ fn list_subs<P: AsRef<path::Path>>(root: P) -> Result<HashMap<String, Vec<Subtit
         let name = rough_title(dir.path());
         log::trace!("open subtitles {:?}", dir.path());
 
-        match read_file(dir.path()).and_then(|s| { crate::srt::parse(s.as_str()) }) {
+        match read_file(dir.path()).and_then(|s| crate::srt::parse(s.as_str())) {
             Ok(s) => {
                 subs.insert(name, s);
             }
@@ -54,7 +118,11 @@ fn read_file<P: AsRef<path::Path>>(tpath: P) -> Result<String> {
             // SRT files are WINDOWS_1252 by default, but there is no requirement, so who knows
             let (text, encoding, replacements) = encoding_rs::WINDOWS_1252.decode(v.as_slice());
             if replacements {
-                log::warn!("could not decode {:?} accurately with {}", tpath, encoding.name());
+                log::warn!(
+                    "could not decode {:?} accurately with {}",
+                    tpath,
+                    encoding.name()
+                );
             }
             text.to_string()
         }
@@ -104,6 +172,9 @@ pub fn script_splitter(s: &str) -> Vec<String> {
         .collect()
 }
 
-pub fn parse_adsubs() -> Result<HashMap<String, Vec<Subtitle>>> {
-    Ok(list_subs(ADSUBS)?)
+pub fn parse_adsubs() -> Result<Vec<Episode>> {
+    Ok(list_subs(ADSUBS)?
+        .into_iter()
+        .map(|(t, s)| Episode::from_subs(t, s))
+        .collect::<Vec<_>>())
 }

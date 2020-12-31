@@ -2,13 +2,11 @@ use crate::srt::Subtitle;
 use nom::{
     bytes::complete::is_not,
     bytes::complete::tag,
-    bytes::complete::take_till,
     character::complete::line_ending,
-    character::complete::{char, one_of},
+    character::complete::one_of,
     combinator::{map, map_res, recognize},
-    dbg_basic,
     multi::{many0, many1},
-    sequence::{pair, preceded, terminated, tuple},
+    sequence::{preceded, terminated, tuple},
     IResult,
 };
 use std::time::Duration;
@@ -86,11 +84,28 @@ fn srt_file(input: &str) -> IResult<&str, Vec<Subtitle>> {
 }
 
 pub fn parse(input: &str) -> anyhow::Result<Vec<Subtitle>> {
-    let (leftover, results) =
+    let (leftover, mut results) =
         srt_file(input).map_err(|e| anyhow::anyhow!("could not parse srt file: {}", e))?;
     if !leftover.is_empty() {
         log::warn!("unparsed data at end of file: {:?}", leftover)
     }
+
+    results.sort_by(|x, y| x.idx.cmp(&y.idx));
+
+    let mut t = Duration::new(0, 0);
+    for r in &results {
+        if r.start < t || r.end < r.start {
+            log::warn!(
+                "subtitle timestamps are not in order, previous:{:?}, idx:{} start:{:?} end:{:?}",
+                t,
+                r.idx,
+                r.start,
+                r.end
+            );
+        }
+        t = r.start
+    }
+
     Ok(results)
 }
 
@@ -109,38 +124,38 @@ mod tests {
     #[test]
     fn timestamp_zero() {
         let input = "00:00:00,000";
-        let (r, t) = timestamp(input).unwrap();
+        let (_, t) = timestamp(input).unwrap();
         assert_eq!(t, Duration::from_millis(0));
     }
 
     #[test]
     fn timestamp_millis() {
         let input = "00:00:00,050";
-        let (r, t) = timestamp(input).unwrap();
+        let (_, t) = timestamp(input).unwrap();
         assert_eq!(t, Duration::from_millis(50));
     }
     #[test]
     fn timestamp_secs() {
         let input = "00:00:08,000";
-        let (r, t) = timestamp(input).unwrap();
+        let (_, t) = timestamp(input).unwrap();
         assert_eq!(t, Duration::from_secs(8));
     }
     #[test]
     fn timestamp_min() {
         let input = "00:14:00,000";
-        let (r, t) = timestamp(input).unwrap();
+        let (_, t) = timestamp(input).unwrap();
         assert_eq!(t, Duration::from_secs(14 * 60));
     }
     #[test]
     fn timestamp_hrs() {
         let input = "02:00:00,000";
-        let (r, t) = timestamp(input).unwrap();
+        let (_, t) = timestamp(input).unwrap();
         assert_eq!(t, Duration::from_secs(2 * 60 * 60));
     }
     #[test]
     fn timestamp_random() {
         let input = "02:14:08,050";
-        let (r, t) = timestamp(input).unwrap();
+        let (_, t) = timestamp(input).unwrap();
         assert_eq!(
             t,
             Duration::from_millis(((2 * 60 + 14) * 60 + 8) * 1000 + 50)
@@ -231,7 +246,11 @@ mod tests {
         let mut input = String::new();
         input.push_str(EX_TS_1.input(ending, extra_text_line, true).as_str());
         input.push_str(EX_TS_2.input(ending, extra_text_line, true).as_str());
-        input.push_str(EX_TS_3.input(ending, extra_text_line, !short_ending).as_str());
+        input.push_str(
+            EX_TS_3
+                .input(ending, extra_text_line, !short_ending)
+                .as_str(),
+        );
         let expected = vec![EX_TS_1.sub(), EX_TS_2.sub(), EX_TS_3.sub()];
 
         let (subt_rem, res) = srt_file(input.as_str()).unwrap();

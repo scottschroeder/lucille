@@ -1,8 +1,8 @@
 use anyhow::Result;
 
-mod srt_loader;
 mod search;
 mod srt;
+mod srt_loader;
 
 fn main() -> Result<()> {
     color_backtrace::install();
@@ -29,13 +29,21 @@ fn main() -> Result<()> {
 }
 
 fn test_fn(args: &clap::ArgMatches) -> Result<()> {
-    let subs = srt_loader::parse_adsubs()?;
+    let eps = srt_loader::parse_adsubs()?;
     let q = args.value_of("query").unwrap_or("default");
-    // let r = search::search(q, &subs);
+    let r = search::search(q, &eps);
     // log::info!("{:#?}", r);
+    // let mut count = 0;
+    // for e in &eps {
+    //     for c in e.slices(5) {
+    //         // log::debug!("[{}, {}]: {:?}", c.start, c.end, c.text);
+    //         count += 1;
+    //     }
+    // }
+    // println!("{}", count);
+
     Ok(())
 }
-
 
 fn setup_logger(level: u64) {
     let mut builder = pretty_env_logger::formatted_timed_builder();
@@ -88,8 +96,12 @@ mod cli {
             )
             .subcommand(
                 SubCommand::with_name("test")
-                .arg(clap::Arg::with_name("query").long("query").takes_value(true))
-                .arg(clap::Arg::with_name("flag").long("flag")),
+                    .arg(
+                        clap::Arg::with_name("query")
+                            .long("query")
+                            .takes_value(true),
+                    )
+                    .arg(clap::Arg::with_name("flag").long("flag")),
             )
             .get_matches()
     }
