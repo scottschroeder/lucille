@@ -1,8 +1,9 @@
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 mod parser;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Subtitle {
     pub idx: u32,
     pub start: Duration,

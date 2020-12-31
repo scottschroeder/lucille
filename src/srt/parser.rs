@@ -1,9 +1,7 @@
 use crate::srt::Subtitle;
 use nom::{
-    bytes::complete::is_not,
-    bytes::complete::tag,
-    character::complete::line_ending,
-    character::complete::one_of,
+    bytes::complete::{is_not, tag},
+    character::complete::{line_ending, one_of},
     combinator::{map, map_res, recognize},
     multi::{many0, many1},
     sequence::{preceded, terminated, tuple},

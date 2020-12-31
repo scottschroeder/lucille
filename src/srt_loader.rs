@@ -1,7 +1,7 @@
 use crate::srt::Subtitle;
 use anyhow::{Context, Result};
-use std::collections::HashMap;
-use std::{io::Read, path};
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, io::Read, path};
 
 const ADSUBS: &str = "/home/scott/Dropbox/Development/ArrestedDevelopmentSubs";
 
@@ -12,6 +12,7 @@ pub fn generate_multi_window(
     (0..max_window).flat_map(move |window| (0..(size - window)).map(move |s| (s, s + window + 1)))
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Episode {
     pub title: String,
     pub script: String,
@@ -58,13 +59,11 @@ impl Episode {
     }
 
     pub fn slices<'a>(&'a self, max_window: usize) -> impl Iterator<Item = Clip<'a>> + 'a {
-        generate_multi_window(self.subs.len(), max_window).map(move |(start, end)| {
-            Clip {
-                title: self.title.as_str(),
-                text: self.extract_window(start, end),
-                start,
-                end,
-            }
+        generate_multi_window(self.subs.len(), max_window).map(move |(start, end)| Clip {
+            title: self.title.as_str(),
+            text: self.extract_window(start, end),
+            start,
+            end,
         })
     }
 }

@@ -7,16 +7,16 @@
 
 // ---
 // Importing tantivy...
-use std::collections::HashMap;
-use tantivy::collector::{Collector, SegmentCollector};
-use tantivy::query::QueryParser;
-use tantivy::schema::*;
-use tantivy::SegmentLocalId;
-use tantivy::{collector::TopDocs, DocId, Score, SegmentReader};
-use tantivy::{doc, Index, Snippet, SnippetGenerator};
-use tempfile::TempDir;
-
 use crate::srt_loader::Episode;
+use std::{collections::HashMap, path::Path};
+use tantivy::{
+    collector::{Collector, SegmentCollector, TopDocs},
+    doc,
+    query::QueryParser,
+    schema::*,
+    DocId, Index, Score, SegmentLocalId, SegmentReader, Snippet, SnippetGenerator,
+};
+use tempfile::TempDir;
 
 pub struct Count;
 
@@ -62,58 +62,24 @@ impl SegmentCollector for SegmentCountCollector {
     }
 }
 
-pub fn build_index(eps: &HashMap<String, String>) -> tantivy::Result<tantivy::Index> {
-    // Let's create a temporary directory for the
-    // sake of this example
-    let index_path = TempDir::new()?;
-
-    // # Defining the schema
-    let mut schema_builder = Schema::builder();
-    let title = schema_builder.add_text_field("title", TEXT | STORED);
-    let body = schema_builder.add_text_field("body", TEXT | STORED);
-    let schema = schema_builder.build();
-
-    // # Indexing documents
-    let index = Index::create_in_dir(&index_path, schema.clone())?;
-
-    let mut index_writer = index.writer(50_000_000)?;
-
-    // we'll only need one doc for this example.
-    for (e_name, e_script) in eps {
-        index_writer.add_document(doc!(
-            title => e_name.as_str(),
-            body => e_script.as_str(),
-        ));
-    }
-    index_writer.commit()?;
-    Ok(index)
+pub fn load_index<P: AsRef<Path>>(path: P) -> tantivy::Result<tantivy::Index> {
+    let index_path = path.as_ref();
+    Index::open_in_dir(&index_path)
 }
 
-pub fn search(q: &str, eps: &[Episode]) -> tantivy::Result<()> {
-    // Let's create a temporary directory for the
-    // sake of this example
-    let index_path = TempDir::new()?;
+pub fn build_index<P: AsRef<Path>>(path: P, eps: &[Episode]) -> tantivy::Result<tantivy::Index> {
+    let index_path = path.as_ref();
 
-    // # Defining the schema
-    let mut schema_builder = Schema::builder();
+    let schema = create_schema();
 
-    let text_options = TextOptions::default()
-        .set_indexing_options(
-            TextFieldIndexing::default()
-                .set_tokenizer("en_stem")
-                .set_index_option(IndexRecordOption::Basic),
-        )
-        .set_stored();
-
-    let title = schema_builder.add_text_field("title", text_options.clone());
-    let body = schema_builder.add_text_field("body", text_options);
-    let episode = schema_builder.add_u64_field("episode", STORED);
-    let clip_start = schema_builder.add_u64_field("clip_start", STORED);
-    let clip_end = schema_builder.add_u64_field("clip_end", STORED);
-    let schema = schema_builder.build();
+    let title = get_field(&schema, SchemaField::Title);
+    let body = get_field(&schema, SchemaField::Body);
+    let episode = get_field(&schema, SchemaField::Episode);
+    let clip_start = get_field(&schema, SchemaField::ClipStart);
+    let clip_end = get_field(&schema, SchemaField::ClipEnd);
 
     // # Indexing documents
-    let index = Index::create_in_dir(&index_path, schema.clone())?;
+    let index = Index::create_in_dir(&index_path, schema)?;
 
     let mut index_writer = index.writer(50_000_000)?;
 
@@ -129,9 +95,62 @@ pub fn search(q: &str, eps: &[Episode]) -> tantivy::Result<()> {
         }
     }
     index_writer.commit()?;
-    // let index = build_index(eps)?;
-    // let title = index.schema().get_field("title").unwrap();
-    // let body = index.schema().get_field("body").unwrap();
+    Ok(index)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum SchemaField {
+    Title,
+    Body,
+    Episode,
+    ClipStart,
+    ClipEnd,
+}
+
+impl SchemaField {
+    fn as_str(self) -> &'static str {
+        match self {
+            SchemaField::Title => "title",
+            SchemaField::Body => "body",
+            SchemaField::Episode => "episode",
+            SchemaField::ClipStart => "clip_start",
+            SchemaField::ClipEnd => "clip_end",
+        }
+    }
+}
+
+fn create_schema() -> Schema {
+    let mut schema_builder = Schema::builder();
+
+    let text_options = TextOptions::default()
+        .set_indexing_options(
+            TextFieldIndexing::default()
+                .set_tokenizer("en_stem")
+                .set_index_option(IndexRecordOption::Basic),
+        )
+        .set_stored();
+
+    schema_builder.add_text_field(SchemaField::Title.as_str(), text_options.clone());
+    schema_builder.add_text_field(SchemaField::Body.as_str(), text_options);
+    schema_builder.add_u64_field(SchemaField::Episode.as_str(), STORED);
+    schema_builder.add_u64_field(SchemaField::ClipStart.as_str(), STORED);
+    schema_builder.add_u64_field(SchemaField::ClipEnd.as_str(), STORED);
+    schema_builder.build()
+}
+
+fn get_field(schema: &Schema, field: SchemaField) -> Field {
+    schema
+        .get_field(field.as_str())
+        .expect("field in enum was not in schema")
+}
+
+pub fn search(index: &Index, q: &str, eps: &[Episode]) -> tantivy::Result<()> {
+    let read_schema = create_schema();
+
+    let body = get_field(&read_schema, SchemaField::Body);
+    let episode = get_field(&read_schema, SchemaField::Episode);
+    let clip_start = get_field(&read_schema, SchemaField::ClipStart);
+    let clip_end = get_field(&read_schema, SchemaField::ClipEnd);
 
     let reader = index.reader()?;
     let searcher = reader.searcher();
@@ -177,13 +196,12 @@ pub fn search(q: &str, eps: &[Episode]) -> tantivy::Result<()> {
         println!("");
     }
 
-
     Ok(())
 }
 
 struct EpisodeScore {
     name: String,
-    inner: Vec<f32>
+    inner: Vec<f32>,
 }
 
 impl EpisodeScore {
@@ -193,7 +211,6 @@ impl EpisodeScore {
         }
     }
 }
-
 
 fn highlight(snippet: Snippet) -> String {
     let mut result = String::new();

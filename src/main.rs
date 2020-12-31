@@ -1,8 +1,12 @@
 use anyhow::Result;
 
+mod error;
 mod search;
 mod srt;
 mod srt_loader;
+mod storage;
+
+const STORAGE_DEFAULT: &str = "storage";
 
 fn main() -> Result<()> {
     color_backtrace::install();
@@ -29,9 +33,15 @@ fn main() -> Result<()> {
 }
 
 fn test_fn(args: &clap::ArgMatches) -> Result<()> {
-    let eps = srt_loader::parse_adsubs()?;
     let q = args.value_of("query").unwrap_or("default");
-    let r = search::search(q, &eps);
+    let storage_path = std::path::Path::new(STORAGE_DEFAULT);
+
+    let s = storage::Storage::load(storage_path).or_else(|_| {
+        let eps = srt_loader::parse_adsubs()?;
+        storage::Storage::build_index(storage_path, eps)
+    })?;
+
+    let r = search::search(&s.index, q, &s.episodes).map_err(error::TError::from)?;
     // log::info!("{:#?}", r);
     // let mut count = 0;
     // for e in &eps {
