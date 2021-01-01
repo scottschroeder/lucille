@@ -48,7 +48,7 @@ impl Episode {
             index,
         }
     }
-    fn extract_window(&self, start: usize, end: usize) -> &str {
+    pub fn extract_window(&self, start: usize, end: usize) -> &str {
         let start_byte = self.index[start];
         let end_byte = if end < self.index.len() {
             self.index[end]

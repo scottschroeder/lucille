@@ -1,4 +1,5 @@
-use anyhow::Result;
+#![feature(binary_heap_into_iter_sorted)]
+use anyhow::{Context, Result};
 
 mod error;
 mod search;
@@ -34,25 +35,81 @@ fn main() -> Result<()> {
 
 fn test_fn(args: &clap::ArgMatches) -> Result<()> {
     let q = args.value_of("query").unwrap_or("default");
+    let max_window = args
+        .value_of("index_window")
+        .unwrap_or("5")
+        .parse::<usize>()?;
+    let search_window = args
+        .value_of("search_window")
+        .unwrap_or("5")
+        .parse::<usize>()?;
     let storage_path = std::path::Path::new(STORAGE_DEFAULT);
 
     let s = storage::Storage::load(storage_path).or_else(|_| {
         let eps = srt_loader::parse_adsubs()?;
-        storage::Storage::build_index(storage_path, eps)
+        storage::Storage::build_index(storage_path, eps, max_window)
     })?;
 
-    let r = search::search(&s.index, q, &s.episodes).map_err(error::TError::from)?;
-    // log::info!("{:#?}", r);
-    // let mut count = 0;
-    // for e in &eps {
-    //     for c in e.slices(5) {
-    //         // log::debug!("[{}, {}]: {:?}", c.start, c.end, c.text);
-    //         count += 1;
-    //     }
-    // }
-    // println!("{}", count);
+    let scores =
+        search::search(&s.index, q, &s.episodes, search_window).map_err(error::TError::from)?;
+    let ranked = search::rank(&scores, 5);
+    search::print_top_scores(&s.episodes, &ranked);
+    let input = get_user_input("make a selection: e.g. 'B 3-5'")?;
+    let (index, start, end) = parse_user_selection(input.as_str())?;
+
+    let choice = &ranked[index];
+    let episode = &s.episodes[choice.ep];
+    let e_start = choice.clip.index + start;
+    let e_end = choice.clip.index + end + 1;
+    println!(
+        "{}:\n{}",
+        episode.title,
+        episode.extract_window(e_start, e_end)
+    );
 
     Ok(())
+}
+
+fn get_user_input(msg: &str) -> anyhow::Result<String> {
+    println!("{}", msg);
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    Ok(input)
+}
+
+fn parse_user_selection(s: &str) -> anyhow::Result<(usize, usize, usize)> {
+    let re =
+        once_cell_regex::regex!(r##" *(?P<letter>[a-zA-Z]) *(?P<start>[0-9]+)\-(?P<end>[0-9]+)"##);
+    let captures = re
+        .captures(s)
+        .ok_or_else(|| anyhow::anyhow!("could not parse user selection"))?;
+    let letter = captures
+        .name("letter")
+        .expect("non optional regex match")
+        .as_str()
+        .chars()
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("string did not contain letter?"))?;
+    let start = captures
+        .name("start")
+        .expect("non optional regex match")
+        .as_str()
+        .parse::<usize>()
+        .with_context(|| "unable to parse digits")?;
+    let end = captures
+        .name("end")
+        .expect("non optional regex match")
+        .as_str()
+        .parse::<usize>()
+        .with_context(|| "unable to parse digits")?;
+
+    let user_choice_index = match letter {
+        'a'..='z' => (letter as u8) - 'a' as u8,
+        'A'..='Z' => (letter as u8) - 'A' as u8,
+        _ => anyhow::bail!("invalid char: {:?}", letter),
+    } as usize;
+
+    Ok((user_choice_index, start, end))
 }
 
 fn setup_logger(level: u64) {
@@ -109,6 +166,16 @@ mod cli {
                     .arg(
                         clap::Arg::with_name("query")
                             .long("query")
+                            .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::with_name("search_window")
+                            .long("search-window")
+                            .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::with_name("index_window")
+                            .long("max-window")
                             .takes_value(true),
                     )
                     .arg(clap::Arg::with_name("flag").long("flag")),

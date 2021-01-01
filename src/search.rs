@@ -1,14 +1,8 @@
-// # Snippet example
-//
-// This example shows how to return a representative snippet of
-// your hit result.
-// Snippet are an extracted of a target document, and returned in HTML format.
-// The keyword searched by the user are highlighted with a `<b>` tag.
-
-// ---
-// Importing tantivy...
 use crate::srt_loader::Episode;
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::{BinaryHeap, HashMap},
+    path::Path,
+};
 use tantivy::{
     collector::{Collector, SegmentCollector, TopDocs},
     doc,
@@ -17,6 +11,16 @@ use tantivy::{
     DocId, Index, Score, SegmentLocalId, SegmentReader, Snippet, SnippetGenerator,
 };
 use tempfile::TempDir;
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+struct RankScore(f32);
+
+impl Eq for RankScore {}
+impl Ord for RankScore {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).expect("tantivy gave invalid score")
+    }
+}
 
 pub struct Count;
 
@@ -62,12 +66,11 @@ impl SegmentCollector for SegmentCountCollector {
     }
 }
 
-pub fn load_index<P: AsRef<Path>>(path: P) -> tantivy::Result<tantivy::Index> {
-    let index_path = path.as_ref();
-    Index::open_in_dir(&index_path)
-}
-
-pub fn build_index<P: AsRef<Path>>(path: P, eps: &[Episode]) -> tantivy::Result<tantivy::Index> {
+pub fn build_index<P: AsRef<Path>>(
+    path: P,
+    eps: &[Episode],
+    max_window: usize,
+) -> tantivy::Result<tantivy::Index> {
     let index_path = path.as_ref();
 
     let schema = create_schema();
@@ -84,7 +87,7 @@ pub fn build_index<P: AsRef<Path>>(path: P, eps: &[Episode]) -> tantivy::Result<
     let mut index_writer = index.writer(50_000_000)?;
 
     for (e_num, e) in eps.iter().enumerate() {
-        for clip in e.slices(5) {
+        for clip in e.slices(max_window) {
             index_writer.add_document(doc!(
                 title => clip.title,
                 body => clip.text,
@@ -144,7 +147,12 @@ fn get_field(schema: &Schema, field: SchemaField) -> Field {
         .expect("field in enum was not in schema")
 }
 
-pub fn search(index: &Index, q: &str, eps: &[Episode]) -> tantivy::Result<()> {
+pub fn search(
+    index: &Index,
+    q: &str,
+    eps: &[Episode],
+    search_window: usize,
+) -> tantivy::Result<HashMap<usize, EpisodeScore>> {
     let read_schema = create_schema();
 
     let body = get_field(&read_schema, SchemaField::Body);
@@ -159,55 +167,79 @@ pub fn search(index: &Index, q: &str, eps: &[Episode]) -> tantivy::Result<()> {
 
     let top_docs = searcher.search(&query, &TopDocs::with_limit(10000))?;
 
-    let snippet_generator = SnippetGenerator::create(&searcher, &*query, body)?;
-
-    // println!("{:?}", top_docs);
-
     let mut scores = HashMap::new();
 
     for (score, doc_address) in top_docs {
         let doc = searcher.doc(doc_address)?;
-        // let snippet = snippet_generator.snippet_from_doc(&doc);
-        // let title = doc.get_first(title).unwrap().text().unwrap();
         let en = doc.get_first(episode).unwrap().u64_value() as usize;
         let cs = doc.get_first(clip_start).unwrap().u64_value() as usize;
         let ce = doc.get_first(clip_end).unwrap().u64_value() as usize;
 
-        // println!("{}: score {}:", title, score);
-        // println!("{}", snippet.fragments());
-        // log::trace!("{}: [{}, {}] {}", en, cs, ce, score);
+        if ce - cs > search_window {
+            continue;
+        }
 
         let e_score = scores.entry(en).or_insert_with(|| {
             let e = &eps[en];
             let size = e.subs.len();
             EpisodeScore {
-                name: e.title.clone(),
-                inner: vec![0.0; size],
+                inner: vec![RankScore(0.0); size],
+                episode: en,
             }
         });
         e_score.add(cs, ce, score)
     }
 
-    for es in scores.values() {
-        print!("{}", es.name);
-        for x in &es.inner {
-            print!(", {}", x);
-        }
-        println!("");
-    }
-
-    Ok(())
+    Ok(scores)
 }
 
-struct EpisodeScore {
-    name: String,
-    inner: Vec<f32>,
+pub fn print_top_scores(eps: &[Episode], scores: &[RankedMatch]) {
+    let mut c = 'A';
+    for m in scores {
+        let ep = &eps[m.ep];
+        println!("{}) {:?}: {}", c, m.score, ep.title);
+        let base = m.clip.index;
+        for (offset, s) in m.clip.scores.iter().enumerate() {
+            let normalized = ((5.0 * s.0 / m.score.0) + 0.5) as usize;
+            let script = ep.extract_window(base + offset, base + offset + 1).trim();
+            println!("  ({:2}) [{}]- {:?}", offset, HIST[normalized], script);
+        }
+        c = ((c as u8) + 1) as char
+    }
+}
+
+pub fn rank(scores: &HashMap<usize, EpisodeScore>, top: usize) -> Vec<RankedMatch> {
+    let ranked = scores
+        .values()
+        .map(|es| {
+            let matches = ClipMatches {
+                data: es.inner.as_slice(),
+                cursor: 0,
+            };
+            (es.episode, matches)
+        })
+        .flat_map(|(episode, matches)| {
+            let ep = episode;
+            matches.map(move |clip| {
+                let score = *clip.scores.iter().max().unwrap();
+                RankedMatch { score, ep, clip }
+            })
+        })
+        .collect::<BinaryHeap<RankedMatch>>();
+    ranked.into_iter_sorted().take(top).collect()
+}
+
+const HIST: [&str; 6] = ["     ", "    *", "   **", "  ***", " ****", "*****"];
+
+pub struct EpisodeScore {
+    episode: usize,
+    inner: Vec<RankScore>,
 }
 
 impl EpisodeScore {
     fn add(&mut self, start: usize, end: usize, score: f32) {
         for s in self.inner.as_mut_slice()[start..end].iter_mut() {
-            *s += score
+            s.0 += score
         }
     }
 }
@@ -226,4 +258,58 @@ fn highlight(snippet: Snippet) -> String {
 
     result.push_str(&snippet.fragments()[start_from..]);
     result
+}
+
+const MIN_SCORE: f32 = 0.5f32;
+
+struct ClipMatches<'a> {
+    data: &'a [RankScore],
+    cursor: usize,
+}
+
+#[derive(PartialEq, Eq)]
+pub struct RankedMatch<'a> {
+    score: RankScore,
+    pub ep: usize,
+    pub clip: ClipMatch<'a>,
+}
+
+impl<'a> PartialOrd for RankedMatch<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.score.partial_cmp(&other.score)
+    }
+}
+
+impl<'a> Ord for RankedMatch<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.score.cmp(&other.score)
+    }
+}
+
+#[derive(PartialEq, Eq)]
+pub struct ClipMatch<'a> {
+    pub index: usize,
+    scores: &'a [RankScore],
+}
+
+impl<'a> Iterator for ClipMatches<'a> {
+    type Item = ClipMatch<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.cursor < self.data.len() && self.data[self.cursor].0 < MIN_SCORE {
+            self.cursor += 1
+        }
+        let index = self.cursor;
+        while self.cursor < self.data.len() && self.data[self.cursor].0 > MIN_SCORE {
+            self.cursor += 1
+        }
+        if self.cursor > index {
+            Some(ClipMatch {
+                index,
+                scores: &self.data[index..self.cursor],
+            })
+        } else {
+            None
+        }
+    }
 }

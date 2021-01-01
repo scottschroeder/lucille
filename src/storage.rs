@@ -41,12 +41,13 @@ impl Storage {
     pub fn build_index<P: AsRef<path::Path>>(
         storage: P,
         eps: Vec<Episode>,
+        max_window: usize,
     ) -> anyhow::Result<Storage> {
         let storage_path = storage.as_ref();
         let index_path = storage_path.join(INDEX_DIR);
         std::fs::create_dir_all(index_path.as_path())?;
-        let index =
-            crate::search::build_index(&index_path, eps.as_slice()).map_err(|e| TError::from(e))?;
+        let index = crate::search::build_index(&index_path, eps.as_slice(), max_window)
+            .map_err(|e| TError::from(e))?;
         let s = Storage {
             episodes: eps,
             storage_path: storage_path.to_owned(),
