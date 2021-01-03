@@ -6,6 +6,7 @@ use service::{
         ClipIdentifier, NamedFileOutput, TranscodeClient, TranscodeRequest, TranscoderService,
     },
 };
+use storage::Storage;
 
 mod cli_select;
 mod content;
@@ -62,28 +63,21 @@ fn index(args: &clap::ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn search(args: &clap::ArgMatches) -> Result<()> {
+fn get_storage(args: &clap::ArgMatches) -> Storage {
     let storage_path = args.value_of("storage").unwrap();
     let storage_path = std::path::Path::new(storage_path);
-    let s = storage::Storage::new(storage_path);
+    Storage::new(storage_path)
+}
 
-    let db = s.load()?;
-    let index = s.index()?;
-    let search_service = SearchService::new(db.id, index, &db.content);
-
-    let search_request = SearchRequest {
+fn get_search_request<'a>(args: &'a clap::ArgMatches) -> Result<SearchRequest<'a>> {
+    Ok(SearchRequest {
         query: args.value_of("query").unwrap(),
         window: args
             .value_of("search_window")
             .map(|s| s.parse::<usize>())
             .transpose()?,
         max_responses: Some(5),
-    };
-
-    let search_response = search_service.search(search_request)?;
-    println!("{}", serde_json::to_string_pretty(&search_response)?);
-
-    Ok(())
+    })
 }
 
 fn parse_spec_shorthand(mut spec: clap::Values) -> Result<ClipIdentifier> {
@@ -100,12 +94,25 @@ fn parse_spec_shorthand(mut spec: clap::Values) -> Result<ClipIdentifier> {
     })
 }
 
+fn search(args: &clap::ArgMatches) -> Result<()> {
+    let s = get_storage(args);
+
+    let db = s.load()?;
+    let index = s.index()?;
+    let search_service = SearchService::new(db.id, index, &db.content);
+
+    let search_request = get_search_request(args)?;
+
+    let search_response = search_service.search(search_request)?;
+    println!("{}", serde_json::to_string_pretty(&search_response)?);
+
+    Ok(())
+}
+
 fn transcode(args: &clap::ArgMatches) -> Result<()> {
     let spec = args.values_of("spec").unwrap();
     let output = args.value_of("output_gif").unwrap();
-    let storage_path = args.value_of("storage").unwrap();
-    let storage_path = std::path::Path::new(storage_path);
-    let s = storage::Storage::new(storage_path);
+    let s = get_storage(args);
 
     let clip = parse_spec_shorthand(spec)?;
     let db = s.load()?;
@@ -121,9 +128,7 @@ fn transcode(args: &clap::ArgMatches) -> Result<()> {
 
 fn interactive(args: &clap::ArgMatches) -> Result<()> {
     let output = args.value_of("output_gif").unwrap();
-    let storage_path = args.value_of("storage").unwrap();
-    let storage_path = std::path::Path::new(storage_path);
-    let s = storage::Storage::new(storage_path);
+    let s = get_storage(args);
 
     let db = s.load()?;
     let index = s.index()?;
@@ -131,14 +136,7 @@ fn interactive(args: &clap::ArgMatches) -> Result<()> {
     let gif_output = NamedFileOutput(output.to_string());
     let transcode_service = TranscoderService::new(db.id, &db.content, &db.videos, &gif_output);
 
-    let search_request = SearchRequest {
-        query: args.value_of("query").unwrap(),
-        window: args
-            .value_of("search_window")
-            .map(|s| s.parse::<usize>())
-            .transpose()?,
-        max_responses: Some(5),
-    };
+    let search_request = get_search_request(args)?;
 
     let search_response = search_service.search(search_request)?;
     let clip = cli_select::ask_user_for_clip(&db.content, &search_response)?;
