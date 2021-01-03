@@ -2,6 +2,7 @@
 use anyhow::{Context, Result};
 use srt::Subtitle;
 
+mod content;
 mod error;
 mod search;
 mod srt;
@@ -9,6 +10,7 @@ mod srt_loader;
 mod storage;
 
 const STORAGE_DEFAULT: &str = "storage";
+const INDEX_WINDOW_DEFAULT: &str = "5";
 
 fn main() -> Result<()> {
     color_backtrace::install();
@@ -18,6 +20,7 @@ fn main() -> Result<()> {
 
     match args.subcommand() {
         ("test", Some(sub_m)) => test_fn(sub_m),
+        ("index", Some(sub_m)) => index(sub_m),
         ("", _) => Err(anyhow::anyhow!(
             "Please provide a command:\n{}",
             args.usage()
@@ -32,6 +35,17 @@ fn main() -> Result<()> {
         log::error!("{:?}", e);
         anyhow::anyhow!("unrecoverable lucile failure")
     })
+}
+
+fn index(args: &clap::ArgMatches) -> Result<()> {
+    let content_path = args.value_of("path").unwrap();
+    let storage_path = args.value_of("storage").unwrap();
+    let max_window = args.value_of("index_window").unwrap().parse::<usize>()?;
+    let storage_path = std::path::Path::new(storage_path);
+
+    let eps = content::scan::list_subs(content_path)?;
+    log::debug!("{:#?}", eps);
+    Ok(())
 }
 
 fn test_fn(args: &clap::ArgMatches) -> Result<()> {
@@ -180,6 +194,8 @@ fn setup_logger(level: u64) {
 
 mod cli {
     use clap::SubCommand;
+
+    use crate::{INDEX_WINDOW_DEFAULT, STORAGE_DEFAULT};
     pub fn get_args() -> clap::ArgMatches<'static> {
         clap::App::new(clap::crate_name!())
             .version(clap::crate_version!())
@@ -193,10 +209,37 @@ mod cli {
                     .help("Sets the level of verbosity"),
             )
             .subcommand(
+                SubCommand::with_name("index")
+                    .arg(
+                        clap::Arg::with_name("path")
+                            .long("path")
+                            .required(true)
+                            .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::with_name("storage")
+                            .long("storage")
+                            .default_value(STORAGE_DEFAULT)
+                            .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::with_name("index_window")
+                            .long("max-window")
+                            .default_value(INDEX_WINDOW_DEFAULT)
+                            .takes_value(true),
+                    ),
+            )
+            .subcommand(
                 SubCommand::with_name("test")
                     .arg(
                         clap::Arg::with_name("query")
                             .long("query")
+                            .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::with_name("storage")
+                            .long("storage")
+                            .default_value(STORAGE_DEFAULT)
                             .takes_value(true),
                     )
                     .arg(
