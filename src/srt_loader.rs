@@ -1,5 +1,5 @@
 use crate::srt::Subtitle;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::Read, path};
@@ -133,49 +133,6 @@ fn read_file<P: AsRef<path::Path>>(tpath: P) -> Result<String> {
             text.to_string()
         }
     })
-}
-
-// TODO actually parse SRT
-fn srt_to_script(s: &str) -> Result<String> {
-    // log::debug!("{:#?}", vsub);
-    let mut r = String::new();
-    let mut reset = 2;
-    for line in s.lines() {
-        let text = line.trim().trim_start_matches('-').trim();
-        if text.is_empty() {
-            reset = 2;
-            continue;
-        }
-        if reset > 0 {
-            reset -= 1;
-            continue;
-        }
-        r.push_str(" ");
-        r.push_str(text);
-    }
-    Ok(r)
-}
-
-pub fn script_splitter(s: &str) -> Vec<String> {
-    s.split(". ")
-        .flat_map(|s| s.split('!'))
-        .flat_map(|s| s.split("<i>"))
-        .flat_map(|s| s.split("</i>"))
-        .flat_map(|s| s.split('?'))
-        .flat_map(|s| s.split('{'))
-        .flat_map(|s| s.split('}'))
-        .flat_map(|s| s.split('['))
-        .flat_map(|s| s.split(']'))
-        .filter_map(|s| {
-            let s = s.trim();
-            if s.is_empty() {
-                None
-            } else {
-                Some(s)
-            }
-        })
-        .map(|s| s.to_owned())
-        .collect()
 }
 
 pub fn parse_adsubs() -> Result<Vec<Episode>> {

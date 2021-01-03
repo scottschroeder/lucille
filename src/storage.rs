@@ -1,7 +1,7 @@
 use crate::{error::TError, srt_loader::Episode};
 use anyhow::Context;
 use std::{fs::File, path};
-use tantivy::{Index, TantivyError};
+use tantivy::Index;
 
 const INDEX_DIR: &str = "index";
 const EPISODES_JSON: &str = "episodes.json";

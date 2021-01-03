@@ -50,9 +50,7 @@ fn test_fn(args: &clap::ArgMatches) -> Result<()> {
         let eps = srt_loader::parse_adsubs()?;
         storage::Storage::build_index(storage_path, eps, max_window)
     })?;
-
-    let scores =
-        search::search(&s.index, q, &s.episodes, search_window).map_err(error::TError::from)?;
+    let scores = search::search(&s.index, q, search_window).map_err(error::TError::from)?;
     let ranked = search::rank(&scores, 5);
     search::print_top_scores(&s.episodes, &ranked);
     let input = get_user_input("make a selection: e.g. 'B 3-5'")?;
@@ -62,16 +60,7 @@ fn test_fn(args: &clap::ArgMatches) -> Result<()> {
     let episode = &s.episodes[choice.ep];
     let e_start = choice.clip.index + start;
     let e_end = choice.clip.index + end + 1;
-    let s_start = &episode.subs[e_start];
-    let s_end = &episode.subs[e_end];
     let subs = &episode.subs[e_start..e_end];
-    // println!(
-    //     "{}: {:?}-{:?}\n{}",
-    //     episode.title,
-    //     s_start.start,
-    //     s_end.end,
-    //     episode.extract_window(e_start, e_end)
-    // );
 
     ffmpeg_cmd(subs)?;
 

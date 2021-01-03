@@ -15,3 +15,6 @@ output file
 ```
 ffmpeg -ss ${START_TIME} -t ${DURATION} -i ${INPUT_VIDEO} -filter_complex "[0:v] fps=${FPS},scale=w=${WIDTH}:h=-1, subtitles=${SUBS_FILE}:force_style='Fontsize=${FONT_SIZE}',split [a][b];[a] palettegen=stats_mode=single:reserve_transparent=false [p];[b][p] paletteuse=new=1" -y ${OUTPUT_FILE}
 ```
+
+https://aws.amazon.com/blogs/media/processing-user-generated-content-using-aws-lambda-and-ffmpeg/
+https://intoli.com/blog/transcoding-on-aws-lambda/

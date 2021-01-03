@@ -3,14 +3,7 @@ use std::{
     collections::{BinaryHeap, HashMap},
     path::Path,
 };
-use tantivy::{
-    collector::{Collector, SegmentCollector, TopDocs},
-    doc,
-    query::QueryParser,
-    schema::*,
-    DocId, Index, Score, SegmentLocalId, SegmentReader, Snippet, SnippetGenerator,
-};
-use tempfile::TempDir;
+use tantivy::{collector::TopDocs, doc, query::QueryParser, schema::*, Index};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 struct RankScore(f32);
@@ -19,50 +12,6 @@ impl Eq for RankScore {}
 impl Ord for RankScore {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).expect("tantivy gave invalid score")
-    }
-}
-
-pub struct Count;
-
-impl Collector for Count {
-    type Fruit = usize;
-
-    type Child = SegmentCountCollector;
-
-    fn for_segment(
-        &self,
-        slid: SegmentLocalId,
-        sr: &SegmentReader,
-    ) -> tantivy::Result<SegmentCountCollector> {
-        log::trace!("slid: {:?}, sr: {:?}", slid, sr);
-        Ok(SegmentCountCollector::default())
-    }
-
-    fn requires_scoring(&self) -> bool {
-        false
-    }
-
-    fn merge_fruits(&self, segment_counts: Vec<usize>) -> tantivy::Result<usize> {
-        Ok(segment_counts.into_iter().sum())
-    }
-}
-
-#[derive(Default)]
-pub struct SegmentCountCollector {
-    count: usize,
-}
-
-impl SegmentCollector for SegmentCountCollector {
-    type Fruit = usize;
-
-    fn collect(&mut self, did: DocId, score: Score) {
-        log::trace!("did: {:?}, score: {:?}", did, score);
-
-        self.count += 1;
-    }
-
-    fn harvest(self) -> usize {
-        self.count
     }
 }
 
@@ -150,7 +99,6 @@ fn get_field(schema: &Schema, field: SchemaField) -> Field {
 pub fn search(
     index: &Index,
     q: &str,
-    eps: &[Episode],
     search_window: usize,
 ) -> tantivy::Result<HashMap<usize, EpisodeScore>> {
     let read_schema = create_schema();
@@ -179,13 +127,9 @@ pub fn search(
             continue;
         }
 
-        let e_score = scores.entry(en).or_insert_with(|| {
-            let e = &eps[en];
-            let size = e.subs.len();
-            EpisodeScore {
-                inner: vec![RankScore(0.0); size],
-                episode: en,
-            }
+        let e_score = scores.entry(en).or_insert_with(|| EpisodeScore {
+            inner: vec![],
+            episode: en,
         });
         e_score.add(cs, ce, score)
     }
@@ -238,26 +182,15 @@ pub struct EpisodeScore {
 
 impl EpisodeScore {
     fn add(&mut self, start: usize, end: usize, score: f32) {
+        if self.inner.len() <= end {
+            let extend = 1 + end - self.inner.len();
+            self.inner
+                .extend(std::iter::repeat(RankScore(0.0)).take(extend))
+        }
         for s in self.inner.as_mut_slice()[start..end].iter_mut() {
             s.0 += score
         }
     }
-}
-
-fn highlight(snippet: Snippet) -> String {
-    let mut result = String::new();
-    let mut start_from = 0;
-
-    for (start, end) in snippet.highlighted().iter().map(|h| h.bounds()) {
-        result.push_str(&snippet.fragments()[start_from..start]);
-        result.push_str(" --> ");
-        result.push_str(&snippet.fragments()[start..end]);
-        result.push_str(" <-- ");
-        start_from = end;
-    }
-
-    result.push_str(&snippet.fragments()[start_from..]);
-    result
 }
 
 const MIN_SCORE: f32 = 0.5f32;
