@@ -1,15 +1,15 @@
 use crate::{content::VideoSource, srt::Subtitle};
-use std::{fmt::Write as fmtWrite, io::Write, path, process::Command};
+use std::{borrow::Cow, fmt::Write as fmtWrite, io::Write, process::Command};
 use tempfile::NamedTempFile;
 
 const GIF_DEFAULT_FPS: u32 = 12;
 const GIF_DEFAULT_WIDTH: u32 = 480;
 const GIF_DEFAULT_FONT: u32 = 28;
 
-pub fn convert_to_gif<S: VideoSource, P: AsRef<path::Path>>(
+pub fn convert_to_gif<S: VideoSource>(
     video: &S,
     subs: &[Subtitle],
-    out: P,
+    out: Cow<'_, str>,
 ) -> anyhow::Result<()> {
     assert!(!subs.is_empty(), "empty subtitles");
 
@@ -53,6 +53,8 @@ pub fn convert_to_gif<S: VideoSource, P: AsRef<path::Path>>(
         .arg("-filter_complex")
         .arg(filter.as_str())
         .arg("-y")
+        .arg("-f")
+        .arg("gif")
         .arg(out.as_ref())
         .status()?;
 

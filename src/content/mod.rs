@@ -27,7 +27,7 @@ pub struct FileSystemContent {
     pub videos: Vec<VideoFile>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct VideoFile(String);
 
 impl VideoSource for VideoFile {

@@ -1,6 +1,9 @@
 #![feature(binary_heap_into_iter_sorted)]
 use anyhow::Result;
-use service::search::{SearchClient, SearchRequest, SearchService};
+use service::{
+    search::{SearchClient, SearchRequest, SearchService},
+    transcode::{NamedFileOutput, TranscodeClient, TranscodeRequest, TranscoderService},
+};
 
 mod cli_select;
 mod content;
@@ -61,7 +64,13 @@ fn interactive(args: &clap::ArgMatches) -> Result<()> {
     let storage_path = std::path::Path::new(storage_path);
     let s = storage::Storage::new(storage_path);
 
-    let req = SearchRequest {
+    let db = s.load()?;
+    let index = s.index()?;
+    let search_service = SearchService::new(db.id, index, &db.content);
+    let gif_output = NamedFileOutput(output.to_string());
+    let transcode_service = TranscoderService::new(db.id, &db.content, &db.videos, &gif_output);
+
+    let search_request = SearchRequest {
         query: args.value_of("query").unwrap(),
         window: args
             .value_of("search_window")
@@ -70,19 +79,12 @@ fn interactive(args: &clap::ArgMatches) -> Result<()> {
         max_responses: Some(5),
     };
 
-    let db = s.load()?;
-    let index = s.index()?;
-    let search_service = SearchService::new(db.id, index, &db.content);
+    let search_response = search_service.search(search_request)?;
+    let clip = cli_select::ask_user_for_clip(&db.content, &search_response)?;
+    let transcode_request = TranscodeRequest { clip };
+    let transcode_response = transcode_service.transcode(transcode_request)?;
 
-    let resp = search_service.search(req)?;
-
-    let clip = cli_select::ask_user_for_clip(&db.content, &resp)?;
-
-    let episode = &db.content.episodes[clip.episode];
-    let subs = &episode.subtitles[clip.start..clip.end + 1];
-    let video = &db.videos.videos[clip.episode];
-
-    ffmpeg::convert_to_gif(video, subs, output)?;
+    println!("{:?}", transcode_response);
 
     Ok(())
 }
