@@ -78,7 +78,10 @@ fn subtitle(input: &str) -> IResult<&str, Subtitle> {
 }
 
 fn srt_file(input: &str) -> IResult<&str, Vec<Subtitle>> {
-    preceded(many0(line_ending), many0(subtitle))(input)
+    preceded(
+        many0(tag("\u{FEFF}")),
+        preceded(many0(line_ending), many0(subtitle)),
+    )(input)
 }
 
 pub fn parse(input: &str) -> anyhow::Result<Vec<Subtitle>> {

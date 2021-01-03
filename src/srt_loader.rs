@@ -1,9 +1,16 @@
 use crate::srt::Subtitle;
 use anyhow::{Context, Result};
+use path::PathBuf;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::Read, path};
 
-const ADSUBS: &str = "/home/scott/Dropbox/Development/ArrestedDevelopmentSubs";
+const CONTENT_DIR_KEY: &str = "CONTENT_DIR";
+
+fn content_dir() -> Result<path::PathBuf> {
+    let source = std::env::var_os(CONTENT_DIR_KEY)
+        .ok_or_else(|| anyhow::anyhow!("must set {:?} to path of content"))?;
+    Ok(PathBuf::from(source))
+}
 
 pub fn generate_multi_window(
     size: usize,
@@ -30,7 +37,7 @@ pub struct Clip<'a> {
 impl Episode {
     fn from_subs(title: String, subs: Vec<Subtitle>) -> Episode {
         let mut script = String::new();
-        let mut index = Vec::new();
+        let mut index = vec![0];
 
         for sub in &subs {
             for line in sub.text.lines() {
@@ -78,7 +85,7 @@ fn rough_title(p: &path::Path) -> String {
         .file_name()
         .map(|oss| oss.to_string_lossy())
         .unwrap_or("unknown".into());
-    let fname = fname.split('.').next().unwrap_or(fname.as_ref());
+    // let fname = fname.split('.').next().unwrap_or(fname.as_ref());
     fname.to_string()
 }
 
@@ -172,7 +179,7 @@ pub fn script_splitter(s: &str) -> Vec<String> {
 }
 
 pub fn parse_adsubs() -> Result<Vec<Episode>> {
-    Ok(list_subs(ADSUBS)?
+    Ok(list_subs(content_dir()?)?
         .into_iter()
         .map(|(t, s)| Episode::from_subs(t, s))
         .collect::<Vec<_>>())

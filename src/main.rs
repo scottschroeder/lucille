@@ -1,5 +1,6 @@
 #![feature(binary_heap_into_iter_sorted)]
 use anyhow::{Context, Result};
+use srt::Subtitle;
 
 mod error;
 mod search;
@@ -61,12 +62,53 @@ fn test_fn(args: &clap::ArgMatches) -> Result<()> {
     let episode = &s.episodes[choice.ep];
     let e_start = choice.clip.index + start;
     let e_end = choice.clip.index + end + 1;
-    println!(
-        "{}:\n{}",
-        episode.title,
-        episode.extract_window(e_start, e_end)
-    );
+    let s_start = &episode.subs[e_start];
+    let s_end = &episode.subs[e_end];
+    let subs = &episode.subs[e_start..e_end];
+    // println!(
+    //     "{}: {:?}-{:?}\n{}",
+    //     episode.title,
+    //     s_start.start,
+    //     s_end.end,
+    //     episode.extract_window(e_start, e_end)
+    // );
 
+    ffmpeg_cmd(subs)?;
+
+    Ok(())
+}
+
+fn ffmpeg_cmd(subs: &[Subtitle]) -> anyhow::Result<()> {
+    use std::io::Write;
+    assert!(!subs.is_empty());
+    let new_subs = crate::srt::offset_subs(None, subs);
+    let start_time = subs[0].start;
+    let end_time = subs[subs.len() - 1].end;
+    let elapsed = end_time - start_time;
+
+    let subs_file = "tmp.srt";
+    let _ = std::fs::remove_file(subs_file);
+    let mut f = std::fs::File::create(subs_file)?;
+
+    for s in &new_subs {
+        writeln!(f, "{}", s)?;
+    }
+
+    let fps = 12;
+    let width = 480;
+    let font_size = 28;
+
+    print!(
+        "ffmpeg -ss {:.02} -t {:.02} -i INPUT -filter_complex ",
+        start_time.as_secs_f32(),
+        elapsed.as_secs_f32()
+    );
+    print!(
+        "\"[0:v] fps={},scale=w={}:h=-1, subtitles={}:force_style='Fontsize={}',",
+        fps, width, subs_file, font_size
+    );
+    print!("split [a][b];[a] palettegen=stats_mode=single:reserve_transparent=false [p];[b][p] paletteuse=new=1\"");
+    println!(" -y out.gif");
     Ok(())
 }
 
