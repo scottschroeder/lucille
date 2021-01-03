@@ -1,8 +1,8 @@
+use crate::{content::Content, srt_loader::CleanSub};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use tantivy::Index;
 use uuid::Uuid;
-
-use crate::{content::Content, srt_loader::CleanSub};
 
 const DEFAULT_WINDOW: usize = 5;
 const DEFAULT_MAX_RESPONSES: usize = 5;
@@ -17,6 +17,7 @@ impl<'a> SearchClient for SearchService<'a> {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SearchRequest<'a> {
     pub query: &'a str,
     pub window: Option<usize>,
@@ -32,6 +33,7 @@ impl<'a> SearchRequest<'a> {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ClipResult {
     pub episode_id: usize,
     pub offset: usize,
@@ -40,11 +42,13 @@ pub struct ClipResult {
     pub lines: Vec<LineScore>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LineScore {
     pub score: f32,
     pub text: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SearchResponse {
     pub index: Uuid,
     pub results: Vec<ClipResult>,

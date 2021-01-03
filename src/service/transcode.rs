@@ -1,11 +1,11 @@
-use anyhow::Result;
-use std::borrow::Cow;
-use uuid::Uuid;
-
 use crate::{
     content::{Content, FileSystemContent, VideoFile, VideoSource},
     ffmpeg,
 };
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::{borrow::Cow, fmt};
+use uuid::Uuid;
 
 pub trait TranscodeClient {
     fn transcode(&self, request: TranscodeRequest) -> Result<TranscodeResponse>;
@@ -17,6 +17,7 @@ impl<'a, G: GifSink, V: VideoSourceRegistry> TranscodeClient for TranscoderServi
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ClipIdentifier {
     pub index: Uuid,
     pub episode: usize,
@@ -24,11 +25,22 @@ pub struct ClipIdentifier {
     pub end: usize,
 }
 
+impl fmt::Display for ClipIdentifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?} {} {} {}",
+            self.index, self.episode, self.start, self.end
+        )
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TranscodeRequest {
     pub clip: ClipIdentifier,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TranscodeResponse;
 
 pub trait GifSink {

@@ -2,7 +2,9 @@
 use anyhow::Result;
 use service::{
     search::{SearchClient, SearchRequest, SearchService},
-    transcode::{NamedFileOutput, TranscodeClient, TranscodeRequest, TranscoderService},
+    transcode::{
+        ClipIdentifier, NamedFileOutput, TranscodeClient, TranscodeRequest, TranscoderService,
+    },
 };
 
 mod cli_select;
@@ -27,6 +29,8 @@ fn main() -> Result<()> {
 
     match args.subcommand() {
         ("interactive", Some(sub_m)) => interactive(sub_m),
+        ("search", Some(sub_m)) => search(sub_m),
+        ("transcode", Some(sub_m)) => transcode(sub_m),
         ("index", Some(sub_m)) => index(sub_m),
         ("", _) => Err(anyhow::anyhow!(
             "Please provide a command:\n{}",
@@ -55,6 +59,63 @@ fn index(args: &clap::ArgMatches) -> Result<()> {
     let (content, videos) = content::scan::scan_filesystem(content_path)?;
     let s = storage::Storage::new(storage_path);
     let _index = s.build_index(content, videos, max_window)?;
+    Ok(())
+}
+
+fn search(args: &clap::ArgMatches) -> Result<()> {
+    let storage_path = args.value_of("storage").unwrap();
+    let storage_path = std::path::Path::new(storage_path);
+    let s = storage::Storage::new(storage_path);
+
+    let db = s.load()?;
+    let index = s.index()?;
+    let search_service = SearchService::new(db.id, index, &db.content);
+
+    let search_request = SearchRequest {
+        query: args.value_of("query").unwrap(),
+        window: args
+            .value_of("search_window")
+            .map(|s| s.parse::<usize>())
+            .transpose()?,
+        max_responses: Some(5),
+    };
+
+    let search_response = search_service.search(search_request)?;
+    println!("{}", serde_json::to_string_pretty(&search_response)?);
+
+    Ok(())
+}
+
+fn parse_spec_shorthand(mut spec: clap::Values) -> Result<ClipIdentifier> {
+    let id = spec.next().ok_or_else(|| anyhow::anyhow!("no id"))?;
+    let ep = spec.next().ok_or_else(|| anyhow::anyhow!("no episode"))?;
+    let start = spec.next().ok_or_else(|| anyhow::anyhow!("no start"))?;
+    let end = spec.next().ok_or_else(|| anyhow::anyhow!("no end"))?;
+
+    Ok(ClipIdentifier {
+        index: uuid::Uuid::parse_str(id)?,
+        episode: ep.parse::<usize>()?,
+        start: start.parse::<usize>()?,
+        end: end.parse::<usize>()?,
+    })
+}
+
+fn transcode(args: &clap::ArgMatches) -> Result<()> {
+    let spec = args.values_of("spec").unwrap();
+    let output = args.value_of("output_gif").unwrap();
+    let storage_path = args.value_of("storage").unwrap();
+    let storage_path = std::path::Path::new(storage_path);
+    let s = storage::Storage::new(storage_path);
+
+    let clip = parse_spec_shorthand(spec)?;
+    let db = s.load()?;
+    let gif_output = NamedFileOutput(output.to_string());
+    let transcode_service = TranscoderService::new(db.id, &db.content, &db.videos, &gif_output);
+
+    let transcode_request = TranscodeRequest { clip };
+    let transcode_response = transcode_service.transcode(transcode_request)?;
+
+    println!("{:?}", transcode_response);
     Ok(())
 }
 
@@ -162,7 +223,7 @@ mod cli {
                     ),
             )
             .subcommand(
-                SubCommand::with_name("interactive")
+                SubCommand::with_name("search")
                     .arg(
                         clap::Arg::with_name("query")
                             .long("query")
@@ -178,10 +239,41 @@ mod cli {
                         clap::Arg::with_name("search_window")
                             .long("search-window")
                             .takes_value(true),
+                    ),
+            )
+            .subcommand(
+                SubCommand::with_name("transcode")
+                    .arg(clap::Arg::with_name("spec").multiple(true))
+                    .arg(
+                        clap::Arg::with_name("storage")
+                            .long("storage")
+                            .default_value(STORAGE_DEFAULT)
+                            .takes_value(true),
                     )
                     .arg(
-                        clap::Arg::with_name("index_window")
-                            .long("max-window")
+                        clap::Arg::with_name("output_gif")
+                            .long("out")
+                            .short("o")
+                            .default_value(OUTPUT_DEFAULT)
+                            .takes_value(true),
+                    ),
+            )
+            .subcommand(
+                SubCommand::with_name("interactive")
+                    .arg(
+                        clap::Arg::with_name("query")
+                            .long("query")
+                            .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::with_name("storage")
+                            .long("storage")
+                            .default_value(STORAGE_DEFAULT)
+                            .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::with_name("search_window")
+                            .long("search-window")
                             .takes_value(true),
                     )
                     .arg(
