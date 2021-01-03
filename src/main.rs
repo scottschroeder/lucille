@@ -93,8 +93,9 @@ fn get_user_input(msg: &str) -> anyhow::Result<String> {
 }
 
 fn parse_user_selection(s: &str) -> anyhow::Result<(usize, usize, usize)> {
-    let re =
-        once_cell_regex::regex!(r##" *(?P<letter>[a-zA-Z]) *(?P<start>[0-9]+)\-(?P<end>[0-9]+)"##);
+    let re = once_cell_regex::regex!(
+        r##" *(?P<letter>[a-zA-Z]) *(?P<start>[0-9]+)(\-(?P<end>[0-9]+))?"##
+    );
     let captures = re
         .captures(s)
         .ok_or_else(|| anyhow::anyhow!("could not parse user selection"))?;
@@ -113,10 +114,13 @@ fn parse_user_selection(s: &str) -> anyhow::Result<(usize, usize, usize)> {
         .with_context(|| "unable to parse digits")?;
     let end = captures
         .name("end")
-        .expect("non optional regex match")
-        .as_str()
-        .parse::<usize>()
-        .with_context(|| "unable to parse digits")?;
+        .map(|m| {
+            m.as_str()
+                .parse::<usize>()
+                .with_context(|| "unable to parse digits")
+        })
+        .transpose()?
+        .unwrap_or(start);
 
     let user_choice_index = match letter {
         'a'..='z' => (letter as u8) - 'a' as u8,

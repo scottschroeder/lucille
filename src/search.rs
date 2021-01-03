@@ -77,13 +77,11 @@ impl SchemaField {
 fn create_schema() -> Schema {
     let mut schema_builder = Schema::builder();
 
-    let text_options = TextOptions::default()
-        .set_indexing_options(
-            TextFieldIndexing::default()
-                .set_tokenizer("en_stem")
-                .set_index_option(IndexRecordOption::Basic),
-        )
-        .set_stored();
+    let text_options = TextOptions::default().set_indexing_options(
+        TextFieldIndexing::default()
+            .set_tokenizer("en_stem")
+            .set_index_option(IndexRecordOption::Basic),
+    );
 
     schema_builder.add_text_field(SchemaField::Title.as_str(), text_options.clone());
     schema_builder.add_text_field(SchemaField::Body.as_str(), text_options);
