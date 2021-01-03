@@ -1,10 +1,13 @@
 #![feature(binary_heap_into_iter_sorted)]
-use anyhow::{Context, Result};
+use anyhow::Result;
+use service::search::{SearchClient, SearchRequest, SearchService};
 
+mod cli_select;
 mod content;
 mod error;
 mod ffmpeg;
 mod search;
+mod service;
 mod srt;
 mod srt_loader;
 mod storage;
@@ -20,7 +23,7 @@ fn main() -> Result<()> {
     log::trace!("Args: {:?}", args);
 
     match args.subcommand() {
-        ("test", Some(sub_m)) => test_fn(sub_m),
+        ("interactive", Some(sub_m)) => interactive(sub_m),
         ("index", Some(sub_m)) => index(sub_m),
         ("", _) => Err(anyhow::anyhow!(
             "Please provide a command:\n{}",
@@ -52,83 +55,36 @@ fn index(args: &clap::ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn test_fn(args: &clap::ArgMatches) -> Result<()> {
-    let q = args.value_of("query").unwrap_or("default");
+fn interactive(args: &clap::ArgMatches) -> Result<()> {
     let output = args.value_of("output_gif").unwrap();
-    let search_window = args
-        .value_of("search_window")
-        .unwrap_or("5")
-        .parse::<usize>()?;
-    let storage_path = std::path::Path::new(STORAGE_DEFAULT);
-
+    let storage_path = args.value_of("storage").unwrap();
+    let storage_path = std::path::Path::new(storage_path);
     let s = storage::Storage::new(storage_path);
-    log::trace!("searching...");
-    let scores = search::search(&s.index()?, q, search_window).map_err(error::TError::from)?;
-    log::trace!("ranking...");
-    let ranked = search::rank(&scores, 5);
-    let content = s.content()?;
-    search::print_top_scores(&content, &ranked);
-    let input = get_user_input("make a selection: e.g. 'B 3-5'")?;
-    let (index, start, end) = parse_user_selection(input.as_str())?;
 
-    let choice = &ranked[index];
-    let episode = &content.episodes[choice.ep];
-    let e_start = choice.clip.index + start;
-    let e_end = choice.clip.index + end + 1;
-    let subs = &episode.subtitles[e_start..e_end];
+    let req = SearchRequest {
+        query: args.value_of("query").unwrap(),
+        window: args
+            .value_of("search_window")
+            .map(|s| s.parse::<usize>())
+            .transpose()?,
+        max_responses: Some(5),
+    };
 
-    let video = &s.videos()?.videos[choice.ep];
+    let db = s.load()?;
+    let index = s.index()?;
+    let search_service = SearchService::new(db.id, index, &db.content);
 
-    // ffmpeg_cmd(video, subs)?;
+    let resp = search_service.search(req)?;
+
+    let clip = cli_select::ask_user_for_clip(&db.content, &resp)?;
+
+    let episode = &db.content.episodes[clip.episode];
+    let subs = &episode.subtitles[clip.start..clip.end + 1];
+    let video = &db.videos.videos[clip.episode];
+
     ffmpeg::convert_to_gif(video, subs, output)?;
 
     Ok(())
-}
-
-fn get_user_input(msg: &str) -> anyhow::Result<String> {
-    println!("{}", msg);
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-    Ok(input)
-}
-
-fn parse_user_selection(s: &str) -> anyhow::Result<(usize, usize, usize)> {
-    let re = once_cell_regex::regex!(
-        r##" *(?P<letter>[a-zA-Z]) *(?P<start>[0-9]+)(\-(?P<end>[0-9]+))?"##
-    );
-    let captures = re
-        .captures(s)
-        .ok_or_else(|| anyhow::anyhow!("could not parse user selection"))?;
-    let letter = captures
-        .name("letter")
-        .expect("non optional regex match")
-        .as_str()
-        .chars()
-        .next()
-        .ok_or_else(|| anyhow::anyhow!("string did not contain letter?"))?;
-    let start = captures
-        .name("start")
-        .expect("non optional regex match")
-        .as_str()
-        .parse::<usize>()
-        .with_context(|| "unable to parse digits")?;
-    let end = captures
-        .name("end")
-        .map(|m| {
-            m.as_str()
-                .parse::<usize>()
-                .with_context(|| "unable to parse digits")
-        })
-        .transpose()?
-        .unwrap_or(start);
-
-    let user_choice_index = match letter {
-        'a'..='z' => (letter as u8) - 'a' as u8,
-        'A'..='Z' => (letter as u8) - 'A' as u8,
-        _ => anyhow::bail!("invalid char: {:?}", letter),
-    } as usize;
-
-    Ok((user_choice_index, start, end))
 }
 
 fn setup_logger(level: u64) {
@@ -204,7 +160,7 @@ mod cli {
                     ),
             )
             .subcommand(
-                SubCommand::with_name("test")
+                SubCommand::with_name("interactive")
                     .arg(
                         clap::Arg::with_name("query")
                             .long("query")
@@ -232,8 +188,7 @@ mod cli {
                             .short("o")
                             .default_value(OUTPUT_DEFAULT)
                             .takes_value(true),
-                    )
-                    .arg(clap::Arg::with_name("flag").long("flag")),
+                    ),
             )
             .get_matches()
     }

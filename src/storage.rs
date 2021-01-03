@@ -4,12 +4,12 @@ use crate::{
     srt_loader::IndexableEpisode,
 };
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 use std::{fs::File, io::BufReader, path};
 use tantivy::Index;
 
 const INDEX_DIR: &str = "index";
-const EPISODES_JSON: &str = "content.json";
-const VIDEOS_JSON: &str = "videos.json";
+const DB_JSON: &str = "db.json";
 
 pub struct Storage {
     // pub content: Content,
@@ -18,19 +18,29 @@ pub struct Storage {
     // pub index: Index,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Database {
+    pub id: uuid::Uuid,
+    pub content: Content,
+    pub videos: FileSystemContent,
+}
+
 impl Storage {
-    pub fn save_episodes(
+    fn write_db(
         &self,
-        content: &Content,
-        videos: &FileSystemContent,
+        content: Content,
+        videos: FileSystemContent,
+        id: uuid::Uuid,
     ) -> anyhow::Result<()> {
-        let episode_path = self.storage_path.join(EPISODES_JSON);
-        let video_path = self.storage_path.join(VIDEOS_JSON);
+        let database = Database {
+            id,
+            content,
+            videos,
+        };
+        let db_path = self.storage_path.join(DB_JSON);
         std::fs::create_dir_all(self.storage_path.as_path())?;
-        let mut f_content = File::create(&episode_path)?;
-        let mut f_video = File::create(&video_path)?;
-        serde_json::to_writer_pretty(&mut f_content, &content)?;
-        serde_json::to_writer_pretty(&mut f_video, &videos)?;
+        let mut f = File::create(&db_path)?;
+        serde_json::to_writer_pretty(&mut f, &database)?;
         Ok(())
     }
     pub fn new<P: AsRef<path::Path>>(storage: P) -> Storage {
@@ -39,19 +49,12 @@ impl Storage {
             storage_path: storage_path.to_owned(),
         }
     }
-    pub fn content(&self) -> Result<Content> {
-        let content_path = self.storage_path.join(EPISODES_JSON);
-        let mut f_content = BufReader::new(File::open(&content_path)?);
-        log::trace!("loading episode data from: {:?}", content_path.as_path());
-        let content: Content = serde_json::from_reader(&mut f_content)?;
-        Ok(content)
-    }
-    pub fn videos(&self) -> Result<FileSystemContent> {
-        let video_path = self.storage_path.join(VIDEOS_JSON);
-        let mut f_video = BufReader::new(File::open(&video_path)?);
-        log::trace!("loading video data from: {:?}", video_path.as_path());
-        let videos: FileSystemContent = serde_json::from_reader(&mut f_video)?;
-        Ok(videos)
+    pub fn load(&self) -> Result<Database> {
+        let db_path = self.storage_path.join(DB_JSON);
+        let mut f = BufReader::new(File::open(&db_path)?);
+        log::trace!("loading data from: {:?}", db_path.as_path());
+        let db: Database = serde_json::from_reader(&mut f)?;
+        Ok(db)
     }
     pub fn index(&self) -> Result<Index> {
         let index_dir = self.storage_path.join(INDEX_DIR);
@@ -76,7 +79,8 @@ impl Storage {
         std::fs::create_dir_all(index_path.as_path())?;
         let index = crate::search::build_index(&index_path, &indexable_episodes, max_window)
             .map_err(|e| TError::from(e))?;
-        self.save_episodes(&content, &videos)?;
+        let unique_id = uuid::Uuid::new_v4();
+        self.write_db(content, videos, unique_id)?;
         Ok(index)
     }
 }

@@ -1,7 +1,4 @@
-use crate::{
-    content::Content,
-    srt_loader::{CleanSubs, IndexableEpisode},
-};
+use crate::srt_loader::IndexableEpisode;
 use std::{
     collections::{BinaryHeap, HashMap},
     path::Path,
@@ -9,7 +6,7 @@ use std::{
 use tantivy::{collector::TopDocs, doc, query::QueryParser, schema::*, Index};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-struct RankScore(f32);
+pub struct RankScore(pub f32);
 
 impl Eq for RankScore {}
 impl Ord for RankScore {
@@ -138,22 +135,6 @@ pub fn search(
     Ok(scores)
 }
 
-pub fn print_top_scores(eps: &Content, scores: &[RankedMatch]) {
-    let mut c = 'A';
-    for m in scores {
-        let ep = &eps.episodes[m.ep];
-        println!("{}) {:?}: {}", c, m.score, ep.title);
-        let base = m.clip.index;
-        for (offset, s) in m.clip.scores.iter().enumerate() {
-            let normalized = ((5.0 * s.0 / m.score.0) + 0.5) as usize;
-            let script = CleanSubs(&ep.subtitles[base + offset..base + offset + 1]);
-            // let script = ep.extract_window(base + offset, base + offset + 1).trim();
-            println!("  ({:2}) [{}]- {}", offset, HIST[normalized], script);
-        }
-        c = ((c as u8) + 1) as char
-    }
-}
-
 pub fn rank(scores: &HashMap<usize, EpisodeScore>, top: usize) -> Vec<RankedMatch> {
     let ranked = scores
         .values()
@@ -174,8 +155,6 @@ pub fn rank(scores: &HashMap<usize, EpisodeScore>, top: usize) -> Vec<RankedMatc
         .collect::<BinaryHeap<RankedMatch>>();
     ranked.into_iter_sorted().take(top).collect()
 }
-
-const HIST: [&str; 6] = ["     ", "    *", "   **", "  ***", " ****", "*****"];
 
 pub struct EpisodeScore {
     episode: usize,
@@ -204,7 +183,7 @@ struct ClipMatches<'a> {
 
 #[derive(PartialEq, Eq)]
 pub struct RankedMatch<'a> {
-    score: RankScore,
+    pub score: RankScore,
     pub ep: usize,
     pub clip: ClipMatch<'a>,
 }
@@ -224,7 +203,7 @@ impl<'a> Ord for RankedMatch<'a> {
 #[derive(PartialEq, Eq)]
 pub struct ClipMatch<'a> {
     pub index: usize,
-    scores: &'a [RankScore],
+    pub scores: &'a [RankScore],
 }
 
 impl<'a> Iterator for ClipMatches<'a> {
