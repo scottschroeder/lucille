@@ -1,7 +1,7 @@
 use super::{Content, Episode, FileSystemContent, VideoFile};
 use crate::srt::Subtitle;
-use anyhow::{Context, Result};
-use std::{collections::HashMap, fmt, io::Read, path};
+use anyhow::Result;
+use std::{fmt, io::Read, path};
 
 const MEDIA_FILES: &[&str] = &["mkv"];
 

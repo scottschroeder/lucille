@@ -1,7 +1,5 @@
 #![feature(binary_heap_into_iter_sorted)]
 use anyhow::{Context, Result};
-use content::VideoSource;
-use srt::Subtitle;
 
 mod content;
 mod error;
@@ -49,81 +47,41 @@ fn index(args: &clap::ArgMatches) -> Result<()> {
     std::fs::remove_dir_all(storage_path)?;
 
     let (content, videos) = content::scan::scan_filesystem(content_path)?;
-    let s = storage::Storage::build_index(storage_path, content, videos, max_window)?;
+    let s = storage::Storage::new(storage_path);
+    let _index = s.build_index(content, videos, max_window)?;
     Ok(())
 }
 
 fn test_fn(args: &clap::ArgMatches) -> Result<()> {
     let q = args.value_of("query").unwrap_or("default");
     let output = args.value_of("output_gif").unwrap();
-    let max_window = args
-        .value_of("index_window")
-        .unwrap_or("5")
-        .parse::<usize>()?;
     let search_window = args
         .value_of("search_window")
         .unwrap_or("5")
         .parse::<usize>()?;
     let storage_path = std::path::Path::new(STORAGE_DEFAULT);
 
-    let s = storage::Storage::load(storage_path)?;
-    let scores = search::search(&s.index, q, search_window).map_err(error::TError::from)?;
+    let s = storage::Storage::new(storage_path);
+    log::trace!("searching...");
+    let scores = search::search(&s.index()?, q, search_window).map_err(error::TError::from)?;
+    log::trace!("ranking...");
     let ranked = search::rank(&scores, 5);
-    search::print_top_scores(&s.content, &ranked);
+    let content = s.content()?;
+    search::print_top_scores(&content, &ranked);
     let input = get_user_input("make a selection: e.g. 'B 3-5'")?;
     let (index, start, end) = parse_user_selection(input.as_str())?;
 
     let choice = &ranked[index];
-    let episode = &s.content.episodes[choice.ep];
+    let episode = &content.episodes[choice.ep];
     let e_start = choice.clip.index + start;
     let e_end = choice.clip.index + end + 1;
     let subs = &episode.subtitles[e_start..e_end];
 
-    let video = &s.videos.videos[choice.ep];
+    let video = &s.videos()?.videos[choice.ep];
 
     // ffmpeg_cmd(video, subs)?;
     ffmpeg::convert_to_gif(video, subs, output)?;
 
-    Ok(())
-}
-
-fn ffmpeg_cmd<S: VideoSource>(video: &S, subs: &[Subtitle]) -> anyhow::Result<()> {
-    use std::io::Write;
-    assert!(!subs.is_empty());
-    let new_subs = crate::srt::offset_subs(None, subs);
-    let start_time = subs[0].start;
-    let end_time = subs[subs.len() - 1].end;
-    let elapsed = end_time - start_time;
-
-    let subs_file = "tmp.srt";
-    let _ = std::fs::remove_file(subs_file);
-    let mut f = std::fs::File::create(subs_file)?;
-
-    for s in &new_subs {
-        writeln!(f, "{}", s)?;
-    }
-
-    let fps = 12;
-    let width = 480;
-    let font_size = 28;
-
-    let src = video.ffmpeg_src();
-    if let Some(t) = video.ffmpeg_type() {
-        log::error!("can not deal with source type: {}", t)
-    }
-
-    print!(
-        "ffmpeg -ss {:.02} -t {:.02} -i '{}' -filter_complex ",
-        start_time.as_secs_f32(),
-        elapsed.as_secs_f32(),
-        src,
-    );
-    print!(
-        "\"[0:v] fps={},scale=w={}:h=-1, subtitles={}:force_style='Fontsize={}',",
-        fps, width, subs_file, font_size
-    );
-    print!("split [a][b];[a] palettegen=stats_mode=single:reserve_transparent=false [p];[b][p] paletteuse=new=1\"");
-    println!(" -y out.gif");
     Ok(())
 }
 

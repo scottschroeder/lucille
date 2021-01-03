@@ -1,5 +1,4 @@
 use crate::{content::VideoSource, srt::Subtitle};
-use anyhow::{Context, Result};
 use std::{fmt::Write as fmtWrite, io::Write, path, process::Command};
 use tempfile::NamedTempFile;
 
