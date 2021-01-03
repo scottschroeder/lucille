@@ -1,4 +1,8 @@
-use crate::srt_loader::Episode;
+use crate::{
+    content,
+    content::Content,
+    srt_loader::{CleanSubs, IndexableEpisode},
+};
 use std::{
     collections::{BinaryHeap, HashMap},
     path::Path,
@@ -17,7 +21,7 @@ impl Ord for RankScore {
 
 pub fn build_index<P: AsRef<Path>>(
     path: P,
-    eps: &[Episode],
+    eps: &[IndexableEpisode],
     max_window: usize,
 ) -> tantivy::Result<tantivy::Index> {
     let index_path = path.as_ref();
@@ -35,8 +39,8 @@ pub fn build_index<P: AsRef<Path>>(
 
     let mut index_writer = index.writer(50_000_000)?;
 
-    for (e_num, e) in eps.iter().enumerate() {
-        for clip in e.slices(max_window) {
+    for (e_num, episode_data) in eps.iter().enumerate() {
+        for clip in episode_data.slices(max_window) {
             index_writer.add_document(doc!(
                 title => clip.title,
                 body => clip.text,
@@ -137,16 +141,17 @@ pub fn search(
     Ok(scores)
 }
 
-pub fn print_top_scores(eps: &[Episode], scores: &[RankedMatch]) {
+pub fn print_top_scores(eps: &Content, scores: &[RankedMatch]) {
     let mut c = 'A';
     for m in scores {
-        let ep = &eps[m.ep];
+        let ep = &eps.episodes[m.ep];
         println!("{}) {:?}: {}", c, m.score, ep.title);
         let base = m.clip.index;
         for (offset, s) in m.clip.scores.iter().enumerate() {
             let normalized = ((5.0 * s.0 / m.score.0) + 0.5) as usize;
-            let script = ep.extract_window(base + offset, base + offset + 1).trim();
-            println!("  ({:2}) [{}]- {:?}", offset, HIST[normalized], script);
+            let script = CleanSubs(&ep.subtitles[base + offset..base + offset + 1]);
+            // let script = ep.extract_window(base + offset, base + offset + 1).trim();
+            println!("  ({:2}) [{}]- {}", offset, HIST[normalized], script);
         }
         c = ((c as u8) + 1) as char
     }

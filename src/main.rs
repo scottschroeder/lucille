@@ -1,9 +1,11 @@
 #![feature(binary_heap_into_iter_sorted)]
 use anyhow::{Context, Result};
+use content::VideoSource;
 use srt::Subtitle;
 
 mod content;
 mod error;
+mod ffmpeg;
 mod search;
 mod srt;
 mod srt_loader;
@@ -11,6 +13,7 @@ mod storage;
 
 const STORAGE_DEFAULT: &str = "storage";
 const INDEX_WINDOW_DEFAULT: &str = "5";
+const OUTPUT_DEFAULT: &str = "out.gif";
 
 fn main() -> Result<()> {
     color_backtrace::install();
@@ -43,13 +46,16 @@ fn index(args: &clap::ArgMatches) -> Result<()> {
     let max_window = args.value_of("index_window").unwrap().parse::<usize>()?;
     let storage_path = std::path::Path::new(storage_path);
 
-    let eps = content::scan::list_subs(content_path)?;
-    log::debug!("{:#?}", eps);
+    std::fs::remove_dir_all(storage_path)?;
+
+    let (content, videos) = content::scan::scan_filesystem(content_path)?;
+    let s = storage::Storage::build_index(storage_path, content, videos, max_window)?;
     Ok(())
 }
 
 fn test_fn(args: &clap::ArgMatches) -> Result<()> {
     let q = args.value_of("query").unwrap_or("default");
+    let output = args.value_of("output_gif").unwrap();
     let max_window = args
         .value_of("index_window")
         .unwrap_or("5")
@@ -60,28 +66,28 @@ fn test_fn(args: &clap::ArgMatches) -> Result<()> {
         .parse::<usize>()?;
     let storage_path = std::path::Path::new(STORAGE_DEFAULT);
 
-    let s = storage::Storage::load(storage_path).or_else(|_| {
-        let eps = srt_loader::parse_adsubs()?;
-        storage::Storage::build_index(storage_path, eps, max_window)
-    })?;
+    let s = storage::Storage::load(storage_path)?;
     let scores = search::search(&s.index, q, search_window).map_err(error::TError::from)?;
     let ranked = search::rank(&scores, 5);
-    search::print_top_scores(&s.episodes, &ranked);
+    search::print_top_scores(&s.content, &ranked);
     let input = get_user_input("make a selection: e.g. 'B 3-5'")?;
     let (index, start, end) = parse_user_selection(input.as_str())?;
 
     let choice = &ranked[index];
-    let episode = &s.episodes[choice.ep];
+    let episode = &s.content.episodes[choice.ep];
     let e_start = choice.clip.index + start;
     let e_end = choice.clip.index + end + 1;
-    let subs = &episode.subs[e_start..e_end];
+    let subs = &episode.subtitles[e_start..e_end];
 
-    ffmpeg_cmd(subs)?;
+    let video = &s.videos.videos[choice.ep];
+
+    // ffmpeg_cmd(video, subs)?;
+    ffmpeg::convert_to_gif(video, subs, output)?;
 
     Ok(())
 }
 
-fn ffmpeg_cmd(subs: &[Subtitle]) -> anyhow::Result<()> {
+fn ffmpeg_cmd<S: VideoSource>(video: &S, subs: &[Subtitle]) -> anyhow::Result<()> {
     use std::io::Write;
     assert!(!subs.is_empty());
     let new_subs = crate::srt::offset_subs(None, subs);
@@ -101,10 +107,16 @@ fn ffmpeg_cmd(subs: &[Subtitle]) -> anyhow::Result<()> {
     let width = 480;
     let font_size = 28;
 
+    let src = video.ffmpeg_src();
+    if let Some(t) = video.ffmpeg_type() {
+        log::error!("can not deal with source type: {}", t)
+    }
+
     print!(
-        "ffmpeg -ss {:.02} -t {:.02} -i INPUT -filter_complex ",
+        "ffmpeg -ss {:.02} -t {:.02} -i '{}' -filter_complex ",
         start_time.as_secs_f32(),
-        elapsed.as_secs_f32()
+        elapsed.as_secs_f32(),
+        src,
     );
     print!(
         "\"[0:v] fps={},scale=w={}:h=-1, subtitles={}:force_style='Fontsize={}',",
@@ -195,7 +207,7 @@ fn setup_logger(level: u64) {
 mod cli {
     use clap::SubCommand;
 
-    use crate::{INDEX_WINDOW_DEFAULT, STORAGE_DEFAULT};
+    use crate::{INDEX_WINDOW_DEFAULT, OUTPUT_DEFAULT, STORAGE_DEFAULT};
     pub fn get_args() -> clap::ArgMatches<'static> {
         clap::App::new(clap::crate_name!())
             .version(clap::crate_version!())
@@ -250,6 +262,13 @@ mod cli {
                     .arg(
                         clap::Arg::with_name("index_window")
                             .long("max-window")
+                            .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::with_name("output_gif")
+                            .long("out")
+                            .short("o")
+                            .default_value(OUTPUT_DEFAULT)
                             .takes_value(true),
                     )
                     .arg(clap::Arg::with_name("flag").long("flag")),

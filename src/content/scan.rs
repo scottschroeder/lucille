@@ -1,3 +1,4 @@
+use super::{Content, Episode, FileSystemContent, VideoFile};
 use crate::srt::Subtitle;
 use anyhow::{Context, Result};
 use std::{collections::HashMap, fmt, io::Read, path};
@@ -27,9 +28,10 @@ fn is_media(p: &path::Path) -> bool {
         .unwrap_or(false)
 }
 
-pub fn list_subs<P: AsRef<path::Path>>(root: P) -> Result<Vec<EpisodeFiles>> {
+pub fn scan_filesystem<P: AsRef<path::Path>>(root: P) -> Result<(Content, FileSystemContent)> {
     let root = root.as_ref();
     let mut episodes = Vec::new();
+    let mut videos = Vec::new();
     for dir in walkdir::WalkDir::new(root)
         .into_iter()
         .filter(|de| de.as_ref().map(|de| is_media(de.path())).unwrap_or(true))
@@ -49,14 +51,14 @@ pub fn list_subs<P: AsRef<path::Path>>(root: P) -> Result<Vec<EpisodeFiles>> {
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("video file path was not utf8"))?
             .to_owned();
-        episodes.push(EpisodeFiles {
+        episodes.push(Episode {
             title: title(media_path)?,
-            video: fname,
             subtitles: subs,
         });
+        videos.push(VideoFile(fname));
     }
 
-    Ok(episodes)
+    Ok((Content { episodes }, FileSystemContent { videos }))
 }
 
 fn title(p: &path::Path) -> Result<String> {

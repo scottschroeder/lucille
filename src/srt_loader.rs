@@ -1,8 +1,8 @@
-use crate::srt::Subtitle;
+use crate::{content::Episode, srt::Subtitle};
 use anyhow::Result;
 use path::PathBuf;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, io::Read, path};
+use std::{collections::HashMap, fmt, io::Read, path};
 
 const CONTENT_DIR_KEY: &str = "CONTENT_DIR";
 
@@ -20,7 +20,7 @@ pub fn generate_multi_window(
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Episode {
+pub struct IndexableEpisode {
     pub title: String,
     pub script: String,
     pub subs: Vec<Subtitle>,
@@ -34,8 +34,12 @@ pub struct Clip<'a> {
     pub end: usize,
 }
 
-impl Episode {
-    fn from_subs(title: String, subs: Vec<Subtitle>) -> Episode {
+impl From<Episode> for IndexableEpisode {
+    fn from(e: Episode) -> Self {
+        let Episode {
+            title,
+            subtitles: subs,
+        } = e;
         let mut script = String::new();
         let mut index = vec![0];
 
@@ -48,7 +52,45 @@ impl Episode {
             index.push(script.len())
         }
 
-        Episode {
+        IndexableEpisode {
+            title,
+            script,
+            subs,
+            index,
+        }
+    }
+}
+
+pub struct CleanSubs<'a>(pub &'a [Subtitle]);
+
+impl<'a> fmt::Display for CleanSubs<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for sub in self.0 {
+            for line in sub.text.lines() {
+                let text = line.trim().trim_start_matches('-').trim();
+                f.write_str(" ")?;
+                f.write_str(text)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl IndexableEpisode {
+    fn from_subs(title: String, subs: Vec<Subtitle>) -> IndexableEpisode {
+        let mut script = String::new();
+        let mut index = vec![0];
+
+        for sub in &subs {
+            for line in sub.text.lines() {
+                let text = line.trim().trim_start_matches('-').trim();
+                script.push_str(" ");
+                script.push_str(text);
+            }
+            index.push(script.len())
+        }
+
+        IndexableEpisode {
             title,
             script,
             subs,
@@ -135,9 +177,9 @@ fn read_file<P: AsRef<path::Path>>(tpath: P) -> Result<String> {
     })
 }
 
-pub fn parse_adsubs() -> Result<Vec<Episode>> {
+pub fn parse_adsubs() -> Result<Vec<IndexableEpisode>> {
     Ok(list_subs(content_dir()?)?
         .into_iter()
-        .map(|(t, s)| Episode::from_subs(t, s))
+        .map(|(t, s)| IndexableEpisode::from_subs(t, s))
         .collect::<Vec<_>>())
 }
