@@ -18,3 +18,8 @@ ffmpeg -ss ${START_TIME} -t ${DURATION} -i ${INPUT_VIDEO} -filter_complex "[0:v]
 
 https://aws.amazon.com/blogs/media/processing-user-generated-content-using-aws-lambda-and-ffmpeg/
 https://intoli.com/blog/transcoding-on-aws-lambda/
+
+
+# Rusty alternatives
+https://lib.rs/crates/gifski
+https://github.com/zmwangx/rust-ffmpeg

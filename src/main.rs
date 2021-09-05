@@ -1,4 +1,6 @@
 #![feature(binary_heap_into_iter_sorted)]
+use std::time::Duration;
+
 use anyhow::Result;
 use service::{
     search::{SearchClient, SearchRequest, SearchService},
@@ -7,6 +9,8 @@ use service::{
     },
 };
 use storage::Storage;
+
+use crate::content::scan::scan_filesystem;
 
 mod cli_select;
 mod content;
@@ -17,6 +21,13 @@ mod service;
 mod srt;
 mod srt_loader;
 mod storage;
+mod details {
+    mod encrypted;
+    mod index;
+    pub mod storage;
+    pub mod transform;
+    pub mod process;
+}
 
 const STORAGE_DEFAULT: &str = "storage";
 const INDEX_WINDOW_DEFAULT: &str = "5";
@@ -29,6 +40,7 @@ fn main() -> Result<()> {
     log::trace!("Args: {:?}", args);
 
     match args.subcommand() {
+        ("scan-titles", Some(sub_m)) => scan_titles(sub_m),
         ("interactive", Some(sub_m)) => interactive(sub_m),
         ("search", Some(sub_m)) => search(sub_m),
         ("transcode", Some(sub_m)) => transcode(sub_m),
@@ -123,6 +135,24 @@ fn transcode(args: &clap::ArgMatches) -> Result<()> {
     let transcode_response = transcode_service.transcode(transcode_request)?;
 
     println!("{:?}", transcode_response);
+    Ok(())
+}
+
+fn scan_titles(args: &clap::ArgMatches) -> Result<()> {
+    let p = std::path::Path::new(args.value_of("path").unwrap());
+    log::debug!("scan titles: {:?}", p);
+    let (content, fs_content) = scan_filesystem(p)?;
+    let (media , files)= crate::details::process::intake_media(content, fs_content);
+    log::debug!("{:#?}", media);
+    log::debug!("{:#?}", files);
+
+    // TODO WHERE I LEFT OFF
+    let fs = crate::details::storage::FileStorage::new("storage_backend")?;
+    let splitter = crate::details::transform::FFMpegShellSplitter::new(Duration::from_secs(30));
+    let x = crate::details::process::split_media(&fs, &splitter, files)?;
+    log::debug!("{:#?}", x);
+
+
     Ok(())
 }
 
@@ -255,6 +285,13 @@ mod cli {
                             .default_value(OUTPUT_DEFAULT)
                             .takes_value(true),
                     ),
+            )
+            .subcommand(
+                SubCommand::with_name("scan-titles").arg(
+                    clap::Arg::with_name("path")
+                        .required(true)
+                        .takes_value(true),
+                ),
             )
             .subcommand(
                 SubCommand::with_name("interactive")

@@ -1,13 +1,14 @@
 use crate::{content::VideoSource};
 use std::{borrow::Cow, fmt::Write as fmtWrite, io::Write, process::Command};
 
+#[derive(Debug)]
 pub enum SplitStrategy {
     SegmentTimeSecs(f32)
 }
 
+#[derive(Debug)]
 pub struct SplitSettings {
-    windows: SplitStrategy,
-    width: Option<u32>,
+    pub windows: SplitStrategy,
 }
 
 // ffmpeg -i ~/ADs01e09.mkv -f segment -segment_time 30 -segment_list out.csv out%03d.mkv
@@ -22,7 +23,10 @@ pub fn split_media<S: VideoSource>(
         log::error!("can not deal with source type: {}", t)
     }
 
+    log::info!("Running ffmpeg in {:?} on {:?}: {:?}", out, src, settings);
+
     let st = Command::new("ffmpeg")
+        .current_dir(out.as_ref())
         .arg("-i")
         .arg(src.as_ref())
         .arg("-y")
@@ -38,6 +42,9 @@ pub fn split_media<S: VideoSource>(
     if !st.success() {
         anyhow::bail!("ffmpeg failed with exit code: {}", st)
     }
+
+    // TODO HERE
+    // Process /tmp/.tmp6PMxP7
 
     Ok(())
 

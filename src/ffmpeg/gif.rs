@@ -6,6 +6,10 @@ const GIF_DEFAULT_FPS: u32 = 12;
 const GIF_DEFAULT_WIDTH: u32 = 480;
 const GIF_DEFAULT_FONT: u32 = 28;
 
+/*
+ffmpeg -ss 20 -t 20 -i "concat:out020.mkv|out021.mkv" -filter_complex "[0:v] fps=12,scale=w=480:h=-1,split [a][b];[a] palettegen=stats_mode=single:reserve_transparent=false [p];[b][p] paletteuse=new=1" -y -f gif out.gif
+*/
+
 pub fn convert_to_gif<S: VideoSource>(
     video: &S,
     subs: &[Subtitle],
