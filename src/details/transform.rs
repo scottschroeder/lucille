@@ -1,5 +1,5 @@
 use super::index::{MediaTimestamp, VideoSegmentId};
-use crate::ffmpeg;
+use crate::{details::index::Uuid, ffmpeg};
 use anyhow::Result;
 use std::{
     borrow::Cow,
@@ -69,23 +69,31 @@ impl MediaSplitter for FFMpegShellSplitter {
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("path was not utf-8: {:?}", tmp))?;
 
-        let x = ffmpeg::split_media(
+        let split_results = ffmpeg::split_media(
             &video,
             &ffmpeg::SplitSettings {
                 windows: ffmpeg::SplitStrategy::SegmentTimeSecs(self.segment_len.as_secs_f32()),
             },
             Cow::from(out),
         )?;
-        self.leak();
-        Ok(Vec::new())
+
+        let mut segments = Vec::new();
+        for (path, duration) in split_results {
+            segments.push(SplitResult {
+                segment: VideoSegmentId(Uuid::new()),
+                path,
+                position: MediaTimestamp(duration),
+            });
+        }
+
+        // self.leak();
+        Ok(segments)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-
-    use crate::details::index::Uuid;
 
     use super::*;
 

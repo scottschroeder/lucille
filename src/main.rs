@@ -140,13 +140,14 @@ fn transcode(args: &clap::ArgMatches) -> Result<()> {
 
 fn scan_titles(args: &clap::ArgMatches) -> Result<()> {
     let p = std::path::Path::new(args.value_of("path").unwrap());
+    // ffmpeg::output_csv_reader(p);
+    // return Ok(());
     log::debug!("scan titles: {:?}", p);
     let (content, fs_content) = scan_filesystem(p)?;
     let (media , files)= crate::details::process::intake_media(content, fs_content);
     log::debug!("{:#?}", media);
     log::debug!("{:#?}", files);
 
-    // TODO WHERE I LEFT OFF
     let fs = crate::details::storage::FileStorage::new("storage_backend")?;
     let splitter = crate::details::transform::FFMpegShellSplitter::new(Duration::from_secs(30));
     let x = crate::details::process::split_media(&fs, &splitter, files)?;
