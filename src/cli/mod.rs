@@ -1,11 +1,11 @@
 use anyhow::Result;
 mod argparse;
+mod helpers;
 mod index;
 mod interactive;
 mod media_intake;
 mod search;
 mod transcode;
-mod helpers;
 
 pub fn run_cli() -> Result<()> {
     let args = argparse::get_args();

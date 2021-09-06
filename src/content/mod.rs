@@ -1,6 +1,6 @@
 use crate::srt::Subtitle;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, ffi::OsStr, fmt};
+use std::{borrow::Cow, fmt};
 
 pub mod scan;
 

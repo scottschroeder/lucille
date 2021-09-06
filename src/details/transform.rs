@@ -113,7 +113,7 @@ mod tests {
     }
 
     impl MediaSplitter for DummyMediaSplitter {
-        fn chop_into_segments<P: AsRef<Path>>(&self, path: P) -> Result<Vec<SplitResult>> {
+        fn chop_into_segments<P: AsRef<Path>>(&self, _path: P) -> Result<Vec<SplitResult>> {
             let mut segment_start = MediaTimestamp(Duration::new(0, 0));
             let mut segments = Vec::new();
             while segment_start < self.episode_len {

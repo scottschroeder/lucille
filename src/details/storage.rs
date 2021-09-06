@@ -2,7 +2,6 @@ use super::index::Uuid;
 use anyhow::Result;
 use nom::AsBytes;
 use std::{
-    collections::HashMap,
     io::{BufReader, Read, Write},
     path::{Path, PathBuf},
 };
@@ -30,9 +29,7 @@ impl FileStorage {
         if !root.exists() {
             std::fs::create_dir_all(root.as_path())?;
         }
-        Ok(FileStorage {
-            root,
-        })
+        Ok(FileStorage { root })
     }
 }
 

@@ -9,20 +9,9 @@
     we actually DO want to implement real encryption.
 */
 
-use crate::details::index::Uuid;
-use crate::details::index::VideoSegmentId;
 use super::storage::Storage;
-use std::collections::HashMap;
+use crate::details::index::Uuid;
 use anyhow::Result;
-
-struct EncryptedVideoSegmentId(Uuid);
-
-
-
-struct EncryptedSegments {
-    inner: HashMap<VideoSegmentId, EncryptedVideoSegmentId>,
-    keyname: String,
-}
 
 trait KeyFetcher {
     fn get(&self, name: &str) -> Result<Option<String>>;
@@ -30,7 +19,7 @@ trait KeyFetcher {
 
 struct EncryptedStorage<S, T> {
     key_fetcher: T,
-    storage: S
+    storage: S,
 }
 
 impl<S: Storage, T: KeyFetcher> Storage for EncryptedStorage<S, T> {

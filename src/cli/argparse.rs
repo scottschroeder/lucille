@@ -1,4 +1,3 @@
-
 use clap::SubCommand;
 
 const STORAGE_DEFAULT: &str = "storage";

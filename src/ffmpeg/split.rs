@@ -1,7 +1,10 @@
 use crate::content::VideoSource;
-use std::path::PathBuf;
-use std::time::Duration;
-use std::{borrow::Cow, fmt::Write as fmtWrite, io::Write, path::Path, process::Command};
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+    process::Command,
+    time::Duration,
+};
 
 const CSV_FILE_NAME: &str = "split_records.csv";
 

@@ -1,14 +1,7 @@
-
+use crate::service::search::{SearchClient, SearchService};
 use anyhow::Result;
-use crate::service::{
-    search::{SearchClient, SearchRequest, SearchService},
-    transcode::{
-        ClipIdentifier, NamedFileOutput, TranscodeClient, TranscodeRequest, TranscoderService,
-    },
-};
-use crate::storage::Storage;
-use crate::cli::helpers::{get_storage, get_search_request};
 
+use crate::cli::helpers::{get_search_request, get_storage};
 
 pub fn search(args: &clap::ArgMatches) -> Result<()> {
     let s = get_storage(args);

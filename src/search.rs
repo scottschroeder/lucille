@@ -117,9 +117,21 @@ pub fn search(
 
     for (score, doc_address) in top_docs {
         let doc = searcher.doc(doc_address)?;
-        let en = doc.get_first(episode).unwrap().u64_value().expect("no ep number") as usize;
-        let cs = doc.get_first(clip_start).unwrap().u64_value().expect("no clip start") as usize;
-        let ce = doc.get_first(clip_end).unwrap().u64_value().expect("no clip end") as usize;
+        let en = doc
+            .get_first(episode)
+            .unwrap()
+            .u64_value()
+            .expect("no ep number") as usize;
+        let cs = doc
+            .get_first(clip_start)
+            .unwrap()
+            .u64_value()
+            .expect("no clip start") as usize;
+        let ce = doc
+            .get_first(clip_end)
+            .unwrap()
+            .u64_value()
+            .expect("no clip end") as usize;
 
         if ce - cs > search_window {
             continue;

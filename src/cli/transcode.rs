@@ -1,14 +1,9 @@
-
-use anyhow::Result;
-use crate::service::{
-    search::{SearchClient, SearchRequest, SearchService},
-    transcode::{
-        ClipIdentifier, NamedFileOutput, TranscodeClient, TranscodeRequest, TranscoderService,
-    },
+use crate::service::transcode::{
+    ClipIdentifier, NamedFileOutput, TranscodeClient, TranscodeRequest, TranscoderService,
 };
-use crate::storage::Storage;
-use crate::cli::helpers::{get_storage, get_search_request};
+use anyhow::Result;
 
+use crate::cli::helpers::get_storage;
 
 fn parse_spec_shorthand(mut spec: clap::Values) -> Result<ClipIdentifier> {
     let id = spec.next().ok_or_else(|| anyhow::anyhow!("no id"))?;

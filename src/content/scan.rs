@@ -66,7 +66,7 @@ fn title(p: &path::Path) -> Result<String> {
         .file_name()
         .and_then(|os| os.to_str())
         .ok_or_else(|| anyhow::anyhow!("media path was not utf8"))?;
-    return Ok(fname.to_string())
+    return Ok(fname.to_string());
     // // let meta = torrent_name_parser::Metadata::from(fname);
     // // log::info!("{} {:#?}", fname, meta);
     // let title = if let Some(idx) = fname.rfind('.') {

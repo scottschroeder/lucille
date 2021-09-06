@@ -1,12 +1,4 @@
-use crate::{
-    service::{
-        search::{SearchClient, SearchRequest, SearchService},
-        transcode::{
-            ClipIdentifier, NamedFileOutput, TranscodeClient, TranscodeRequest, TranscoderService,
-        },
-    },
-    storage::Storage,
-};
+use crate::storage::Storage;
 use anyhow::Result;
 
 pub fn index(args: &clap::ArgMatches) -> Result<()> {

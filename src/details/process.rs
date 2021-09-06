@@ -1,10 +1,7 @@
 use anyhow::Result;
 
-use crate::{
-    content::{Content, FileSystemContent, VideoFile},
-    srt::Subtitle,
-};
-use std::{collections::HashMap, path::Path};
+use crate::content::{Content, FileSystemContent, VideoFile};
+use std::collections::HashMap;
 
 use super::{
     index::{

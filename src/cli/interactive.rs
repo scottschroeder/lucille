@@ -1,14 +1,10 @@
-
-use anyhow::Result;
 use crate::service::{
-    search::{SearchClient, SearchRequest, SearchService},
-    transcode::{
-        ClipIdentifier, NamedFileOutput, TranscodeClient, TranscodeRequest, TranscoderService,
-    },
+    search::{SearchClient, SearchService},
+    transcode::{NamedFileOutput, TranscodeClient, TranscodeRequest, TranscoderService},
 };
-use crate::storage::Storage;
-use crate::cli::helpers::{get_storage, get_search_request};
+use anyhow::Result;
 
+use crate::cli::helpers::{get_search_request, get_storage};
 
 pub fn interactive(args: &clap::ArgMatches) -> Result<()> {
     let output = args.value_of("output_gif").unwrap();
