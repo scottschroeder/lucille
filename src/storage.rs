@@ -1,12 +1,11 @@
 use crate::{
-    content::{Content, Episode, FileSystemContent},
     details::{ContentData, MediaHash, SegmentedVideo},
     error::TError,
     srt_loader::IndexableEpisode,
 };
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs::File, io::BufReader, path};
+use std::{collections::HashMap, fs::File, path};
 use tantivy::Index;
 
 const INDEX_DIR: &str = "index";

@@ -1,8 +1,7 @@
 use crate::{
     cli::helpers::get_storage,
-    content::scan::{process_media, scan_content, scan_filesystem, scan_media_paths},
+    content::scan::{process_media, scan_media_paths},
     details::{process::content_metadata, MediaSplitter, SegmentedVideo, Storage as _},
-    storage::Storage,
 };
 use anyhow::{Context, Result};
 use std::time::Duration;

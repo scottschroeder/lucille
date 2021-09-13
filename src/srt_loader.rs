@@ -32,7 +32,7 @@ impl From<ContentData> for IndexableEpisode {
     fn from(c: ContentData) -> Self {
         let ContentData {
             subtitle: subs,
-            media_hash,
+            media_hash: _,
             metadata,
         } = c;
         let mut script = String::new();

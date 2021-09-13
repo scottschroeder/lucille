@@ -1,7 +1,4 @@
-use crate::{
-    hash::Sha2Hash,
-    srt::{Subtitle, Subtitles},
-};
+use crate::{hash::Sha2Hash, srt::Subtitles};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,

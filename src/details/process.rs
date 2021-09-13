@@ -1,17 +1,14 @@
 use super::{
     index::{
-        ContentData, ContentMetadata, ContentSegments, EpisodeMetadata, MediaHash, MediaId,
-        MediaMetadata, RawMediaResults, SegmentedVideo, Uuid,
+        ContentData, ContentSegments, EpisodeMetadata, MediaHash, MediaId, MediaMetadata,
+        SegmentedVideo,
     },
     storage::Storage,
     transform::MediaSplitter,
 };
-use crate::{
-    content::{Content, Episode, FileSystemContent, VideoFile},
-    hash::Sha2Hash,
-};
-use anyhow::{Context, Result};
-use std::{collections::HashMap, hash::Hash, path};
+use crate::content::{Episode, VideoFile};
+use anyhow::Result;
+use std::{collections::HashMap, path};
 
 fn extract_metadata(title: &str) -> (MediaMetadata, Option<String>) {
     let mut name_guess = None;

@@ -1,9 +1,6 @@
-use crate::{
-    details::MediaHash,
-    srt::{Subtitle, Subtitles},
-};
+use crate::{details::MediaHash, srt::Subtitles};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, collections::HashMap, fmt};
+use std::{borrow::Cow, collections::HashMap};
 
 pub mod scan;
 

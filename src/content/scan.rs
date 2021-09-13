@@ -7,7 +7,7 @@ use crate::{
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, fmt, io::Read, ops::Sub, path};
+use std::{collections::HashMap, fmt, io::Read, path};
 
 const MEDIA_FILES: &[&str] = &["mkv"];
 
