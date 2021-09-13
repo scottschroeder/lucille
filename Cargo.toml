@@ -40,3 +40,7 @@ torrent-name-parser = "0.5.0"
 #futures = "0.3"
 #tokio = { version = "0.3", features = ["full"] }
 #async-trait = "0.1"
+
+[features]
+# Defines a feature named `webp` that does not enable any other features.
+ffmpeg-debug = []

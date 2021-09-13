@@ -1,6 +1,7 @@
 use crate::content::VideoSource;
 use std::{
     borrow::Cow,
+    io::Read,
     path::{Path, PathBuf},
     process::Command,
     time::Duration,
@@ -20,9 +21,13 @@ pub struct SplitSettings {
 
 type Record = (String, f64, f64);
 
-pub fn output_csv_reader<P: AsRef<Path>>(p: P) -> anyhow::Result<Vec<Record>> {
+pub fn output_csv_reader(p: &Path) -> anyhow::Result<Vec<Record>> {
     let f = std::fs::File::open(p)?;
-    let mut rdr = csv::Reader::from_reader(f);
+    parse_csv_to_records(f)
+}
+
+pub fn parse_csv_to_records<R: Read>(r: R) -> anyhow::Result<Vec<Record>> {
+    let mut rdr = csv::ReaderBuilder::new().has_headers(false).from_reader(r);
     // Instead of creating an iterator with the `records` method, we create
     // an iterator with the `deserialize` method.
     let mut out = Vec::new();
@@ -47,8 +52,8 @@ pub fn split_media<S: VideoSource>(
 
     log::info!("Running ffmpeg in {:?} on {:?}: {:?}", out, src, settings);
 
-    let st = Command::new("ffmpeg")
-        .current_dir(out.as_ref())
+    let mut cmd = Command::new("ffmpeg");
+    cmd.current_dir(out.as_ref())
         .arg("-i")
         .arg(src.as_ref())
         .arg("-y")
@@ -58,8 +63,13 @@ pub fn split_media<S: VideoSource>(
         .arg("30")
         .arg("-segment_list")
         .arg(CSV_FILE_NAME)
-        .arg("out%06d.mkv")
-        .status()?;
+        .arg("out%06d.mkv");
+
+    if !cfg!(feature = "ffmpeg-debug") {
+        cmd.stderr(std::process::Stdio::null());
+    }
+
+    let st = cmd.status()?;
 
     if !st.success() {
         anyhow::bail!("ffmpeg failed with exit code: {}", st)
@@ -67,7 +77,7 @@ pub fn split_media<S: VideoSource>(
 
     let out_path = Path::new(out.as_ref());
 
-    let records = output_csv_reader(out_path.join(CSV_FILE_NAME))?;
+    let records = output_csv_reader(out_path.join(CSV_FILE_NAME).as_path())?;
 
     let mut segments = Vec::new();
     for (segment_file, start_time_secs, _) in records {
@@ -77,4 +87,24 @@ pub fn split_media<S: VideoSource>(
     }
 
     Ok(segments)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CSV_EXAMPLE: &str = "out000000.mkv,0.000000,32.908000\n\
+    out000001.mkv,32.907000,60.727000\n\
+    out000002.mkv,60.727000,90.924000";
+
+    #[test]
+    fn parse_csv() {
+        let csv = std::io::Cursor::new(CSV_EXAMPLE);
+        let expected = vec![
+            ("out000000.mkv".to_owned(), 0.000000, 32.908000),
+            ("out000001.mkv".to_owned(), 32.907000, 60.727000),
+            ("out000002.mkv".to_owned(), 60.727000, 90.924000),
+        ];
+        assert_eq!(parse_csv_to_records(csv).unwrap(), expected);
+    }
 }

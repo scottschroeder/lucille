@@ -25,7 +25,6 @@ mod hash;
 
 /*
     TODO:
-    - Why are segment maps missing the first chunk?
     - async file copies? two encoders?
     - encrypted storage
     - reload storage
