@@ -1,6 +1,9 @@
-use crate::srt::Subtitle;
+use crate::{
+    details::MediaHash,
+    srt::{Subtitle, Subtitles},
+};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, fmt};
+use std::{borrow::Cow, collections::HashMap, fmt};
 
 pub mod scan;
 
@@ -9,19 +12,11 @@ pub struct Content {
     pub episodes: Vec<Episode>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Episode {
     pub title: String,
-    pub subtitles: Vec<Subtitle>,
-}
-
-impl fmt::Debug for Episode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Episode")
-            .field("title", &self.title)
-            .field("subtitles", &self.subtitles.len())
-            .finish()
-    }
+    pub subtitles: Subtitles,
+    pub media_hash: MediaHash,
 }
 
 pub trait VideoSource {
@@ -39,7 +34,7 @@ impl<'s> VideoSource for &'s str {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileSystemContent {
-    pub videos: Vec<VideoFile>,
+    pub videos: HashMap<MediaHash, VideoFile>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

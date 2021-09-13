@@ -1,11 +1,7 @@
 use anyhow::Result;
 mod argparse;
 mod helpers;
-mod index;
-mod interactive;
 mod media_intake;
-mod search;
-mod transcode;
 
 pub fn run_cli() -> Result<()> {
     let args = argparse::get_args();
@@ -13,11 +9,21 @@ pub fn run_cli() -> Result<()> {
     log::trace!("Args: {:?}", args);
 
     match args.subcommand() {
+        ("media", Some(sub_m)) => match sub_m.subcommand() {
+            ("scan", Some(sub_m)) => media_intake::scan_titles(sub_m),
+            ("index", Some(sub_m)) => media_intake::index(sub_m),
+            ("prepare", Some(sub_m)) => media_intake::prepare(sub_m),
+            ("", _) => Err(anyhow::anyhow!(
+                "Please provide a command:\n{}",
+                args.usage()
+            )),
+            subc => Err(anyhow::anyhow!(
+                "Unknown command: {:?}\n{}",
+                subc,
+                args.usage()
+            )),
+        },
         ("scan-titles", Some(sub_m)) => media_intake::scan_titles(sub_m),
-        ("interactive", Some(sub_m)) => interactive::interactive(sub_m),
-        ("search", Some(sub_m)) => search::search(sub_m),
-        ("transcode", Some(sub_m)) => transcode::transcode(sub_m),
-        ("index", Some(sub_m)) => index::index(sub_m),
         ("", _) => Err(anyhow::anyhow!(
             "Please provide a command:\n{}",
             args.usage()
@@ -28,10 +34,6 @@ pub fn run_cli() -> Result<()> {
             args.usage()
         )),
     }
-    .map_err(|e| {
-        log::error!("{:?}", e);
-        anyhow::anyhow!("unrecoverable lucile failure")
-    })
 }
 
 fn setup_logger(level: u64) {

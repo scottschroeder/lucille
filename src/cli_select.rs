@@ -14,7 +14,7 @@ pub fn ask_user_for_clip(content: &Content, response: &SearchResponse) -> Result
     let user_clip = &response.results[index];
     Ok(ClipIdentifier {
         index: response.index,
-        episode: user_clip.episode_id,
+        media_hash: user_clip.media_hash,
         start: user_clip.offset + start,
         end: user_clip.offset + end,
     })
@@ -23,12 +23,16 @@ pub fn ask_user_for_clip(content: &Content, response: &SearchResponse) -> Result
 pub fn print_top_scores(content: &Content, response: &SearchResponse) {
     let mut c = 'A';
     for clip in &response.results {
-        let ep = &content.episodes[clip.episode_id];
+        let ep = content
+            .episodes
+            .iter()
+            .find(|e| e.media_hash == clip.media_hash)
+            .expect("missing episode hash");
         println!("{}) {:?}: {}", c, clip.score, ep.title);
         let base = clip.offset;
         for (offset, linescore) in clip.lines.iter().enumerate() {
             let normalized = ((5.0 * linescore.score / clip.score) + 0.5) as usize;
-            let script = CleanSubs(&ep.subtitles[base + offset..base + offset + 1]);
+            let script = CleanSubs(&ep.subtitles.inner[base + offset..base + offset + 1]);
             println!("  ({:2}) [{}]- {}", offset, HIST[normalized], script);
         }
         c = ((c as u8) + 1) as char

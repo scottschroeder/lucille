@@ -1,5 +1,6 @@
 use crate::{
     content::{Content, FileSystemContent, VideoFile, VideoSource},
+    details::MediaHash,
     ffmpeg,
 };
 use anyhow::Result;
@@ -20,7 +21,7 @@ impl<'a, G: GifSink, V: VideoSourceRegistry> TranscodeClient for TranscoderServi
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClipIdentifier {
     pub index: Uuid,
-    pub episode: usize,
+    pub media_hash: MediaHash,
     pub start: usize,
     pub end: usize,
 }
@@ -30,7 +31,7 @@ impl fmt::Display for ClipIdentifier {
         write!(
             f,
             "{:?} {} {} {}",
-            self.index, self.episode, self.start, self.end
+            self.index, self.media_hash, self.start, self.end
         )
     }
 }
@@ -57,14 +58,14 @@ impl GifSink for NamedFileOutput {
 
 pub trait VideoSourceRegistry {
     type V: VideoSource;
-    fn select_video(&self, episode: usize) -> Self::V;
+    fn select_video(&self, media_hash: MediaHash) -> Self::V;
 }
 
 impl VideoSourceRegistry for FileSystemContent {
     type V = VideoFile;
 
-    fn select_video(&self, episode: usize) -> Self::V {
-        self.videos[episode].clone()
+    fn select_video(&self, media_hash: MediaHash) -> Self::V {
+        self.videos[&media_hash].clone()
     }
 }
 
@@ -106,10 +107,16 @@ where
             )
         }
 
-        let episode = &self.content.episodes[clip.episode];
-        let subs = &episode.subtitles[clip.start..clip.end + 1];
+        let episode = self
+            .content
+            .episodes
+            .iter()
+            .find(|e| e.media_hash == clip.media_hash)
+            .expect("missing episode hash");
+
+        let subs = &episode.subtitles.inner[clip.start..clip.end + 1];
         let output = self.output.ffmpeg_arg();
-        let video = self.video.select_video(clip.episode);
+        let video = self.video.select_video(clip.media_hash);
 
         ffmpeg::convert_to_gif(&video, subs, output)?;
         Ok(TranscodeResponse)

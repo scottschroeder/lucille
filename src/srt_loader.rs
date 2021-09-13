@@ -1,4 +1,8 @@
-use crate::{content::Episode, srt::Subtitle};
+use crate::{
+    content::Episode,
+    details::ContentData,
+    srt::{Subtitle, Subtitles},
+};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -13,7 +17,7 @@ pub fn generate_multi_window(
 pub struct IndexableEpisode {
     pub title: String,
     pub script: String,
-    pub subs: Vec<Subtitle>,
+    pub subs: Subtitles,
     pub index: Vec<usize>,
 }
 
@@ -24,16 +28,44 @@ pub struct Clip<'a> {
     pub end: usize,
 }
 
+impl From<ContentData> for IndexableEpisode {
+    fn from(c: ContentData) -> Self {
+        let ContentData {
+            subtitle: subs,
+            media_hash,
+            metadata,
+        } = c;
+        let mut script = String::new();
+        let mut index = vec![0];
+
+        for sub in &subs.inner {
+            for line in sub.text.lines() {
+                let text = line.trim().trim_start_matches('-').trim();
+                script.push_str(" ");
+                script.push_str(text);
+            }
+            index.push(script.len())
+        }
+
+        IndexableEpisode {
+            title: metadata.title(),
+            script,
+            subs,
+            index,
+        }
+    }
+}
 impl From<Episode> for IndexableEpisode {
     fn from(e: Episode) -> Self {
         let Episode {
             title,
             subtitles: subs,
+            ..
         } = e;
         let mut script = String::new();
         let mut index = vec![0];
 
-        for sub in &subs {
+        for sub in &subs.inner {
             for line in sub.text.lines() {
                 let text = line.trim().trim_start_matches('-').trim();
                 script.push_str(" ");
@@ -92,7 +124,7 @@ impl IndexableEpisode {
     }
 
     pub fn slices<'a>(&'a self, max_window: usize) -> impl Iterator<Item = Clip<'a>> + 'a {
-        generate_multi_window(self.subs.len(), max_window).map(move |(start, end)| Clip {
+        generate_multi_window(self.subs.inner.len(), max_window).map(move |(start, end)| Clip {
             title: self.title.as_str(),
             text: self.extract_window(start, end),
             start,

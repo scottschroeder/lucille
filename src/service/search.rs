@@ -1,4 +1,4 @@
-use crate::{content::Content, srt_loader::CleanSub};
+use crate::{content::Content, details::MediaHash, srt_loader::CleanSub};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tantivy::Index;
@@ -35,7 +35,7 @@ impl<'a> SearchRequest<'a> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClipResult {
-    pub episode_id: usize,
+    pub media_hash: MediaHash,
     pub offset: usize,
     pub title: String,
     pub score: f32,
@@ -78,14 +78,14 @@ impl<'a> SearchService<'a> {
                     .clip
                     .scores
                     .iter()
-                    .zip(episode.subtitles.iter().skip(offset))
+                    .zip(episode.subtitles.inner.iter().skip(offset))
                     .map(|(score, sub)| LineScore {
                         score: score.0,
                         text: format!("{}", CleanSub(sub)),
                     })
                     .collect::<Vec<_>>();
                 ClipResult {
-                    episode_id,
+                    media_hash: episode.media_hash,
                     offset,
                     title: episode.title.clone(),
                     score: rm.score.0,

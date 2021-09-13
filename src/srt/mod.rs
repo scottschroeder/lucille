@@ -1,7 +1,30 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{fmt, time::Duration};
 
 mod parser;
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct Subtitles {
+    pub inner: Vec<Subtitle>,
+}
+
+impl Subtitles {
+    pub fn parse(input: &str) -> Result<Subtitles> {
+        let subs = crate::srt::parse(input)?;
+        Ok(Subtitles::new(subs))
+    }
+
+    pub fn new(subs: Vec<Subtitle>) -> Subtitles {
+        Subtitles { inner: subs }
+    }
+}
+
+impl fmt::Debug for Subtitles {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Subtitles({})", self.inner.len())
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Subtitle {

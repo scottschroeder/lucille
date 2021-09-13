@@ -1,7 +1,13 @@
 use super::{Content, Episode, FileSystemContent, VideoFile};
-use crate::srt::Subtitle;
-use anyhow::Result;
-use std::{fmt, io::Read, path};
+use crate::{
+    details::MediaHash,
+    hash::Sha2Hash,
+    srt::{Subtitle, Subtitles},
+};
+use anyhow::{Context, Result};
+use rayon::prelude::*;
+use sha2::{Digest, Sha256};
+use std::{collections::HashMap, fmt, io::Read, ops::Sub, path};
 
 const MEDIA_FILES: &[&str] = &["mkv"];
 
@@ -28,10 +34,62 @@ fn is_media(p: &path::Path) -> bool {
         .unwrap_or(false)
 }
 
-pub fn scan_filesystem<P: AsRef<path::Path>>(root: P) -> Result<(Content, FileSystemContent)> {
+#[derive(Debug)]
+pub struct ContentRecord {
+    path: path::PathBuf,
+    subtitles: Subtitles,
+}
+
+pub fn scan_media_paths<P: AsRef<path::Path>>(root: P) -> Result<Vec<path::PathBuf>> {
     let root = root.as_ref();
-    let mut episodes = Vec::new();
-    let mut videos = Vec::new();
+    let mut content = Vec::new();
+    for dir in walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter(|de| de.as_ref().map(|de| is_media(de.path())).unwrap_or(true))
+    {
+        let dir = dir?;
+        log::trace!("scanned: {:?}", dir.path());
+        content.push(dir.path().to_owned());
+    }
+
+    Ok(content)
+}
+
+fn extract_subtitles(media_path: &path::Path) -> Result<Subtitles> {
+    let srt_path = media_path.with_extension("srt");
+    read_file(srt_path.as_path()).and_then(|s| Subtitles::parse(s.as_str()))
+}
+
+fn process_single_media(media_path: &path::Path) -> Result<Episode> {
+    let subtitles = extract_subtitles(media_path)?;
+    let media_hash = hash_video(media_path)?;
+    let title = title(media_path)?;
+    let episode = Episode {
+        title,
+        subtitles,
+        media_hash,
+    };
+    log::trace!("{:?}", episode);
+    Ok(episode)
+}
+
+pub fn process_media(paths: &[path::PathBuf]) -> Vec<(path::PathBuf, Episode)> {
+    paths
+        .into_par_iter()
+        .map(|p| (p, process_single_media(p.as_path())))
+        .filter_map(|(p, r)| match r {
+            Ok(m) => Some((p.to_owned(), m)),
+            Err(e) => {
+                log::warn!("unable to use {:?}: {}", p, e);
+                None
+            }
+        })
+        .collect()
+}
+
+pub fn scan_content<P: AsRef<path::Path>>(root: P) -> Result<Vec<ContentRecord>> {
+    let root = root.as_ref();
+    let mut content = Vec::new();
     for dir in walkdir::WalkDir::new(root)
         .into_iter()
         .filter(|de| de.as_ref().map(|de| is_media(de.path())).unwrap_or(true))
@@ -40,7 +98,38 @@ pub fn scan_filesystem<P: AsRef<path::Path>>(root: P) -> Result<(Content, FileSy
         let media_path = dir.path();
         let srt_path = media_path.with_extension("srt");
 
-        let subs = match read_file(srt_path.as_path()).and_then(|s| crate::srt::parse(s.as_str())) {
+        let subs = match read_file(srt_path.as_path()).and_then(|s| Subtitles::parse(s.as_str())) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("unable to load subtitles for {:?}: {}", srt_path, e);
+                continue;
+            }
+        };
+        log::trace!("scanned: {:?}: {:?}", media_path, subs);
+        content.push(ContentRecord {
+            path: media_path.to_owned(),
+            subtitles: subs,
+        })
+    }
+
+    Ok(content)
+}
+
+pub fn scan_filesystem<P: AsRef<path::Path>>(root: P) -> Result<(Content, FileSystemContent)> {
+    let root = root.as_ref();
+    let mut episodes = Vec::new();
+    let mut videos = HashMap::new();
+    for dir in walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter(|de| de.as_ref().map(|de| is_media(de.path())).unwrap_or(true))
+    {
+        let dir = dir?;
+        let media_path = dir.path();
+        let srt_path = media_path.with_extension("srt");
+
+        let media_hash = hash_video(media_path)?;
+
+        let subs = match read_file(srt_path.as_path()).and_then(|s| Subtitles::parse(s.as_str())) {
             Ok(s) => s,
             Err(e) => {
                 log::warn!("unable to load subtitles for {:?}: {}", srt_path, e);
@@ -51,11 +140,14 @@ pub fn scan_filesystem<P: AsRef<path::Path>>(root: P) -> Result<(Content, FileSy
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("video file path was not utf8"))?
             .to_owned();
-        episodes.push(Episode {
+        let episode = Episode {
             title: title(media_path)?,
             subtitles: subs,
-        });
-        videos.push(VideoFile(fname));
+            media_hash,
+        };
+        log::trace!("Scanned: {:?}: {}", episode, fname);
+        episodes.push(episode);
+        videos.insert(media_hash, VideoFile(fname));
     }
 
     Ok((Content { episodes }, FileSystemContent { videos }))
@@ -75,6 +167,16 @@ fn title(p: &path::Path) -> Result<String> {
     //     fname
     // };
     // Ok(title.to_string())
+}
+
+fn hash_video(p: &path::Path) -> Result<MediaHash> {
+    let mut file =
+        std::fs::File::open(p).with_context(|| format!("could not open file: {:?}", p))?;
+    let mut hasher = Sha256::new();
+    std::io::copy(&mut file, &mut hasher)
+        .with_context(|| format!("could not hash file: {:?}", p))?;
+
+    Ok(MediaHash::new(Sha2Hash::from(hasher.finalize())))
 }
 
 fn read_file<P: AsRef<path::Path>>(tpath: P) -> Result<String> {

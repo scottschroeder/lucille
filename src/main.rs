@@ -16,11 +16,29 @@ mod details {
     pub mod process;
     pub mod storage;
     pub mod transform;
+    pub use index::{ContentData, MediaHash, MediaId, SegmentedVideo};
+    pub use storage::Storage;
+    pub use transform::MediaSplitter;
 }
-
 mod cli;
+mod hash;
+
+/*
+    TODO:
+    - Why are segment maps missing the first chunk?
+    - async file copies? two encoders?
+    - encrypted storage
+    - reload storage
+    - multiple prepare varieties?
+*/
 
 fn main() -> Result<()> {
     color_backtrace::install();
-    cli::run_cli()
+    cli::run_cli().map_err(|e| {
+        log::error!("{}", e);
+        e.chain()
+            .skip(1)
+            .for_each(|cause| log::error!("because: {}", cause));
+        anyhow::anyhow!("unrecoverable lucile failure")
+    })
 }
