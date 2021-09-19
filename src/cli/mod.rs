@@ -1,4 +1,6 @@
 use anyhow::Result;
+
+use crate::details;
 mod argparse;
 mod helpers;
 mod media_intake;
@@ -24,6 +26,7 @@ pub fn run_cli() -> Result<()> {
             )),
         },
         ("scan-titles", Some(sub_m)) => media_intake::scan_titles(sub_m),
+        ("demo", Some(sub_m)) => demo(sub_m),
         ("", _) => Err(anyhow::anyhow!(
             "Please provide a command:\n{}",
             args.usage()
@@ -34,6 +37,11 @@ pub fn run_cli() -> Result<()> {
             args.usage()
         )),
     }
+}
+
+fn demo(args: &clap::ArgMatches) -> Result<()> {
+    // details::encrypted::aesbytes::encrypt("lksjdfsdforiuweoriuweroiuwecwlkj");
+    Ok(())
 }
 
 fn setup_logger(level: u64) {

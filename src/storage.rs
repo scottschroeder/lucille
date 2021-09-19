@@ -47,7 +47,7 @@ impl Storage {
             storage_path: storage_path.to_owned(),
             episodes: index_path.join("episodes"),
             media: storage_path.join("media"),
-            segments: storage_path.join("segments"),
+            segments: index_path.join("segments"),
             index_name,
             index_path,
         }

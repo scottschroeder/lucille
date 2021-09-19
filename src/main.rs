@@ -11,7 +11,7 @@ mod srt;
 mod srt_loader;
 mod storage;
 mod details {
-    mod encrypted;
+    pub(crate) mod encrypted;
     mod index;
     pub mod process;
     pub mod storage;

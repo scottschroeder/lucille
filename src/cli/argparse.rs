@@ -115,6 +115,7 @@ pub fn get_args() -> clap::ArgMatches<'static> {
                         .takes_value(true),
                 ),
         )
+        .subcommand(SubCommand::with_name("demo"))
         .subcommand(
             SubCommand::with_name("scan-titles").arg(
                 clap::Arg::with_name("path")
