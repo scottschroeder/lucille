@@ -1,6 +1,6 @@
 use super::{Content, Episode, FileSystemContent, VideoFile};
 use crate::{
-    details::MediaHash,
+    content::MediaHash,
     hash::Sha2Hash,
     srt::{Subtitle, Subtitles},
 };

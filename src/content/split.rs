@@ -1,5 +1,5 @@
 use super::index::{MediaTimestamp, VideoSegmentId};
-use crate::{details::index::Uuid, ffmpeg};
+use crate::{content::index::Uuid, ffmpeg};
 use anyhow::Result;
 use std::{
     borrow::Cow,

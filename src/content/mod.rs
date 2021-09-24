@@ -1,8 +1,16 @@
-use crate::{details::MediaHash, srt::Subtitles};
+use crate::srt::Subtitles;
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, collections::HashMap};
 
+pub use self::index::{ContentData, MediaHash, SegmentedVideo};
+
+mod encrypted;
+mod index;
+pub mod process;
 pub mod scan;
+pub mod split;
+pub mod storage;
+mod video_range;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Content {

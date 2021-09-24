@@ -1,5 +1,5 @@
 use crate::{
-    details::{ContentData, MediaHash, SegmentedVideo},
+    content::{ContentData, MediaHash, SegmentedVideo},
     error::TError,
     srt_loader::IndexableEpisode,
 };
@@ -23,7 +23,55 @@ pub struct Storage {
 #[derive(Serialize, Deserialize)]
 pub struct ContentDatabase {
     pub name: String,
-    pub original_files: HashMap<MediaHash, path::PathBuf>,
+    pub media_listing: media_listing::MediaListing,
+}
+
+pub(crate) mod media_listing {
+    use crate::content::MediaHash;
+    use serde::{Deserialize, Serialize};
+    use std::{
+        collections::{hash_map::Keys, hash_set::Iter, HashMap, HashSet},
+        path,
+    };
+
+    #[derive(Serialize, Deserialize)]
+    pub enum MediaListing {
+        MediaIds(HashSet<MediaHash>),
+        MediaPaths(HashMap<MediaHash, path::PathBuf>),
+    }
+
+    impl MediaListing {
+        pub fn strip_paths(&mut self) {
+            match self {
+                MediaListing::MediaIds(_) => {}
+                MediaListing::MediaPaths(m) => {
+                    *self = MediaListing::MediaIds(m.into_iter().map(|(k, _)| k).cloned().collect())
+                }
+            }
+        }
+        pub fn iter(&self) -> MediaHashIter<'_> {
+            match self {
+                MediaListing::MediaIds(s) => MediaHashIter::Set(s.iter()),
+                MediaListing::MediaPaths(m) => MediaHashIter::Map(m.keys()),
+            }
+        }
+    }
+
+    pub enum MediaHashIter<'a> {
+        Set(Iter<'a, MediaHash>),
+        Map(Keys<'a, MediaHash, path::PathBuf>),
+    }
+
+    impl<'a> Iterator for MediaHashIter<'a> {
+        type Item = &'a MediaHash;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            match self {
+                MediaHashIter::Set(s) => s.next(),
+                MediaHashIter::Map(m) => m.next(),
+            }
+        }
+    }
 }
 
 impl Storage {
@@ -73,7 +121,7 @@ impl Storage {
             &mut f,
             &ContentDatabase {
                 name,
-                original_files: media,
+                media_listing: media_listing::MediaListing::MediaPaths(media),
             },
         )?;
         Ok(())
@@ -120,8 +168,8 @@ impl Storage {
         let db = self.load_content_db()?;
         let index_path = self.index_path.join(INDEX_DIR);
         let indexable_episodes = db
-            .original_files
-            .keys()
+            .media_listing
+            .iter()
             .map(|e| self.load_content(e).map(|c| IndexableEpisode::from(c)))
             .collect::<Result<Vec<_>>>()?;
         let _ = std::fs::remove_dir_all(index_path.as_path());

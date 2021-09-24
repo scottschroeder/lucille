@@ -1,6 +1,5 @@
 use crate::{
-    content::{Content, FileSystemContent, VideoFile, VideoSource},
-    details::MediaHash,
+    content::{Content, FileSystemContent, MediaHash, VideoFile, VideoSource},
     ffmpeg,
 };
 use anyhow::Result;

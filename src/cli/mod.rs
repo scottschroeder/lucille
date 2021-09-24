@@ -1,15 +1,10 @@
 use anyhow::Result;
 
-use crate::details;
-mod argparse;
+pub mod argparse;
 mod helpers;
 mod media_intake;
 
-pub fn run_cli() -> Result<()> {
-    let args = argparse::get_args();
-    setup_logger(args.occurrences_of("verbosity"));
-    log::trace!("Args: {:?}", args);
-
+pub fn run_cli(args: &clap::ArgMatches) -> Result<()> {
     match args.subcommand() {
         ("media", Some(sub_m)) => match sub_m.subcommand() {
             ("scan", Some(sub_m)) => media_intake::scan_titles(sub_m),
@@ -39,12 +34,12 @@ pub fn run_cli() -> Result<()> {
     }
 }
 
-fn demo(args: &clap::ArgMatches) -> Result<()> {
+fn demo(_args: &clap::ArgMatches) -> Result<()> {
     // details::encrypted::aesbytes::encrypt("lksjdfsdforiuweoriuweroiuwecwlkj");
     Ok(())
 }
 
-fn setup_logger(level: u64) {
+pub fn setup_logger(level: u64) {
     let mut builder = pretty_env_logger::formatted_timed_builder();
 
     let noisy_modules = &[

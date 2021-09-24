@@ -1,6 +1,5 @@
 use crate::{
-    content::Episode,
-    details::ContentData,
+    content::{ContentData, Episode},
     srt::{Subtitle, Subtitles},
 };
 use serde::{Deserialize, Serialize};

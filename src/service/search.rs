@@ -1,4 +1,7 @@
-use crate::{content::Content, details::MediaHash, srt_loader::CleanSub};
+use crate::{
+    content::{Content, MediaHash},
+    srt_loader::CleanSub,
+};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tantivy::Index;

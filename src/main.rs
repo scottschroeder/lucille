@@ -1,39 +1,24 @@
 #![feature(binary_heap_into_iter_sorted)]
-use anyhow::Result;
 
+mod cli;
 mod cli_select;
 mod content;
 mod error;
 mod ffmpeg;
+mod hash;
 mod search;
 mod service;
 mod srt;
 mod srt_loader;
 mod storage;
-mod details {
-    pub(crate) mod encrypted;
-    mod index;
-    pub mod process;
-    pub mod storage;
-    pub mod transform;
-    pub use index::{ContentData, MediaHash, MediaId, SegmentedVideo};
-    pub use storage::Storage;
-    pub use transform::MediaSplitter;
-}
-mod cli;
-mod hash;
 
-/*
-    TODO:
-    - async file copies? two encoders?
-    - encrypted storage
-    - reload storage
-    - multiple prepare varieties?
-*/
-
-fn main() -> Result<()> {
+fn main() -> anyhow::Result<()> {
     color_backtrace::install();
-    cli::run_cli().map_err(|e| {
+    let args = cli::argparse::get_args();
+    cli::setup_logger(args.occurrences_of("verbosity"));
+    log::trace!("Args: {:?}", args);
+
+    cli::run_cli(&args).map_err(|e| {
         log::error!("{}", e);
         e.chain()
             .skip(1)
