@@ -1,7 +1,6 @@
 use super::{
-    index::{
-        ContentData, EpisodeMetadata, MediaHash, MediaId, MediaMetadata,
-    },
+    metadata::{EpisodeMetadata, MediaMetadata},
+    ContentData, MediaHash, MediaId,
 };
 use crate::content::{Episode, VideoFile};
 

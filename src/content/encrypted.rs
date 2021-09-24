@@ -10,7 +10,7 @@
 */
 
 use super::storage::Storage;
-use crate::content::index::Uuid;
+use crate::content::identifiers::Uuid;
 use anyhow::Result;
 use sodiumoxide::crypto::secretstream::{Header, Key, Stream, Tag, HEADERBYTES};
 

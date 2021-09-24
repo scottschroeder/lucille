@@ -1,4 +1,4 @@
-use super::index::MediaTimestamp;
+use super::MediaTimestamp;
 pub fn extract_range<T>(
     start: MediaTimestamp,
     end: MediaTimestamp,

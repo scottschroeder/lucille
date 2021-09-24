@@ -1,13 +1,36 @@
-use super::index::{MediaTimestamp, VideoSegmentId};
-use crate::{content::index::Uuid, ffmpeg};
+use super::{identifiers::VideoSegmentId, MediaTimestamp};
+use crate::{
+    content::{identifiers::Uuid, video_range, MediaHash},
+    ffmpeg,
+};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cell::RefCell,
+    collections::HashMap,
     path::{Path, PathBuf},
     time::Duration,
 };
 use tempfile::TempDir;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SegmentedVideo {
+    pub inner: Vec<(VideoSegmentId, MediaTimestamp)>,
+}
+
+impl SegmentedVideo {
+    pub fn get_range(&self, start: MediaTimestamp, end: MediaTimestamp) -> Vec<VideoSegmentId> {
+        video_range::extract_range(start, end, self.inner.as_slice())
+            .cloned()
+            .collect()
+    }
+}
+
+#[derive(Debug)]
+pub struct ContentSegments {
+    pub inner: HashMap<MediaHash, SegmentedVideo>,
+}
 
 pub struct SplitResult {
     pub segment: VideoSegmentId,

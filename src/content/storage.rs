@@ -1,4 +1,4 @@
-use super::index::Uuid;
+use super::identifiers::Uuid;
 use anyhow::Result;
 use nom::AsBytes;
 use std::{
