@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, collections::HashMap, time::Duration};
 
 mod encrypted;
+mod hash;
 mod identifiers;
 mod metadata;
 mod scan;

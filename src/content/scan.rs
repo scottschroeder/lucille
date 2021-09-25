@@ -1,9 +1,9 @@
-use super::{
-    metadata::{EpisodeMetadata, MediaMetadata},
-    ContentData, ContentFileDetails, MediaHash, MediaId, VideoFile,
-};
 use crate::{
-    hash::Sha2Hash,
+    content::{
+        hash::Sha2Hash,
+        metadata::{EpisodeMetadata, MediaMetadata},
+        ContentData, ContentFileDetails, MediaHash, MediaId, VideoFile,
+    },
     srt::{Subtitle, Subtitles},
 };
 use anyhow::{Context, Result};

@@ -1,4 +1,4 @@
-use crate::hash::Sha2Hash;
+use crate::content::hash::Sha2Hash;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

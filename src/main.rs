@@ -3,7 +3,6 @@
 mod cli;
 mod content;
 mod ffmpeg;
-mod hash;
 mod search;
 mod service;
 mod srt;
