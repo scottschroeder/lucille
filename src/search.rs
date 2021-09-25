@@ -1,9 +1,11 @@
-use crate::srt_loader::IndexableEpisode;
+use self::srt_loader::IndexableEpisode;
 use std::{
     collections::{BinaryHeap, HashMap},
     path::Path,
 };
 use tantivy::{collector::TopDocs, doc, query::QueryParser, schema::*, Index};
+
+mod srt_loader;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct RankScore(pub f32);
@@ -15,7 +17,18 @@ impl Ord for RankScore {
     }
 }
 
-pub fn build_index<P: AsRef<Path>>(
+pub fn build_index<P: AsRef<Path>, I: Into<IndexableEpisode>>(
+    path: P,
+    eps: impl Iterator<Item = I>,
+    max_window: usize,
+) -> tantivy::Result<tantivy::Index> {
+    let ieps = eps
+        .map(|e| IndexableEpisode::from(e.into()))
+        .collect::<Vec<_>>();
+    build_index_impl(path, ieps.as_slice(), max_window)
+}
+
+fn build_index_impl<P: AsRef<Path>>(
     path: P,
     eps: &[IndexableEpisode],
     max_window: usize,

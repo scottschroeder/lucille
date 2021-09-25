@@ -1,16 +1,20 @@
 use crate::{
     cli::helpers::get_storage,
-    content::{scan::scan_content, split::MediaSplitter, storage::Storage as _, SegmentedVideo},
+    content::{
+        scan_content,
+        split::{MediaSplitter, SegmentedVideo},
+        storage::Storage as _,
+    },
 };
 use anyhow::{Context, Result};
 use std::time::Duration;
 
 pub fn scan_titles(args: &clap::ArgMatches) -> Result<()> {
     let p = std::path::Path::new(args.value_of("path").unwrap());
-    log::debug!("scan titles: {:?}", p);
-    let (title, files, content) = scan_content(p)?;
     let s = get_storage(args);
     s.prepare().context("could not prepare storage")?;
+    log::debug!("scan titles: {:?}", p);
+    let (title, files, content) = scan_content(p)?;
     for c in &content {
         s.write_content(c.media_hash, c)
             .context("could not write content")?;

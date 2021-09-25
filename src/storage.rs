@@ -1,7 +1,6 @@
 use crate::{
-    content::{ContentData, MediaHash, SegmentedVideo},
+    content::{split::SegmentedVideo, ContentData, MediaHash},
     error::TError,
-    srt_loader::IndexableEpisode,
 };
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -167,15 +166,18 @@ impl Storage {
     pub fn build_index(&self, max_window: usize) -> anyhow::Result<Index> {
         let db = self.load_content_db()?;
         let index_path = self.index_path.join(INDEX_DIR);
-        let indexable_episodes = db
+
+        let all_content = db
             .media_listing
             .iter()
-            .map(|e| self.load_content(e).map(|c| IndexableEpisode::from(c)))
+            .map(|e| self.load_content(e))
             .collect::<Result<Vec<_>>>()?;
+
         let _ = std::fs::remove_dir_all(index_path.as_path());
         std::fs::create_dir_all(index_path.as_path())
             .with_context(|| format!("could not create {:?}", index_path))?;
-        let index = crate::search::build_index(&index_path, &indexable_episodes, max_window)
+
+        let index = crate::search::build_index(&index_path, all_content.into_iter(), max_window)
             .map_err(|e| TError::from(e))?;
         Ok(index)
     }

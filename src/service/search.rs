@@ -1,6 +1,6 @@
 use crate::{
     content::{Content, MediaHash},
-    srt_loader::CleanSub,
+    srt::CleanSub,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};

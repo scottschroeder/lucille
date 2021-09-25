@@ -1,7 +1,7 @@
 use crate::{
     content::Content,
     service::{search::SearchResponse, transcode::ClipIdentifier},
-    srt_loader::CleanSubs,
+    srt::CleanSubs,
 };
 use anyhow::{Context, Result};
 

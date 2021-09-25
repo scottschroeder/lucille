@@ -2,7 +2,7 @@ use self::identifiers::MediaId;
 pub use self::{
     identifiers::{MediaHash, Uuid},
     metadata::ContentData,
-    split::SegmentedVideo,
+    scan::scan_content,
 };
 use crate::srt::Subtitles;
 use serde::{Deserialize, Serialize};
@@ -11,27 +11,13 @@ use std::{borrow::Cow, collections::HashMap, time::Duration};
 mod encrypted;
 mod identifiers;
 mod metadata;
-pub mod scan;
+mod scan;
 pub mod split;
 pub mod storage;
 mod video_range;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
 pub struct MediaTimestamp(pub Duration);
-
-// TODO what is this?
-#[derive(Debug)]
-pub struct ContentMetadata {
-    pub inner: HashMap<MediaId, ContentData>,
-}
-
-// TODO what is this?
-#[derive(Debug)]
-pub struct RawMediaResults {
-    pub content_id: Uuid,
-    pub content_name: String,
-    pub media: ContentMetadata,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Content {

@@ -9,7 +9,6 @@ mod hash;
 mod search;
 mod service;
 mod srt;
-mod srt_loader;
 mod storage;
 
 fn main() -> anyhow::Result<()> {
