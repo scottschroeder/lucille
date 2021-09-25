@@ -1,5 +1,5 @@
 use crate::{
-    content::{ContentData, Episode},
+    content::ContentData,
     srt::{Subtitle, Subtitles},
 };
 use serde::{Deserialize, Serialize};
@@ -54,34 +54,6 @@ impl From<ContentData> for IndexableEpisode {
         }
     }
 }
-impl From<Episode> for IndexableEpisode {
-    fn from(e: Episode) -> Self {
-        let Episode {
-            title,
-            subtitles: subs,
-            ..
-        } = e;
-        let mut script = String::new();
-        let mut index = vec![0];
-
-        for sub in &subs.inner {
-            for line in sub.text.lines() {
-                let text = line.trim().trim_start_matches('-').trim();
-                script.push_str(" ");
-                script.push_str(text);
-            }
-            index.push(script.len())
-        }
-
-        IndexableEpisode {
-            title,
-            script,
-            subs,
-            index,
-        }
-    }
-}
-
 pub struct CleanSubs<'a>(pub &'a [Subtitle]);
 
 impl<'a> fmt::Display for CleanSubs<'a> {

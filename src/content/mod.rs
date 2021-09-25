@@ -11,7 +11,6 @@ use std::{borrow::Cow, collections::HashMap, time::Duration};
 mod encrypted;
 mod identifiers;
 mod metadata;
-pub mod process;
 pub mod scan;
 pub mod split;
 pub mod storage;
@@ -36,11 +35,11 @@ pub struct RawMediaResults {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Content {
-    pub episodes: Vec<Episode>,
+    pub episodes: Vec<ContentFileDetails>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Episode {
+pub struct ContentFileDetails {
     pub title: String,
     pub subtitles: Subtitles,
     pub media_hash: MediaHash,
