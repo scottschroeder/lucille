@@ -1,7 +1,4 @@
-use crate::{
-    content::{split::SegmentedVideo, ContentData, MediaHash},
-    error::TError,
-};
+use crate::content::{split::SegmentedVideo, ContentData, MediaHash};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, path};
@@ -103,7 +100,6 @@ impl Storage {
         let index_dir = self.storage_path.join(INDEX_DIR);
         log::trace!("loading search index from: {:?}", index_dir.as_path());
         let index = Index::open_in_dir(index_dir.as_path())
-            .map_err(|e| TError::from(e))
             .with_context(|| format!("unable to open index from: {:?}", index_dir))?;
         Ok(index)
     }
@@ -177,8 +173,7 @@ impl Storage {
         std::fs::create_dir_all(index_path.as_path())
             .with_context(|| format!("could not create {:?}", index_path))?;
 
-        let index = crate::search::build_index(&index_path, all_content.into_iter(), max_window)
-            .map_err(|e| TError::from(e))?;
+        let index = crate::search::build_index(&index_path, all_content.into_iter(), max_window)?;
         Ok(index)
     }
 

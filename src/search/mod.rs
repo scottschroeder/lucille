@@ -5,7 +5,10 @@ use std::{
 };
 use tantivy::{collector::TopDocs, doc, query::QueryParser, schema::*, Index};
 
+mod error;
 mod srt_loader;
+
+use error::TError;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct RankScore(pub f32);
@@ -108,6 +111,14 @@ fn get_field(schema: &Schema, field: SchemaField) -> Field {
 }
 
 pub fn search(
+    index: &Index,
+    q: &str,
+    search_window: usize,
+) -> Result<HashMap<usize, EpisodeScore>, TError> {
+    search_impl(index, q, search_window).map_err(TError::from)
+}
+
+pub fn search_impl(
     index: &Index,
     q: &str,
     search_window: usize,

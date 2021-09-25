@@ -1,6 +1,7 @@
 use anyhow::Result;
 
 pub mod argparse;
+mod cli_select;
 mod helpers;
 mod media_intake;
 

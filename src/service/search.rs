@@ -69,8 +69,7 @@ impl<'a> SearchService<'a> {
     }
 
     pub fn search_and_rank<'r>(&self, request: SearchRequest<'r>) -> Result<SearchResponse> {
-        let scores = crate::search::search(&self.index, request.query, request.get_window())
-            .map_err(crate::error::TError::from)?;
+        let scores = crate::search::search(&self.index, request.query, request.get_window())?;
         let results = crate::search::rank(&scores, request.get_max_responses())
             .into_iter()
             .map(|rm| {

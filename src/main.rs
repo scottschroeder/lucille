@@ -1,9 +1,7 @@
 #![feature(binary_heap_into_iter_sorted)]
 
 mod cli;
-mod cli_select;
 mod content;
-mod error;
 mod ffmpeg;
 mod hash;
 mod search;

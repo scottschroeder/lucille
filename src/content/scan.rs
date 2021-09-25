@@ -1,6 +1,6 @@
 use super::{
     metadata::{EpisodeMetadata, MediaMetadata},
-    Content, ContentData, ContentFileDetails, FileSystemContent, MediaHash, MediaId, VideoFile,
+    ContentData, ContentFileDetails, MediaHash, MediaId, VideoFile,
 };
 use crate::{
     hash::Sha2Hash,
@@ -116,44 +116,6 @@ fn process_media_in_parallel(paths: &[path::PathBuf]) -> Vec<(path::PathBuf, Con
 
 //     Ok(content)
 // }
-
-fn scan_filesystem<P: AsRef<path::Path>>(root: P) -> Result<(Content, FileSystemContent)> {
-    let root = root.as_ref();
-    let mut episodes = Vec::new();
-    let mut videos = HashMap::new();
-    for dir in walkdir::WalkDir::new(root)
-        .into_iter()
-        .filter(|de| de.as_ref().map(|de| is_media(de.path())).unwrap_or(true))
-    {
-        let dir = dir?;
-        let media_path = dir.path();
-        let srt_path = media_path.with_extension("srt");
-
-        let media_hash = hash_video(media_path)?;
-
-        let subs = match read_file(srt_path.as_path()).and_then(|s| Subtitles::parse(s.as_str())) {
-            Ok(s) => s,
-            Err(e) => {
-                log::warn!("unable to load subtitles for {:?}: {}", srt_path, e);
-                continue;
-            }
-        };
-        let fname = media_path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("video file path was not utf8"))?
-            .to_owned();
-        let episode = ContentFileDetails {
-            title: title(media_path)?,
-            subtitles: subs,
-            media_hash,
-        };
-        log::trace!("Scanned: {:?}: {}", episode, fname);
-        episodes.push(episode);
-        videos.insert(media_hash, VideoFile(fname));
-    }
-
-    Ok((Content { episodes }, FileSystemContent { videos }))
-}
 
 fn title(p: &path::Path) -> Result<String> {
     let fname = p
