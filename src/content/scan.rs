@@ -2,47 +2,33 @@ use crate::{
     content::{
         hash::Sha2Hash,
         metadata::{EpisodeMetadata, MediaMetadata},
-        ContentData, ContentFileDetails, MediaHash, MediaId, VideoFile,
+        ContentData, ContentFileDetails, MediaHash,
     },
-    srt::{Subtitle, Subtitles},
+    srt::Subtitles,
 };
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, fmt, io::Read, path};
+use std::{collections::HashMap, io::Read, path};
 
 const MEDIA_FILES: &[&str] = &["mkv"];
 
-struct EpisodeFiles {
-    video: String,
-    title: String,
-    subtitles: Vec<Subtitle>,
-}
-
-impl fmt::Debug for EpisodeFiles {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("EpisodeFiles")
-            .field("video", &self.video)
-            .field("title", &self.title)
-            .field("subtitles", &format_args!("[{}]", self.subtitles.len()))
-            .finish()
-    }
-}
-
-fn is_media(p: &path::Path) -> bool {
-    let oext = p.extension();
-    oext.and_then(|ext| ext.to_str())
-        .map(|ext| MEDIA_FILES.contains(&ext))
-        .unwrap_or(false)
-}
-
 #[derive(Debug)]
-pub struct ContentRecord {
-    path: path::PathBuf,
-    subtitles: Subtitles,
+pub struct ContentScanResults {
+    pub suggested_name: Option<String>,
+    pub files: HashMap<MediaHash, path::PathBuf>,
+    pub content: Vec<ContentData>,
 }
 
-pub fn scan_media_paths<P: AsRef<path::Path>>(root: P) -> Result<Vec<path::PathBuf>> {
+/// Get all content under a directory
+pub fn scan_content<P: AsRef<path::Path>>(root: P) -> Result<ContentScanResults> {
+    let contents = scan_media_paths(root)?;
+    let media = process_media_in_parallel(contents.as_slice());
+    Ok(content_metadata(media))
+}
+
+/// Get the list of paths
+fn scan_media_paths<P: AsRef<path::Path>>(root: P) -> Result<Vec<path::PathBuf>> {
     let root = root.as_ref();
     let mut content = Vec::new();
     for dir in walkdir::WalkDir::new(root)
@@ -57,11 +43,21 @@ pub fn scan_media_paths<P: AsRef<path::Path>>(root: P) -> Result<Vec<path::PathB
     Ok(content)
 }
 
-fn extract_subtitles(media_path: &path::Path) -> Result<Subtitles> {
-    let srt_path = media_path.with_extension("srt");
-    read_file(srt_path.as_path()).and_then(|s| Subtitles::parse(s.as_str()))
+/// is a path media we care about?
+fn is_media(p: &path::Path) -> bool {
+    let oext = p.extension();
+    oext.and_then(|ext| ext.to_str())
+        .map(|ext| MEDIA_FILES.contains(&ext))
+        .unwrap_or(false)
 }
 
+/// find/extract subtitles for a given piece of media
+fn extract_subtitles(media_path: &path::Path) -> Result<Subtitles> {
+    let srt_path = media_path.with_extension("srt");
+    path_to_string(srt_path.as_path()).and_then(|s| Subtitles::parse(s.as_str()))
+}
+
+/// get details about a single piece of media
 fn process_single_media(media_path: &path::Path) -> Result<ContentFileDetails> {
     let subtitles = extract_subtitles(media_path)?;
     let media_hash = hash_video(media_path)?;
@@ -75,6 +71,7 @@ fn process_single_media(media_path: &path::Path) -> Result<ContentFileDetails> {
     Ok(episode)
 }
 
+/// batch process a list of media paths
 fn process_media_in_parallel(paths: &[path::PathBuf]) -> Vec<(path::PathBuf, ContentFileDetails)> {
     paths
         .into_par_iter()
@@ -89,50 +86,17 @@ fn process_media_in_parallel(paths: &[path::PathBuf]) -> Vec<(path::PathBuf, Con
         .collect()
 }
 
-// fn scan_content<P: AsRef<path::Path>>(root: P) -> Result<Vec<ContentRecord>> {
-//     let root = root.as_ref();
-//     let mut content = Vec::new();
-//     for dir in walkdir::WalkDir::new(root)
-//         .into_iter()
-//         .filter(|de| de.as_ref().map(|de| is_media(de.path())).unwrap_or(true))
-//     {
-//         let dir = dir?;
-//         let media_path = dir.path();
-//         let srt_path = media_path.with_extension("srt");
-
-//         let subs = match read_file(srt_path.as_path()).and_then(|s| Subtitles::parse(s.as_str())) {
-//             Ok(s) => s,
-//             Err(e) => {
-//                 log::warn!("unable to load subtitles for {:?}: {}", srt_path, e);
-//                 continue;
-//             }
-//         };
-//         log::trace!("scanned: {:?}: {:?}", media_path, subs);
-//         content.push(ContentRecord {
-//             path: media_path.to_owned(),
-//             subtitles: subs,
-//         })
-//     }
-
-//     Ok(content)
-// }
-
+/// get the title for a media path
+/// TODO: this is a really primitive implementation
 fn title(p: &path::Path) -> Result<String> {
     let fname = p
         .file_name()
         .and_then(|os| os.to_str())
         .ok_or_else(|| anyhow::anyhow!("media path was not utf8"))?;
     return Ok(fname.to_string());
-    // // let meta = torrent_name_parser::Metadata::from(fname);
-    // // log::info!("{} {:#?}", fname, meta);
-    // let title = if let Some(idx) = fname.rfind('.') {
-    //     &fname[..idx]
-    // } else {
-    //     fname
-    // };
-    // Ok(title.to_string())
 }
 
+/// Get the sha2 hash for a media path
 fn hash_video(p: &path::Path) -> Result<MediaHash> {
     let mut file =
         std::fs::File::open(p).with_context(|| format!("could not open file: {:?}", p))?;
@@ -143,7 +107,7 @@ fn hash_video(p: &path::Path) -> Result<MediaHash> {
     Ok(MediaHash::new(Sha2Hash::from(hasher.finalize())))
 }
 
-fn read_file<P: AsRef<path::Path>>(tpath: P) -> Result<String> {
+fn path_to_string<P: AsRef<path::Path>>(tpath: P) -> Result<String> {
     let tpath = tpath.as_ref();
     let mut f = std::fs::File::open(tpath)?;
     let mut v = Vec::new();
@@ -167,6 +131,7 @@ fn read_file<P: AsRef<path::Path>>(tpath: P) -> Result<String> {
     })
 }
 
+/// Get rich-ish metadata from a media's title
 fn extract_metadata(title: &str) -> (MediaMetadata, Option<String>) {
     let mut name_guess = None;
     let metadata = match torrent_name_parser::Metadata::from(title) {
@@ -190,14 +155,8 @@ fn extract_metadata(title: &str) -> (MediaMetadata, Option<String>) {
     (metadata, name_guess)
 }
 
-#[derive(Debug)]
-struct MediaFileMap {
-    inner: HashMap<MediaId, VideoFile>,
-}
-
-fn content_metadata(
-    media: Vec<(path::PathBuf, ContentFileDetails)>,
-) -> (String, HashMap<MediaHash, path::PathBuf>, Vec<ContentData>) {
+/// process an entire collection for metadata
+fn content_metadata(media: Vec<(path::PathBuf, ContentFileDetails)>) -> ContentScanResults {
     let mut content_name_guesser = HashMap::new();
     let mut content = Vec::new();
     let mut media_file_map = HashMap::new();
@@ -217,15 +176,11 @@ fn content_metadata(
     let content_name = content_name_guesser
         .into_iter()
         .max_by_key(|(_, v)| *v)
-        .map(|(s, _)| s)
-        .unwrap_or_else(|| "Unknown".to_string());
-    (content_name, media_file_map, content)
-}
+        .map(|(s, _)| s);
 
-pub fn scan_content<P: AsRef<path::Path>>(
-    root: P,
-) -> Result<(String, HashMap<MediaHash, path::PathBuf>, Vec<ContentData>)> {
-    let contents = scan_media_paths(root)?;
-    let media = process_media_in_parallel(contents.as_slice());
-    Ok(content_metadata(media))
+    ContentScanResults {
+        suggested_name: content_name,
+        files: media_file_map,
+        content,
+    }
 }

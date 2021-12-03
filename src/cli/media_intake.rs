@@ -14,12 +14,16 @@ pub fn scan_titles(args: &clap::ArgMatches) -> Result<()> {
     let s = get_storage(args);
     s.prepare().context("could not prepare storage")?;
     log::debug!("scan titles: {:?}", p);
-    let (title, files, content) = scan_content(p)?;
-    for c in &content {
+    let scan_results = scan_content(p)?;
+    for c in &scan_results.content {
         s.write_content(c.media_hash, c)
             .context("could not write content")?;
     }
-    s.write_content_db(title, files)?;
+    let title = scan_results.suggested_name.unwrap_or_else(|| {
+        log::warn!("unable to determine content name");
+        "Unknown".to_string()
+    });
+    s.write_content_db(title, scan_results.files)?;
     Ok(())
 }
 
