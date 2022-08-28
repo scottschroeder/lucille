@@ -1,49 +1,8 @@
-[package]
-name = "lucile"
-version = "0.1.0"
-authors = ["Scott Schroeder <scottschroeder@sent.com>"]
-edition = "2018"
+[workspace]
+resolver = "2"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-clap = "2.33"
-color-backtrace = { version = "0.5" }
-pretty_env_logger = "0.4"
-rayon = "1"
-
-log = "0.4"
-anyhow = "1"
-thiserror = "1.0"
-
-encoding_rs = "0.8.26"
-walkdir = "2.3"
-tempfile = "3"
-sha2 = "0.9"
-hex = "0.4.2"
-
-tantivy = "0.16"
-uuid = "0.8.1"
-nom = "7.0"
-
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1"
-csv = "1"
-
-# aes = "0.7.5"
-sodiumoxide = "0.2.7"
-
-
-once-cell-regex = "0.2.1"
-torrent-name-parser = "0.5.0"
-
-#lazy_static = "1.4"
-#regex = "1.4"
-
-#futures = "0.3"
-#tokio = { version = "0.3", features = ["full"] }
-#async-trait = "0.1"
-
-[features]
-# Defines a feature named `webp` that does not enable any other features.
-ffmpeg-debug = []
+members = [
+  "core",
+  "cli",
+  "database",
+]

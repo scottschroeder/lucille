@@ -11,8 +11,9 @@ Cargo.lock
 
 
 # Added by cargo
-
 /target
 
-/index
-/storage
+
+# sql
+!database/migrations/*
+*.db

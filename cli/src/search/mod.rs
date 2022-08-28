@@ -189,7 +189,7 @@ pub fn rank(scores: &HashMap<usize, EpisodeScore>, top: usize) -> Vec<RankedMatc
             })
         })
         .collect::<BinaryHeap<RankedMatch>>();
-    ranked.into_iter_sorted().take(top).collect()
+    ranked.into_sorted_vec().into_iter().take(top).collect()
 }
 
 pub struct EpisodeScore {
