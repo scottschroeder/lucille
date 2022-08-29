@@ -6,6 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+lucile-core = {path = "../lucile-core"}
+log = "0.4"
+
 sqlx = { version = "0.6", features = ["sqlite", "runtime-tokio-native-tls"] }
 tokio = { version = "1.20.0", features = ["macros"]}
 futures = "0.3"

@@ -1,76 +1,38 @@
-use anyhow::Result;
-
 pub mod argparse;
 mod cli_select;
 mod helpers;
 mod media_intake;
+mod corpus {
+    use database::Database;
 
-// pub fn run_cli(args: &clap::ArgMatches) -> Result<()> {
-//     match args.subcommand() {
-//         ("media", Some(sub_m)) => match sub_m.subcommand() {
-//             ("scan", Some(sub_m)) => media_intake::scan_titles(sub_m),
-//             ("index", Some(sub_m)) => media_intake::index(sub_m),
-//             ("prepare", Some(sub_m)) => media_intake::prepare(sub_m),
-//             ("", _) => Err(anyhow::anyhow!(
-//                 "Please provide a command:\n{}",
-//                 args.usage()
-//             )),
-//             subc => Err(anyhow::anyhow!(
-//                 "Unknown command: {:?}\n{}",
-//                 subc,
-//                 args.usage()
-//             )),
-//         },
-//         ("scan-titles", Some(sub_m)) => media_intake::scan_titles(sub_m),
-//         ("demo", Some(sub_m)) => demo(sub_m),
-//         ("", _) => Err(anyhow::anyhow!(
-//             "Please provide a command:\n{}",
-//             args.usage()
-//         )),
-//         subc => Err(anyhow::anyhow!(
-//             "Unknown command: {:?}\n{}",
-//             subc,
-//             args.usage()
-//         )),
-//     }
-// }
+    use crate::cli::helpers;
 
-fn demo(_args: &clap::ArgMatches) -> Result<()> {
-    // details::encrypted::aesbytes::encrypt("lksjdfsdforiuweoriuweroiuwecwlkj");
-    Ok(())
-}
+    use super::argparse;
 
-pub fn setup_logger(level: u64) {
-    let mut builder = pretty_env_logger::formatted_timed_builder();
-
-    let noisy_modules = &[
-        "hyper",
-        "mio",
-        "tokio_core",
-        "tokio_reactor",
-        "tokio_threadpool",
-        "fuse::request",
-        "rusoto_core",
-        "want",
-        "tantivy",
-    ];
-
-    let log_level = match level {
-        //0 => log::Level::Error,
-        0 => log::LevelFilter::Warn,
-        1 => log::LevelFilter::Info,
-        2 => log::LevelFilter::Debug,
-        _ => log::LevelFilter::Trace,
-    };
-
-    if level > 1 && level < 4 {
-        for module in noisy_modules {
-            builder.filter_module(module, log::LevelFilter::Info);
-        }
+    pub(crate) async fn create_new_corpus(args: &argparse::CorpusNewOpts) -> anyhow::Result<()> {
+        let db = helpers::get_database(&args.db).await?;
+        log::info!("creating new corpus with name: {:?}", args.name);
+        let id = db.add_corpus(&args.name).await?;
+        log::info!("inserted `{}` with id={}", args.name, id);
+        Ok(())
     }
 
-    builder.filter_level(log_level);
-    builder.format_timestamp_millis();
-    //builder.format(|buf, record| writeln!(buf, "{}", record.args()));
-    builder.init();
+    pub(crate) async fn list_all_corpus(args: &argparse::CorpusListOpts) -> anyhow::Result<()> {
+        let db = helpers::get_database(&args.db).await?;
+        let corpus = db.list_corpus().await?;
+        for c in corpus {
+            println!("{:?}", c);
+        }
+        Ok(())
+    }
+}
+
+pub async fn run_cli(args: &argparse::CliOpts) -> anyhow::Result<()> {
+    match &args.subcmd {
+        argparse::SubCommand::Corpus(sub) => match sub {
+            argparse::CorpusCommand::New(opts) => corpus::create_new_corpus(opts).await,
+            argparse::CorpusCommand::List(opts) => corpus::list_all_corpus(opts).await
+            
+        },
+    }
 }

@@ -18,15 +18,19 @@ pub struct CliOpts {
 
 #[derive(Parser, Debug)]
 pub enum SubCommand {
-    /// Process and prepare media
+    /// Create a new corpus
     #[clap(subcommand)]
-    Media(MediaCommand),
-    Index(IndexCommand),
-    Prepare(PrepareCommand),
-    Search(PrepareCommand),
-    Transcode(PrepareCommand),
-    Test(PrepareCommand),
-    Interactive(PrepareCommand),
+    Corpus(CorpusCommand),
+    // Process and prepare media
+    // #[clap(subcommand)]
+    // Media(MediaCommand),
+    // Index(IndexCommand),
+
+    // Library(LibraryCommand),
+    // Search(PrepareCommand),
+    // Transcode(PrepareCommand),
+    // Test(PrepareCommand),
+    // Interactive(PrepareCommand),
     // Render an image
     // #[clap(subcommand)]
     // Render(Render),
@@ -36,6 +40,36 @@ pub enum SubCommand {
 pub struct IndexCommand {}
 #[derive(Parser, Debug)]
 pub struct PrepareCommand {}
+
+#[derive(Parser, Debug)]
+pub enum CorpusCommand {
+    /// Create a new corpus
+    New(CorpusNewOpts),
+    /// List existing corpuses
+    List(CorpusListOpts),
+}
+
+#[derive(Parser, Debug)]
+pub struct CorpusNewOpts {
+    pub name: String,
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+}
+
+#[derive(Parser, Debug)]
+pub struct CorpusListOpts {
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+}
+
+#[derive(Parser, Debug)]
+pub struct DatabaseConfig {
+    /// Path to sqlite database file.
+    /// 
+    /// If not provided, will attempt to read `DATABASE_URL` env var.
+    #[clap(long)]
+    pub database_path: Option<std::path::PathBuf>,
+}
 
 #[derive(Parser, Debug)]
 pub enum MediaCommand {

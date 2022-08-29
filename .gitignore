@@ -16,4 +16,4 @@ Cargo.lock
 
 # sql
 !database/migrations/*
-*.db
+*.db*

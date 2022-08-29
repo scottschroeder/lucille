@@ -6,20 +6,18 @@ mod service;
 mod srt;
 mod storage;
 
-// fn main() -> anyhow::Result<()> {
-//     color_backtrace::install();
-//     let args = cli::argparse::get_args();
-//     cli::setup_logger(args.occurrences_of("verbosity"));
-//     log::trace!("Args: {:?}", args);
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    color_backtrace::install();
+    let args = cli::argparse::get_args();
+    setup_logger(args.verbose);
+    log::trace!("Args: {:?}", args);
 
-//     cli::run_cli(&args).map_err(|e| {
-//         log::error!("{}", e);
-//         e.chain()
-//             .skip(1)
-//             .for_each(|cause| log::error!("because: {}", cause));
-//         anyhow::anyhow!("unrecoverable lucile failure")
-//     })
-// }
+    cli::run_cli(&args).await.map_err(|e| {
+        log::error!("{:?}", e);
+        anyhow::anyhow!("unrecoverable {} failure", clap::crate_name!())
+    })
+}
 
 pub fn setup_logger(level: u8) {
     let mut builder = pretty_env_logger::formatted_timed_builder();
@@ -43,24 +41,4 @@ pub fn setup_logger(level: u8) {
     builder.filter_level(log_level);
     builder.format_timestamp_millis();
     builder.init();
-}
-
-fn main() -> anyhow::Result<()> {
-    color_backtrace::install();
-    let args = cli::argparse::get_args();
-    setup_logger(args.verbose);
-    log::trace!("Args: {:?}", args);
-
-    match &args.subcmd {
-        cli::argparse::SubCommand::Media(sub) => dummy(),
-        _ => dummy(), // argparse::SubCommand::Test(sub) => run_test(sub),
-    }
-    .map_err(|e| {
-        log::error!("{:?}", e);
-        anyhow::anyhow!("unrecoverable {} failure", clap::crate_name!())
-    })
-}
-
-fn dummy() -> anyhow::Result<()> {
-    Ok(())
 }

@@ -2,7 +2,8 @@
 resolver = "2"
 
 members = [
-  "core",
+  "app",
+  "lucile-core",
   "cli",
   "database",
 ]
