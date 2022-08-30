@@ -50,10 +50,16 @@ pub async fn add_content_to_corpus(
             }
             scan::ScannedSubtitles::Subtitles(subs) => db.add_subtitles(chapter_id, subs).await?,
         }
-        //     let media_view_id = db.add_media_view(chapter_id, "original").await?;
-        //     db.add_media_segment(media_view_id, file.hash, 0, Duration::MAX)
-        //         .await?;
-        //     db.add_storage(file.hash, file.path).await?
+        let media_view_id = db.add_media_view(chapter_id, "original").await?;
+        db.add_media_segment(
+            media_view_id,
+            file.hash,
+            Duration::default(),
+            Duration::MAX,
+            None,
+        )
+        .await?;
+        db.add_storage(file.hash, &file.path).await?
     }
 
     Ok(())

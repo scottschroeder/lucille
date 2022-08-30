@@ -1,9 +1,10 @@
 use futures::TryStreamExt;
 use lucile_core::metadata::MediaHash;
-use lucile_core::{ChapterId, Corpus, CorpusId, Subtitle};
+use lucile_core::{ChapterId, Corpus, CorpusId, MediaViewId, Subtitle};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteSynchronous};
 use sqlx::{Pool, QueryBuilder, Sqlite};
-use std::path;
+use std::os::unix::prelude::OsStrExt;
+use std::path::{self, Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -139,7 +140,7 @@ impl Database {
         );
 
         let cid = corpus_id.get();
-        let hash_data = hash.as_slice();
+        let hash_data = hash.to_string();
         let id = sqlx::query!(
             r#"
                     INSERT INTO chapter (corpus_id, title, season, episode, hash)
@@ -158,6 +159,78 @@ impl Database {
         log::info!("chapter_id: {:?}", id);
 
         Ok(ChapterId::new(id))
+    }
+
+    pub async fn add_media_view<S: Into<String>>(
+        &self,
+        chapter_id: ChapterId,
+        description: S,
+    ) -> Result<MediaViewId, DatabaseError> {
+        let description = description.into();
+
+        let cid = chapter_id.get();
+        let id = sqlx::query!(
+            r#"
+                    INSERT INTO media_view (chapter_id, description)
+                    VALUES ( ?1, ?2 )
+                    "#,
+            cid,
+            description,
+        )
+        .execute(&self.pool)
+        .await?
+        .last_insert_rowid();
+
+        Ok(MediaViewId::new(id))
+    }
+
+    pub async fn add_media_segment(
+        &self,
+        media_view_id: MediaViewId,
+        hash: MediaHash,
+        start: Duration,
+        end: Duration,
+        key: Option<String>,
+    ) -> Result<(), DatabaseError> {
+        let cid = media_view_id.get();
+        let hash_data = hash.to_string();
+        let tstart = start.as_secs_f64();
+        let tend = end.as_secs_f64();
+
+        let id = sqlx::query!(
+            r#"
+                    INSERT INTO media_segment (media_view_id, hash, start, end, encryption_key)
+                    VALUES ( ?1, ?2, ?3, ?4, ?5)
+                    "#,
+            cid,
+            hash_data,
+            tstart,
+            tend,
+            key,
+        )
+        .execute(&self.pool)
+        .await?
+        .last_insert_rowid();
+
+        Ok(())
+    }
+
+    pub async fn add_storage(&self, hash: MediaHash, path: &Path) -> Result<(), DatabaseError> {
+        let hash_data = hash.to_string();
+        let path_repr = path.as_os_str().as_bytes();
+        let id = sqlx::query!(
+            r#"
+                    INSERT INTO storage (hash, path)
+                    VALUES ( ?1, ?2)
+                    "#,
+            hash_data,
+            path_repr,
+        )
+        .execute(&self.pool)
+        .await?
+        .last_insert_rowid();
+
+        Ok(())
     }
 
     pub async fn add_subtitles(

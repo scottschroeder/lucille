@@ -119,7 +119,7 @@ fn hash_video(p: &path::Path) -> Result<MediaHash, ScanError> {
     let mut hasher = Sha256::new();
 
     // TODO FIXME DO NOT MERGE temp hack to speed up test cycle
-    let mut file = std::io::Cursor::new(p.as_os_str().as_bytes());
+    // let mut file = std::io::Cursor::new(p.as_os_str().as_bytes());
 
     std::io::copy(&mut file, &mut hasher)?;
     Ok(MediaHash::new(Sha2Hash::from(hasher.finalize())))
