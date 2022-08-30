@@ -1,7 +1,8 @@
-use lucile_core::Corpus;
 use futures::TryStreamExt;
+use lucile_core::metadata::MediaHash;
+use lucile_core::{ChapterId, Corpus, CorpusId, Subtitle};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteSynchronous};
-use sqlx::{Pool, Sqlite};
+use sqlx::{Pool, QueryBuilder, Sqlite};
 use std::path;
 use std::str::FromStr;
 use std::time::Duration;
@@ -49,7 +50,7 @@ impl Database {
         Ok(Database { pool })
     }
 
-    pub async fn add_corpus<S: Into<String>>(&self, name: S) -> Result<i64, DatabaseError> {
+    pub async fn add_corpus<S: Into<String>>(&self, name: S) -> Result<Corpus, DatabaseError> {
         let name = name.into();
         let id = sqlx::query!(
             r#"
@@ -61,8 +62,46 @@ impl Database {
         .execute(&self.pool)
         .await?
         .last_insert_rowid();
+        let cid = CorpusId::new(id);
+
+        Ok(Corpus {
+            id: Some(cid),
+            title: name,
+        })
+    }
+
+    pub async fn get_corpus_id(&self, title: &str) -> Result<Option<CorpusId>, DatabaseError> {
+        let id = sqlx::query!(
+            r#"
+            SELECT 
+                id
+            FROM 
+                corpus
+            WHERE
+                title = ?
+         "#,
+            title,
+        )
+        .map(|r| CorpusId::new(r.id))
+        .fetch_optional(&self.pool)
+        .await?;
         Ok(id)
     }
+
+    pub async fn get_or_add_corpus<S: Into<String>>(
+        &self,
+        name: S,
+    ) -> Result<Corpus, DatabaseError> {
+        let name = name.into();
+        Ok(match self.get_corpus_id(&name).await? {
+            Some(id) => Corpus {
+                id: Some(id),
+                title: name,
+            },
+            None => self.add_corpus(name).await?,
+        })
+    }
+
     pub async fn list_corpus(&self) -> Result<Vec<Corpus>, DatabaseError> {
         let rows = sqlx::query!(
             r#"
@@ -73,12 +112,89 @@ impl Database {
          "#
         )
         .map(|r| Corpus {
-            id: r.id,
+            id: Some(CorpusId::new(r.id)),
             title: r.title,
         })
         .fetch(&self.pool);
 
         Ok(rows.try_collect().await?)
+    }
+
+    pub async fn define_chapter<S: Into<String>>(
+        &self,
+        corpus_id: CorpusId,
+        title: S,
+        season: Option<i64>,
+        episode: Option<i64>,
+        hash: MediaHash,
+    ) -> Result<ChapterId, DatabaseError> {
+        let title = title.into();
+        log::trace!(
+            "define chapter: C={}, title={:?}, S[{:?}] E[{:?}] {:?}",
+            corpus_id,
+            title,
+            season,
+            episode,
+            hash
+        );
+
+        let cid = corpus_id.get();
+        let hash_data = hash.as_slice();
+        let id = sqlx::query!(
+            r#"
+                    INSERT INTO chapter (corpus_id, title, season, episode, hash)
+                    VALUES ( ?1, ?2, ?3, ?4, ?5 )
+                    "#,
+            cid,
+            title,
+            season,
+            episode,
+            hash_data
+        )
+        .execute(&self.pool)
+        .await?
+        .last_insert_rowid();
+
+        log::info!("chapter_id: {:?}", id);
+
+        Ok(ChapterId::new(id))
+    }
+
+    pub async fn add_subtitles(
+        &self,
+        chapter_id: ChapterId,
+        subtitles: &[Subtitle],
+    ) -> Result<(), DatabaseError> {
+        let cid = chapter_id.get();
+        let id = sqlx::query!(
+            r#"
+                    INSERT INTO srtfile (chapter_id)
+                    VALUES ( ?1 )
+                    "#,
+            cid,
+        )
+        .execute(&self.pool)
+        .await?
+        .last_insert_rowid();
+
+        log::info!("srt file id: {:?}", id);
+
+        let mut insert_builder: QueryBuilder<Sqlite> = QueryBuilder::new(
+            r#"INSERT INTO subtitle (srt_id, idx, content, time_start, time_end)"#,
+        );
+
+        insert_builder.push_values(subtitles.iter().enumerate(), |mut b, (idx, sub)| {
+            b.push_bind(id)
+                .push_bind(idx as u32)
+                .push_bind(sub.text.as_str())
+                .push_bind(sub.start.as_secs_f64())
+                .push_bind(sub.end.as_secs_f64());
+        });
+        let query = insert_builder.build();
+
+        query.execute(&self.pool).await?;
+
+        Ok(())
     }
 }
 

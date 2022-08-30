@@ -21,6 +21,8 @@ pub enum SubCommand {
     /// Create a new corpus
     #[clap(subcommand)]
     Corpus(CorpusCommand),
+
+    ScanChapters(ScanChaptersOpts),
     // Process and prepare media
     // #[clap(subcommand)]
     // Media(MediaCommand),
@@ -50,6 +52,17 @@ pub enum CorpusCommand {
 }
 
 #[derive(Parser, Debug)]
+pub struct ScanChaptersOpts {
+    // /// Attach these files to an existing corpus
+    #[clap(long)]
+    pub corpus_name: String,
+
+    pub dir: std::path::PathBuf,
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+}
+
+#[derive(Parser, Debug)]
 pub struct CorpusNewOpts {
     pub name: String,
     #[clap(flatten)]
@@ -65,7 +78,7 @@ pub struct CorpusListOpts {
 #[derive(Parser, Debug)]
 pub struct DatabaseConfig {
     /// Path to sqlite database file.
-    /// 
+    ///
     /// If not provided, will attempt to read `DATABASE_URL` env var.
     #[clap(long)]
     pub database_path: Option<std::path::PathBuf>,

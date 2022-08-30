@@ -8,6 +8,8 @@ edition = "2018"
 
 [dependencies]
 database = {path = "../database"}
+lucile-core = {path = "../lucile-core"}
+app = {path = "../app"}
 clap = {version = "3.2", features = ["derive", "cargo"]}
 color-backtrace = { version = "0.5" }
 pretty_env_logger = "0.4"

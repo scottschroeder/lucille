@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
 pub fn setup_logger(level: u8) {
     let mut builder = pretty_env_logger::formatted_timed_builder();
 
-    let noisy_modules: &[&str] = &[];
+    let noisy_modules: &[&str] = &["sqlx::query"];
 
     let log_level = match level {
         //0 => log::Level::Error,
@@ -34,7 +34,7 @@ pub fn setup_logger(level: u8) {
 
     if level > 1 && level < 4 {
         for module in noisy_modules {
-            builder.filter_module(module, log::LevelFilter::Info);
+            builder.filter_module(module, log::LevelFilter::Warn);
         }
     }
 
