@@ -1,10 +1,12 @@
-use self::srt_loader::IndexableEpisode;
-use lucile_core::uuid::Uuid;
 use std::{
     collections::{BinaryHeap, HashMap},
     path::Path,
 };
+
+use lucile_core::uuid::Uuid;
 use tantivy::{collector::TopDocs, doc, query::QueryParser, schema::*, Index};
+
+use self::srt_loader::IndexableEpisode;
 
 pub mod error;
 mod srt_loader;
@@ -146,7 +148,7 @@ pub fn search_impl(
 
     let reader = index.reader()?;
     let searcher = reader.searcher();
-    let query_parser = QueryParser::for_index(&index, vec![body]);
+    let query_parser = QueryParser::for_index(index, vec![body]);
     let query = query_parser.parse_query(q)?;
 
     let top_docs = searcher.search(&query, &TopDocs::with_limit(10000))?;

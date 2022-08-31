@@ -1,17 +1,14 @@
 use std::{
-    collections::HashMap,
     io::Read,
-    os::unix::prelude::OsStrExt,
     path::{self, PathBuf},
 };
-
-use rayon::prelude::*;
-use sha2::{Digest, Sha256};
 
 use lucile_core::{
     hash::Sha2Hash,
     metadata::{EpisodeMetadata, MediaHash, MediaMetadata},
 };
+use rayon::prelude::*;
+use sha2::{Digest, Sha256};
 
 const MEDIA_FILES: &[&str] = &["mkv"];
 
@@ -166,7 +163,7 @@ fn process_media_in_parallel(paths: &[path::PathBuf]) -> Vec<ScannedMedia> {
                 None
             }
         })
-        .map(|(p, r)| r)
+        .map(|(_p, r)| r)
         .collect()
 }
 
@@ -185,7 +182,7 @@ fn extract_metadata(title: &str) -> MediaMetadata {
                 MediaMetadata::Episode(EpisodeMetadata {
                     season: s as u32,
                     episode: e as u32,
-                    title: hacky_extract_episode_name(title).to_string(),
+                    title: hacky_extract_episode_name(title),
                 })
             } else {
                 MediaMetadata::Unknown(m.title().to_string())

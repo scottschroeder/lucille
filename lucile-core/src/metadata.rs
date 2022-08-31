@@ -1,6 +1,8 @@
-use crate::hash::Sha2Hash;
-use serde::{Deserialize, Serialize};
 use std::fmt;
+
+use serde::{Deserialize, Serialize};
+
+use crate::hash::Sha2Hash;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EpisodeMetadata {
@@ -41,4 +43,3 @@ impl fmt::Display for MediaHash {
         self.0.fmt(f)
     }
 }
-

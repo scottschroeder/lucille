@@ -3,11 +3,9 @@ pub mod argparse;
 mod helpers;
 // mod media_intake;
 mod corpus {
-    use database::Database;
-
-    use crate::cli::helpers;
 
     use super::argparse;
+    use crate::cli::helpers;
 
     pub(crate) async fn create_new_corpus(args: &argparse::CorpusNewOpts) -> anyhow::Result<()> {
         let app = helpers::get_app(Some(&args.db), None).await?;
@@ -30,9 +28,8 @@ mod corpus {
 mod scan {
     use app::{add_content_to_corpus, scan::scan_content};
 
-    use crate::cli::helpers;
-
     use super::argparse;
+    use crate::cli::helpers;
 
     pub(crate) async fn scan_chapters(args: &argparse::ScanChaptersOpts) -> anyhow::Result<()> {
         let app = helpers::get_app(Some(&args.db), None).await?;

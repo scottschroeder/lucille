@@ -1,4 +1,5 @@
 use std::{fmt::Debug, num::NonZeroI64};
+
 pub use subrip::Subtitle;
 
 pub mod hash;

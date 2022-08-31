@@ -1,8 +1,6 @@
 use app::app::LucileApp;
-use database::Database;
 
 // use crate::{service::search::SearchRequest, storage::Storage};
-
 use super::argparse;
 
 // pub fn get_search_request<'a>(args: &'a clap::ArgMatches) -> anyhow::Result<SearchRequest<'a>> {
@@ -22,7 +20,6 @@ use super::argparse;
 //     let storage_path = std::path::Path::new(storage_path);
 //     Storage::new(storage_path, index_name)
 // }
-
 
 pub async fn get_app(
     db_args: Option<&argparse::DatabaseConfig>,

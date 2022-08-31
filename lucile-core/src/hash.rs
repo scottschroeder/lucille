@@ -1,7 +1,8 @@
+use std::{fmt, str::FromStr};
+
 use hex::FromHex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
-use std::{fmt, str::FromStr};
 
 const HASH_SIZE: usize = 32;
 type MySha = sha2::Sha256;
@@ -39,7 +40,7 @@ impl FromStr for Sha2Hash {
         let hex_bytes = if s.starts_with("0x") || s.starts_with("0X") {
             &s.as_bytes()[2..]
         } else {
-            &s.as_bytes()[..]
+            s.as_bytes()
         };
         Ok(Sha2Hash::from(<HashBytes>::from_hex(hex_bytes)?))
     }
@@ -79,8 +80,9 @@ impl<'de> Deserialize<'de> for Sha2Hash {
 #[cfg(test)]
 mod test {
 
-    use super::*;
     use serde_json;
+
+    use super::*;
 
     const TEST_DATA: &str = "the quick brown fox jumped over the lazy log\n";
     const TEST_HASH_STR: &str = "e2291e7093575a6f3de282e558ee85b0eab2e8e1f1025c0f277a5ee31e4cfb84";

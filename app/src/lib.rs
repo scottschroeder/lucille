@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use database::Database;
-use lucile_core::{storage::Storage, uuid::Uuid, Corpus, CorpusId};
+use lucile_core::{uuid::Uuid, Corpus, CorpusId};
 
 use self::{app::LucileApp, scan::ScannedMedia};
 pub mod scan;
@@ -12,7 +12,6 @@ pub mod app {
     use std::path::{Path, PathBuf};
 
     use database::{Database, DatabaseError};
-    use lucile_core::storage::Storage;
 
     use crate::LucileAppError;
 

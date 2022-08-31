@@ -1,15 +1,21 @@
+use std::{
+    collections::{HashMap, HashSet},
+    os::unix::prelude::OsStrExt,
+    path::{self, Path, PathBuf},
+    str::FromStr,
+    time::Duration,
+};
+
 use futures::TryStreamExt;
-use lucile_core::metadata::{EpisodeMetadata, MediaHash, MediaMetadata};
-use lucile_core::uuid::Uuid;
-use lucile_core::{ChapterId, ContentData, Corpus, CorpusId, MediaViewId, Subtitle};
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteSynchronous};
-use sqlx::{Pool, QueryBuilder, Sqlite};
-use std::collections::{HashMap, HashSet};
-use std::ffi::{OsStr, OsString};
-use std::os::unix::prelude::OsStrExt;
-use std::path::{self, Path, PathBuf};
-use std::str::FromStr;
-use std::time::Duration;
+use lucile_core::{
+    metadata::{EpisodeMetadata, MediaHash, MediaMetadata},
+    uuid::Uuid,
+    ChapterId, ContentData, Corpus, CorpusId, MediaViewId, Subtitle,
+};
+use sqlx::{
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteSynchronous},
+    Pool, QueryBuilder, Sqlite,
+};
 
 const POOL_TIMEOUT: Duration = Duration::from_secs(30);
 const POOL_MAX_CONN: u32 = 2;
@@ -71,7 +77,7 @@ impl Database {
         })
     }
     pub async fn from_env() -> Result<Database, DatabaseError> {
-        let url = db_env()?.ok_or_else(|| DatabaseError::NoDatabaseSpecified)?;
+        let url = db_env()?.ok_or(DatabaseError::NoDatabaseSpecified)?;
         let pool = from_env_db(&url).await?;
         migrations(&pool).await?;
         Ok(Database {
@@ -226,7 +232,7 @@ impl Database {
         let tstart = start.as_secs_f64();
         let tend = end.as_secs_f64();
 
-        let id = sqlx::query!(
+        let _id = sqlx::query!(
             r#"
                     INSERT INTO media_segment (media_view_id, hash, start, end, encryption_key)
                     VALUES ( ?1, ?2, ?3, ?4, ?5)
@@ -247,7 +253,7 @@ impl Database {
     pub async fn add_storage(&self, hash: MediaHash, path: &Path) -> Result<(), DatabaseError> {
         let hash_data = hash.to_string();
         let path_repr = path.as_os_str().as_bytes();
-        let id = sqlx::query!(
+        let _id = sqlx::query!(
             r#"
                     INSERT INTO storage (hash, path)
                     VALUES ( ?1, ?2)
@@ -430,7 +436,7 @@ impl Database {
  *
  * GET ALL SHOWS ASSOCIATED WITH A SEARCH INDEX
  *
-SELECT DISTINCT 
+SELECT DISTINCT
   corpus.id, corpus.title
 FROM corpus
 JOIN chapter
@@ -501,10 +507,10 @@ fn subtitle_from_record(
     end: &str,
     text: String,
 ) -> Result<Subtitle, DatabaseError> {
-    let start = start.parse::<f64>().map_err(|e| {
+    let start = start.parse::<f64>().map_err(|_e| {
         DatabaseError::ConvertFromSqlError(format!("convert to float: {:?}", start))
     })?;
-    let end = end.parse::<f64>().map_err(|e| {
+    let end = end.parse::<f64>().map_err(|_e| {
         DatabaseError::ConvertFromSqlError(format!("convert to float: {:?}", start))
     })?;
 
@@ -561,8 +567,9 @@ async fn connect_db<P: AsRef<path::Path>>(filename: P) -> Result<Pool<Sqlite>, D
 
 #[cfg(test)]
 mod tests {
-    use crate::Database;
     use futures::TryStreamExt;
+
+    use crate::Database;
 
     const TABLES: &[&str] = &["_sqlx_migrations", "corpus", "chapter", "subtitle"];
 
@@ -588,6 +595,8 @@ mod tests {
                 seen.push(name);
             }
         }
-        assert_eq!(seen.as_slice(), TABLES);
+        for expected in TABLES {
+            assert!(seen.contains(&expected.to_string()))
+        }
     }
 }
