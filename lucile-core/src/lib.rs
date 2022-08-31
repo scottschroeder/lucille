@@ -1,8 +1,52 @@
-use std::num::NonZeroI64;
+use std::{fmt::Debug, num::NonZeroI64};
 pub use subrip::Subtitle;
 
 pub mod hash;
 pub mod metadata;
+
+pub mod uuid {
+    use std::fmt::Display;
+
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub struct Uuid(uuid::Uuid);
+
+    impl Uuid {
+        pub fn generate() -> Self {
+            Uuid(uuid::Uuid::new_v4())
+        }
+    }
+
+    impl Display for Uuid {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", self.0)
+        }
+    }
+}
+
+pub mod storage {
+    use std::path::PathBuf;
+
+    #[derive(Debug)]
+    pub struct Storage {
+        pub index_root: PathBuf,
+    }
+}
+
+pub struct ContentData {
+    pub metadata: metadata::MediaMetadata,
+    pub subtitle: Vec<Subtitle>,
+}
+
+impl Debug for ContentData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ContentData")
+            .field("metadata", &self.metadata)
+            .field("subtitle", &self.subtitle.len())
+            .finish()
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct DbId(NonZeroI64);
@@ -26,7 +70,6 @@ impl std::fmt::Display for CorpusId {
         write!(f, "{}", self.get())
     }
 }
-
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ChapterId(DbId);

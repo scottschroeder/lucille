@@ -1,19 +1,33 @@
 use self::srt_loader::IndexableEpisode;
+use lucile_core::uuid::Uuid;
 use std::{
     collections::{BinaryHeap, HashMap},
     path::Path,
 };
 use tantivy::{collector::TopDocs, doc, query::QueryParser, schema::*, Index};
 
-mod error;
+pub mod error;
 mod srt_loader;
 
 use error::TError;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug)]
+pub struct SearchIndex {
+    inner: tantivy::Index,
+    uuid: Uuid,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RankScore(pub f32);
 
 impl Eq for RankScore {}
+
+impl PartialOrd for RankScore {
+    fn partial_cmp(&self, other: &RankScore) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+
 impl Ord for RankScore {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).expect("tantivy gave invalid score")
@@ -21,14 +35,14 @@ impl Ord for RankScore {
 }
 
 pub fn build_index<P: AsRef<Path>, I: Into<IndexableEpisode>>(
+    uuid: Uuid,
     path: P,
     eps: impl Iterator<Item = I>,
     max_window: usize,
-) -> tantivy::Result<tantivy::Index> {
-    let ieps = eps
-        .map(|e| IndexableEpisode::from(e.into()))
-        .collect::<Vec<_>>();
-    build_index_impl(path, ieps.as_slice(), max_window)
+) -> Result<SearchIndex, TError> {
+    let ieps = eps.map(|e| e.into()).collect::<Vec<_>>();
+    let index = build_index_impl(path, ieps.as_slice(), max_window)?;
+    Ok(SearchIndex { uuid, inner: index })
 }
 
 fn build_index_impl<P: AsRef<Path>>(

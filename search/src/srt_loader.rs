@@ -1,5 +1,4 @@
-use crate::{content::ContentData, srt::Subtitles};
-use serde::{Deserialize, Serialize};
+use lucile_core::{ContentData, Subtitle};
 
 pub fn generate_multi_window(
     size: usize,
@@ -8,11 +7,10 @@ pub fn generate_multi_window(
     (0..max_window).flat_map(move |window| (0..(size - window)).map(move |s| (s, s + window + 1)))
 }
 
-#[derive(Debug, Serialize, Deserialize)]
 pub struct IndexableEpisode {
     pub title: String,
     pub script: String,
-    pub subs: Subtitles,
+    pub subs: Vec<Subtitle>,
     pub index: Vec<usize>,
 }
 
@@ -27,16 +25,15 @@ impl From<ContentData> for IndexableEpisode {
     fn from(c: ContentData) -> Self {
         let ContentData {
             subtitle: subs,
-            media_hash: _,
             metadata,
         } = c;
         let mut script = String::new();
         let mut index = vec![0];
 
-        for sub in &subs.inner {
+        for sub in &subs {
             for line in sub.text.lines() {
                 let text = line.trim().trim_start_matches('-').trim();
-                script.push_str(" ");
+                script.push(' ');
                 script.push_str(text);
             }
             index.push(script.len())
@@ -62,8 +59,8 @@ impl IndexableEpisode {
         &self.script[start_byte..end_byte]
     }
 
-    pub fn slices<'a>(&'a self, max_window: usize) -> impl Iterator<Item = Clip<'a>> + 'a {
-        generate_multi_window(self.subs.inner.len(), max_window).map(move |(start, end)| Clip {
+    pub fn slices(&self, max_window: usize) -> impl Iterator<Item = Clip<'_>> + '_ {
+        generate_multi_window(self.subs.len(), max_window).map(move |(start, end)| Clip {
             title: self.title.as_str(),
             text: self.extract_window(start, end),
             start,

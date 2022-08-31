@@ -3,6 +3,9 @@ use clap::Parser;
 const STORAGE_DEFAULT: &str = "storage";
 const INDEX_WINDOW_DEFAULT: &str = "5";
 const OUTPUT_DEFAULT: &str = "out.gif";
+
+use app::DEFAULT_INDEX_WINDOW_SIZE;
+
 pub fn get_args() -> CliOpts {
     CliOpts::parse()
 }
@@ -22,7 +25,11 @@ pub enum SubCommand {
     #[clap(subcommand)]
     Corpus(CorpusCommand),
 
+    /// Scan a directory for media & subtitles
     ScanChapters(ScanChaptersOpts),
+
+    /// Index a set of subtitles to be searched
+    Index(IndexCommand),
     // Process and prepare media
     // #[clap(subcommand)]
     // Media(MediaCommand),
@@ -39,7 +46,19 @@ pub enum SubCommand {
 }
 
 #[derive(Parser, Debug)]
-pub struct IndexCommand {}
+pub struct IndexCommand {
+    pub corpus_name: String,
+
+    #[clap(long, default_value_t=DEFAULT_INDEX_WINDOW_SIZE)]
+    pub window_size: usize,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+
+    #[clap(flatten)]
+    pub storage: StorageConfig,
+}
+
 #[derive(Parser, Debug)]
 pub struct PrepareCommand {}
 
@@ -79,9 +98,18 @@ pub struct CorpusListOpts {
 pub struct DatabaseConfig {
     /// Path to sqlite database file.
     ///
-    /// If not provided, will attempt to read `DATABASE_URL` env var.
+    /// If not provided, will attempt to read `DATABASE_URL` env var, then user dirs.
     #[clap(long)]
     pub database_path: Option<std::path::PathBuf>,
+}
+
+#[derive(Parser, Debug)]
+pub struct StorageConfig {
+    /// Path to search index directory
+    ///
+    /// If not provided, will use user dirs
+    #[clap(long)]
+    pub index_root: Option<std::path::PathBuf>,
 }
 
 #[derive(Parser, Debug)]
