@@ -371,7 +371,11 @@ impl Database {
         let mut push_content = |ids: (i64, i64), subtitle: Vec<Subtitle>| {
             let (chapter_id, srt_id) = ids;
             if let Some(metadata) = collector.remove(&chapter_id) {
-                results.push(ContentData { metadata, subtitle });
+                results.push(ContentData {
+                    metadata,
+                    srt_id: srt_id as u64,
+                    subtitle,
+                });
                 collected_srts.insert(srt_id);
             } else {
                 log::error!(
@@ -431,6 +435,60 @@ impl Database {
 
         Ok(())
     }
+
+    // TODO we should not use numeric ids, or this should be better baked into the index schema?
+    pub async fn get_episode_by_id(
+        &self,
+        srt_id: i64,
+    ) -> Result<(MediaHash, MediaMetadata), DatabaseError> {
+        let ret = sqlx::query!(
+            r#"
+                SELECT 
+                    chapter.id, chapter.title, chapter.season, chapter.episode,
+                    chapter.hash
+                FROM chapter
+                JOIN srtfile
+                  ON srtfile.chapter_id = chapter.id
+                WHERE 
+                  srtfile.id = ?
+         "#,
+            srt_id
+        )
+        .map(|r| (r.hash, metadata_from_chapter(r.title, r.season, r.episode)))
+        .fetch_one(&self.pool)
+        .await?;
+        // todo custom struct
+        Ok((media_hash(&ret.0)?, ret.1))
+    }
+    pub async fn get_all_subs_for_srt(&self, srt_id: i64) -> Result<Vec<Subtitle>, DatabaseError> {
+        let mut rows = sqlx::query!(
+            r#"
+                SELECT 
+                    subtitle.idx,
+                    subtitle.time_start,
+                    subtitle.time_end,
+                    subtitle.content
+                FROM subtitle
+                JOIN srtfile
+                  ON subtitle.srt_id = srtfile.id
+                WHERE 
+                  srtfile.id = ?
+                ORDER BY
+                  subtitle.idx ASC
+         "#,
+            srt_id,
+        )
+        // .map(|r| (r.id, metadata_from_chapter(r.title, r.season, r.episode)))
+        .fetch(&self.pool);
+
+        let mut results = Vec::new();
+        while let Some(row) = rows.try_next().await.unwrap() {
+            let sub = subtitle_from_record(row.idx, &row.time_start, &row.time_end, row.content)?;
+            results.push(sub);
+        }
+
+        Ok(results)
+    }
 }
 /*
  *
@@ -451,6 +509,11 @@ WHERE search_index.uuid = "5d0b7314-4136-476a-b91a-4cf0b80bd985"
 GROUP BY corpus.title
 ;
 */
+
+fn media_hash(text: &str) -> Result<MediaHash, DatabaseError> {
+    MediaHash::from_str(text)
+        .map_err(|e| DatabaseError::ConvertFromSqlError(format!("invalid hex: {:?}", e)))
+}
 
 fn metadata_from_chapter(
     title: String,

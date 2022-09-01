@@ -19,6 +19,25 @@ pub struct SearchIndex {
     uuid: Uuid,
 }
 
+impl SearchIndex {
+    pub fn uuid(&self) -> Uuid {
+        self.uuid
+    }
+
+    pub fn search(
+        &self,
+        q: &str,
+        search_window: usize,
+    ) -> Result<HashMap<usize, EpisodeScore>, TError> {
+        search_impl(&self.inner, q, search_window).map_err(TError::from)
+    }
+
+    pub fn open_in_dir<P: AsRef<Path>>(uuid: Uuid, dir: P) -> Result<SearchIndex, TError> {
+        let index = Index::open_in_dir(dir.as_ref())?;
+        Ok(SearchIndex { inner: index, uuid })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RankScore(pub f32);
 
@@ -67,12 +86,12 @@ fn build_index_impl<P: AsRef<Path>>(
 
     let mut index_writer = index.writer(50_000_000)?;
 
-    for (e_num, episode_data) in eps.iter().enumerate() {
+    for episode_data in eps.iter() {
         for clip in episode_data.slices(max_window) {
             index_writer.add_document(doc!(
                 title => clip.title,
                 body => clip.text,
-                episode => e_num as u64,
+                episode => episode_data.srt_id,
                 clip_start => clip.start as u64,
                 clip_end => clip.end as u64,
             ));
@@ -126,15 +145,7 @@ fn get_field(schema: &Schema, field: SchemaField) -> Field {
         .expect("field in enum was not in schema")
 }
 
-pub fn search(
-    index: &Index,
-    q: &str,
-    search_window: usize,
-) -> Result<HashMap<usize, EpisodeScore>, TError> {
-    search_impl(index, q, search_window).map_err(TError::from)
-}
-
-pub fn search_impl(
+fn search_impl(
     index: &Index,
     q: &str,
     search_window: usize,
@@ -187,7 +198,7 @@ pub fn search_impl(
     Ok(scores)
 }
 
-pub fn rank(scores: &HashMap<usize, EpisodeScore>, top: usize) -> Vec<RankedMatch> {
+pub fn rank(scores: &HashMap<usize, EpisodeScore>) -> Vec<RankedMatch> {
     let ranked = scores
         .values()
         .map(|es| {
@@ -205,7 +216,7 @@ pub fn rank(scores: &HashMap<usize, EpisodeScore>, top: usize) -> Vec<RankedMatc
             })
         })
         .collect::<BinaryHeap<RankedMatch>>();
-    ranked.into_sorted_vec().into_iter().take(top).collect()
+    ranked.into_sorted_vec()
 }
 
 pub struct EpisodeScore {

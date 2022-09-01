@@ -56,6 +56,58 @@ mod scan {
     }
 }
 
+mod workflow {
+    use std::str::FromStr;
+
+    use anyhow::Context;
+    use app::search_manager::SearchRequest;
+    use lucile_core::{clean_sub::CleanSubs, uuid::Uuid};
+
+    use super::argparse;
+    use crate::cli::helpers;
+
+    const HIST: [&str; 6] = ["     ", "    *", "   **", "  ***", " ****", "*****"];
+    pub(crate) async fn search(args: &argparse::SearchCommand) -> anyhow::Result<()> {
+        let app = helpers::get_app(Some(&args.db), Some(&args.storage)).await?;
+        log::trace!("using app: {:?}", app);
+
+        let index_uuid = Uuid::from_str(&args.index).with_context(|| {
+            format!(
+                "provided search index `{}` is not a valid UUID",
+                &args.index
+            )
+        })?;
+
+        let searcher = app.search_service(index_uuid)?;
+        let query = args.query.join(" ");
+        log::info!("query: {:?}", query);
+        let req = SearchRequest {
+            query: &query,
+            window: Some(5),
+            max_responses: Some(3),
+        };
+        let resp = searcher
+            .search_and_rank(req)
+            .await
+            .context("error doing search_and_rank")?;
+        for clip in resp.results {
+            let (_, m) = app.db.get_episode_by_id(clip.srt_id).await?;
+            let subs = app.db.get_all_subs_for_srt(clip.srt_id).await?;
+            println!("{:?}: {}", clip.score, m);
+
+            let base = clip.offset;
+            for (offset, linescore) in clip.lines.iter().enumerate() {
+                let normalized = ((5.0 * linescore.score / clip.score) + 0.5) as usize;
+                let script = CleanSubs(&subs[base + offset..base + offset + 1]);
+                println!("  ({:2}) [{}]- {}", offset, HIST[normalized], script);
+            }
+            // println!("{:#?}", r);
+        }
+
+        Ok(())
+    }
+}
+
 pub async fn run_cli(args: &argparse::CliOpts) -> anyhow::Result<()> {
     match &args.subcmd {
         argparse::SubCommand::Corpus(sub) => match sub {
@@ -64,5 +116,6 @@ pub async fn run_cli(args: &argparse::CliOpts) -> anyhow::Result<()> {
         },
         argparse::SubCommand::ScanChapters(opts) => scan::scan_chapters(opts).await,
         argparse::SubCommand::Index(opts) => scan::index_subtitles(opts).await,
+        argparse::SubCommand::Search(opts) => workflow::search(opts).await,
     }
 }

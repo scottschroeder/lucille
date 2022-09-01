@@ -6,7 +6,7 @@ pub mod hash;
 pub mod metadata;
 
 pub mod uuid {
-    use std::fmt::Display;
+    use std::{fmt::Display, str::FromStr};
 
     use serde::{Deserialize, Serialize};
 
@@ -19,12 +19,22 @@ pub mod uuid {
         }
     }
 
+    impl FromStr for Uuid {
+        type Err = uuid::Error;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            Ok(Uuid(uuid::Uuid::from_str(s)?))
+        }
+    }
+
     impl Display for Uuid {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "{}", self.0)
         }
     }
 }
+
+pub mod clean_sub;
 
 pub mod storage {
     use std::path::PathBuf;
@@ -37,6 +47,7 @@ pub mod storage {
 
 pub struct ContentData {
     pub metadata: metadata::MediaMetadata,
+    pub srt_id: u64,
     pub subtitle: Vec<Subtitle>,
 }
 

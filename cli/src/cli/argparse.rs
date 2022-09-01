@@ -30,19 +30,37 @@ pub enum SubCommand {
 
     /// Index a set of subtitles to be searched
     Index(IndexCommand),
+
+    /// Search an index
+    Search(SearchCommand),
     // Process and prepare media
     // #[clap(subcommand)]
     // Media(MediaCommand),
     // Index(IndexCommand),
 
     // Library(LibraryCommand),
-    // Search(PrepareCommand),
     // Transcode(PrepareCommand),
     // Test(PrepareCommand),
     // Interactive(PrepareCommand),
     // Render an image
     // #[clap(subcommand)]
     // Render(Render),
+}
+
+#[derive(Parser, Debug)]
+pub struct SearchCommand {
+    /// The search query
+    pub query: Vec<String>,
+
+    /// The UUID of the search index to use
+    #[clap(long)]
+    pub index: String,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+
+    #[clap(flatten)]
+    pub storage: StorageConfig,
 }
 
 #[derive(Parser, Debug)]

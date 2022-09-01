@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
 pub fn setup_logger(level: u8) {
     let mut builder = pretty_env_logger::formatted_timed_builder();
 
-    let noisy_modules: &[&str] = &["sqlx::query"];
+    let noisy_modules: &[&str] = &["sqlx::query", "tantivy::directory::mmap_directory"];
 
     let log_level = match level {
         //0 => log::Level::Error,

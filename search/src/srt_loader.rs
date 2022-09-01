@@ -9,6 +9,7 @@ pub fn generate_multi_window(
 
 pub struct IndexableEpisode {
     pub title: String,
+    pub srt_id: u64,
     pub script: String,
     pub subs: Vec<Subtitle>,
     pub index: Vec<usize>,
@@ -25,6 +26,7 @@ impl From<ContentData> for IndexableEpisode {
     fn from(c: ContentData) -> Self {
         let ContentData {
             subtitle: subs,
+            srt_id,
             metadata,
         } = c;
         let mut script = String::new();
@@ -41,6 +43,7 @@ impl From<ContentData> for IndexableEpisode {
 
         IndexableEpisode {
             title: metadata.title(),
+            srt_id,
             script,
             subs,
             index,

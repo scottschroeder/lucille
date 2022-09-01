@@ -1,4 +1,7 @@
-use std::fmt;
+use std::{
+    fmt::{self, Display},
+    str::FromStr,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +18,21 @@ pub struct EpisodeMetadata {
 pub enum MediaMetadata {
     Episode(EpisodeMetadata),
     Unknown(String),
+}
+
+impl Display for EpisodeMetadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "S{:02} E{:02} {}", self.season, self.episode, self.title)
+    }
+}
+
+impl Display for MediaMetadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MediaMetadata::Episode(e) => write!(f, "{}", e),
+            MediaMetadata::Unknown(s) => write!(f, "{}", s),
+        }
+    }
 }
 
 impl MediaMetadata {
@@ -35,6 +53,14 @@ impl MediaHash {
     }
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
+    }
+}
+
+impl FromStr for MediaHash {
+    type Err = hex::FromHexError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(MediaHash(Sha2Hash::from_str(s)?))
     }
 }
 
