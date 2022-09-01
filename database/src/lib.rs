@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    os::unix::prelude::OsStrExt,
     path::{self, Path, PathBuf},
     str::FromStr,
     time::Duration,
@@ -14,7 +13,7 @@ use lucile_core::{
 };
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteSynchronous},
-    Pool, QueryBuilder, Sqlite,
+    Pool, QueryBuilder, Sqlite, 
 };
 
 const POOL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -252,7 +251,8 @@ impl Database {
 
     pub async fn add_storage(&self, hash: MediaHash, path: &Path) -> Result<(), DatabaseError> {
         let hash_data = hash.to_string();
-        let path_repr = path.as_os_str().as_bytes();
+        // let path_repr = path.as_os_str().as_bytes();
+        let path_repr = path.as_os_str().to_str().expect("path was not valid utf8"); // TODO
         let _id = sqlx::query!(
             r#"
                     INSERT INTO storage (hash, path)
