@@ -25,10 +25,8 @@ impl<'a> SearchRequest<'a> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClipResult {
-    pub media_hash: MediaHash,
     pub srt_id: i64,
     pub offset: usize,
-    pub title: String,
     pub score: f32,
     pub lines: Vec<LineScore>,
 }
@@ -36,7 +34,6 @@ pub struct ClipResult {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LineScore {
     pub score: f32,
-    pub text: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -45,14 +42,13 @@ pub struct SearchResponse {
     pub results: Vec<ClipResult>,
 }
 
-pub struct SearchService<'a> {
+pub struct SearchService {
     pub(crate) index: SearchIndex,
-    pub(crate) app: &'a LucileApp,
 }
 
-impl<'a> SearchService<'a> {
-    pub fn new(index: SearchIndex, app: &'a LucileApp) -> SearchService {
-        SearchService { index, app }
+impl SearchService {
+    pub fn new(index: SearchIndex) -> SearchService {
+        SearchService { index }
     }
     pub async fn search_and_rank<'r>(
         &self,
@@ -60,6 +56,10 @@ impl<'a> SearchService<'a> {
     ) -> Result<SearchResponse, LucileAppError> {
         let scores = self.index.search(request.query, request.get_window())?;
 
+        // TODO what does this actually do? nothing? I think its nothing... 
+        // it reverses a list
+        //
+        //
         let mut results = Vec::new();
         for rm in search::rank(&scores)
             .into_iter()
@@ -68,23 +68,15 @@ impl<'a> SearchService<'a> {
         {
             let srt_id = rm.ep as i64;
             let offset = rm.clip.index;
-            let (hash, metadata) = self.app.db.get_episode_by_id(srt_id).await?;
-            let srt = self.app.db.get_all_subs_for_srt(srt_id).await?;
             let lines = rm
                 .clip
                 .scores
                 .iter()
-                .zip(srt.iter().skip(offset))
-                .map(|(score, sub)| LineScore {
-                    score: score.0,
-                    text: format!("{}", CleanSub(sub)),
-                })
+                .map(|score| LineScore { score: score.0 })
                 .collect::<Vec<_>>();
             results.push(ClipResult {
-                media_hash: hash,
                 srt_id,
                 offset,
-                title: metadata.title(),
                 score: rm.score.0,
                 lines,
             })

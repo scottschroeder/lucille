@@ -7,13 +7,14 @@ use std::{
 
 use futures::TryStreamExt;
 use lucile_core::{
+    identifiers::{ChapterId, CorpusId, MediaViewId},
     metadata::{EpisodeMetadata, MediaHash, MediaMetadata},
     uuid::Uuid,
-    ChapterId, ContentData, Corpus, CorpusId, MediaViewId, Subtitle,
+    ContentData, Corpus, Subtitle,
 };
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteSynchronous},
-    Pool, QueryBuilder, Sqlite, 
+    Pool, QueryBuilder, Sqlite,
 };
 
 const POOL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -121,6 +122,28 @@ impl Database {
         .fetch_optional(&self.pool)
         .await?;
         Ok(id)
+    }
+
+    pub async fn get_corpus(&self, id: CorpusId) -> Result<Corpus, DatabaseError> {
+        let cid = id.get();
+        let corpus = sqlx::query!(
+            r#"
+            SELECT 
+                id, title
+            FROM 
+                corpus
+            WHERE
+                id = ?
+         "#,
+            cid
+        )
+        .map(|r| Corpus {
+            id: Some(CorpusId::new(r.id)),
+            title: r.title,
+        })
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(corpus)
     }
 
     pub async fn get_or_add_corpus<S: Into<String>>(
@@ -316,7 +339,7 @@ impl Database {
         let mut rows = sqlx::query!(
             r#"
             SELECT 
-                chapter.id, chapter.title, chapter.season, chapter.episode
+                chapter.id, chapter.title, chapter.season, chapter.episode, chapter.hash
             FROM 
                 chapter
             WHERE
@@ -324,11 +347,18 @@ impl Database {
          "#,
             cid
         )
-        .map(|r| (r.id, metadata_from_chapter(r.title, r.season, r.episode)))
+        .map(|r| {
+            (
+                r.id,
+                r.hash,
+                metadata_from_chapter(r.title, r.season, r.episode),
+            )
+        })
         .fetch(&self.pool);
 
         while let Some(row) = rows.try_next().await.unwrap() {
-            collector.insert(row.0, row.1);
+            let hash = media_hash(&row.1)?;
+            collector.insert(row.0, (hash, row.2));
         }
 
         let mut results = Vec::with_capacity(collector.len());
@@ -370,9 +400,10 @@ impl Database {
         let mut subs_collector = sub_collector::Collector::default();
         let mut push_content = |ids: (i64, i64), subtitle: Vec<Subtitle>| {
             let (chapter_id, srt_id) = ids;
-            if let Some(metadata) = collector.remove(&chapter_id) {
+            if let Some((hash, metadata)) = collector.remove(&chapter_id) {
                 results.push(ContentData {
                     metadata,
+                    hash,
                     srt_id: srt_id as u64,
                     subtitle,
                 });
@@ -489,6 +520,49 @@ impl Database {
 
         Ok(results)
     }
+
+    pub async fn get_media_view_options(
+        &self,
+        chapter_id: ChapterId,
+    ) -> Result<Vec<(MediaViewId, String)>, DatabaseError> {
+        let cid = chapter_id.get();
+        let rows = sqlx::query!(
+            r#"
+                SELECT 
+                    id, description
+                FROM media_view
+                WHERE
+                    chapter_id = ?
+                ORDER BY
+                    id DESC
+         "#,
+            cid
+        )
+        .map(|r| (MediaViewId::new(r.id), r.description))
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+    pub async fn get_search_indexes(&self) -> Result<Vec<Uuid>, DatabaseError> {
+        let mut rows = sqlx::query!(
+            r#"
+                SELECT 
+                    uuid
+                FROM search_index
+                ORDER BY
+                    id
+         "#,
+        )
+        .map(|r| r.uuid)
+        .fetch(&self.pool);
+
+        let mut results = Vec::new();
+        while let Some(row) = rows.try_next().await.unwrap() {
+            let uuid = parse_uuid(&row)?;
+            results.push(uuid);
+        }
+        Ok(results)
+    }
 }
 /*
  *
@@ -510,6 +584,10 @@ GROUP BY corpus.title
 ;
 */
 
+fn parse_uuid(text: &str) -> Result<Uuid, DatabaseError> {
+    Uuid::from_str(text)
+        .map_err(|e| DatabaseError::ConvertFromSqlError(format!("invalid uuid: {:?}", e)))
+}
 fn media_hash(text: &str) -> Result<MediaHash, DatabaseError> {
     MediaHash::from_str(text)
         .map_err(|e| DatabaseError::ConvertFromSqlError(format!("invalid hex: {:?}", e)))
@@ -619,6 +697,15 @@ async fn memory_db() -> Result<Pool<Sqlite>, DatabaseError> {
 
 async fn connect_db<P: AsRef<path::Path>>(filename: P) -> Result<Pool<Sqlite>, DatabaseError> {
     log::info!("connecting to sqlite db at {:?}", filename.as_ref());
+    if let Some(dir) = filename.as_ref().parent() {
+        if let Err(e) = std::fs::create_dir_all(dir) {
+            log::error!(
+                "unable to create directory {:?} for the database: {}",
+                dir,
+                e
+            );
+        }
+    }
     let opts = SqliteConnectOptions::new()
         .filename(filename)
         .create_if_missing(true)

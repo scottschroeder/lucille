@@ -28,6 +28,7 @@ impl From<ContentData> for IndexableEpisode {
             subtitle: subs,
             srt_id,
             metadata,
+            hash: _,
         } = c;
         let mut script = String::new();
         let mut index = vec![0];

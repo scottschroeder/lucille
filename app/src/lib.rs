@@ -1,13 +1,13 @@
-use std::time::Duration;
-
-use database::Database;
-use lucile_core::{uuid::Uuid, Corpus, CorpusId};
-
 use self::{app::LucileApp, scan::ScannedMedia};
+use database::Database;
+use lucile_core::{export::CorpusExport, identifiers::CorpusId, uuid::Uuid, ContentData, Corpus};
+use std::time::Duration;
 
 pub mod app;
 pub mod scan;
 pub mod search_manager;
+pub mod storage;
+pub mod transcode;
 
 pub const DEFAULT_INDEX_WINDOW_SIZE: usize = 5;
 
@@ -19,6 +19,8 @@ pub enum LucileAppError {
     Database(#[from] database::DatabaseError),
     #[error("failed to build search index")]
     BuildIndexError(#[from] search::error::TError),
+    #[error("could not find video source")]
+    MissingVideoSource,
 }
 
 pub async fn add_content_to_corpus(
@@ -72,6 +74,51 @@ pub async fn add_content_to_corpus(
     }
 
     Ok(())
+}
+
+pub async fn import_corpus_packet(
+    app: &LucileApp,
+    packet: CorpusExport,
+) -> Result<CorpusId, LucileAppError> {
+    let CorpusExport { title, content } = packet;
+
+    let corpus = app.db.get_or_add_corpus(title).await?;
+    let corpus_id = corpus.id.unwrap();
+
+    for chapter in content {
+        let ContentData {
+            metadata,
+            hash,
+            srt_id: _,
+            subtitle,
+        } = chapter;
+
+        let (title, season, episode) = match &metadata {
+            lucile_core::metadata::MediaMetadata::Episode(e) => (
+                e.title.as_str(),
+                Some(e.season as i64),
+                Some(e.episode as i64),
+            ),
+            lucile_core::metadata::MediaMetadata::Unknown(u) => (u.as_str(), None, None),
+        };
+        let chapter_id = app
+            .db
+            .define_chapter(corpus_id, title, season, episode, hash)
+            .await?;
+        app.db.add_subtitles(chapter_id, &subtitle).await?;
+    }
+
+    Ok(corpus_id)
+}
+
+pub async fn export_corpus_packet(
+    app: &LucileApp,
+    corpus_id: CorpusId,
+) -> Result<CorpusExport, LucileAppError> {
+    let title = app.db.get_corpus(corpus_id).await?.title;
+    let (_, content) = app.db.get_all_subs_for_corpus(corpus_id).await?;
+
+    Ok(CorpusExport { title, content })
 }
 
 pub async fn index_subtitles(

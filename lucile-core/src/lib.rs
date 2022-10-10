@@ -1,9 +1,24 @@
-use std::{fmt::Debug, num::NonZeroI64};
-
+use self::{metadata::MediaHash, identifiers::CorpusId};
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 pub use subrip::Subtitle;
 
 pub mod hash;
+pub mod identifiers;
 pub mod metadata;
+
+pub mod export {
+
+    use serde::{Deserialize, Serialize};
+
+    use crate::ContentData;
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct CorpusExport {
+        pub title: String,
+        pub content: Vec<ContentData>,
+    }
+}
 
 pub mod uuid {
     use std::{fmt::Display, str::FromStr};
@@ -45,8 +60,10 @@ pub mod storage {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ContentData {
     pub metadata: metadata::MediaMetadata,
+    pub hash: MediaHash,
     pub srt_id: u64,
     pub subtitle: Vec<Subtitle>,
 }
@@ -55,71 +72,10 @@ impl Debug for ContentData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ContentData")
             .field("metadata", &self.metadata)
+            .field("hash", &self.hash)
+            .field("srt_id", &self.srt_id)
             .field("subtitle", &self.subtitle.len())
             .finish()
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-struct DbId(NonZeroI64);
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct CorpusId(DbId);
-
-impl CorpusId {
-    pub fn new(id: i64) -> CorpusId {
-        CorpusId(DbId(
-            NonZeroI64::new(id).expect("database id can not be zero"),
-        ))
-    }
-    pub fn get(&self) -> i64 {
-        self.0 .0.get()
-    }
-}
-
-impl std::fmt::Display for CorpusId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.get())
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct ChapterId(DbId);
-
-impl ChapterId {
-    pub fn new(id: i64) -> ChapterId {
-        ChapterId(DbId(
-            NonZeroI64::new(id).expect("database id can not be zero"),
-        ))
-    }
-    pub fn get(&self) -> i64 {
-        self.0 .0.get()
-    }
-}
-
-impl std::fmt::Display for ChapterId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.get())
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct MediaViewId(DbId);
-
-impl MediaViewId {
-    pub fn new(id: i64) -> MediaViewId {
-        MediaViewId(DbId(
-            NonZeroI64::new(id).expect("database id can not be zero"),
-        ))
-    }
-    pub fn get(&self) -> i64 {
-        self.0 .0.get()
-    }
-}
-
-impl std::fmt::Display for MediaViewId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.get())
     }
 }
 

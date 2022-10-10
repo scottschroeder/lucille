@@ -11,6 +11,7 @@ Cargo.lock
 
 # project local
 index/*
+*.json
 
 # sql
 !database/migrations/*

@@ -58,11 +58,11 @@ impl LucileApp {
         })
     }
 
-    pub fn search_service(&self, index_uuid: Uuid) -> Result<SearchService<'_>, LucileAppError> {
+    pub fn search_service(&self, index_uuid: Uuid) -> Result<SearchService, LucileAppError> {
         let index_dir = self.index_root().join(index_uuid.to_string());
         log::trace!("loading search index from: {:?}", index_dir.as_path());
         let index = SearchIndex::open_in_dir(index_uuid, index_dir)?;
-        Ok(SearchService { index, app: self })
+        Ok(SearchService { index })
     }
 }
 

@@ -1,45 +1,53 @@
-use crate::{
-    content::Content,
-    service::{search::SearchResponse, transcode::ClipIdentifier},
-    srt::CleanSubs,
-};
+use std::{collections::HashMap, ops::Range};
+
 use anyhow::{Context, Result};
+use app::{
+    app::LucileApp,
+    search_manager::{ClipResult, SearchResponse},
+};
+use lucile_core::{clean_sub::CleanSubs, metadata::MediaMetadata, Subtitle};
 
 const HIST: [&str; 6] = ["     ", "    *", "   **", "  ***", " ****", "*****"];
 
-pub fn ask_user_for_clip(content: &Content, response: &SearchResponse) -> Result<ClipIdentifier> {
-    print_top_scores(content, response);
+pub async fn ask_user_for_clip<'a>(
+    app: &LucileApp,
+    response: &'a SearchResponse,
+) -> Result<(&'a ClipResult, Range<usize>)> {
+    let mut content = HashMap::new();
+
+    for clip in &response.results {
+        let (_, m) = app.db.get_episode_by_id(clip.srt_id).await?;
+        let subs = app.db.get_all_subs_for_srt(clip.srt_id).await?;
+        content.insert(clip.srt_id, (m, subs));
+    }
+    print_top_scores(&content, response);
     let input = get_user_input("make a selection: e.g. 'B 3-5'")?;
     let (index, start, end) = parse_user_selection(input.as_str())?;
     let user_clip = &response.results[index];
-    Ok(ClipIdentifier {
-        index: response.index,
-        media_hash: user_clip.media_hash,
-        start: user_clip.offset + start,
-        end: user_clip.offset + end,
-    })
+    // let (m, sub) = content.remove(&user_clip.srt_id).unwrap();
+
+    Ok((user_clip, (start..end)))
 }
 
-pub fn print_top_scores(content: &Content, response: &SearchResponse) {
+fn print_top_scores(
+    content: &HashMap<i64, (MediaMetadata, Vec<Subtitle>)>,
+    response: &SearchResponse,
+) {
     let mut c = 'A';
     for clip in &response.results {
-        let ep = content
-            .episodes
-            .iter()
-            .find(|e| e.media_hash == clip.media_hash)
-            .expect("missing episode hash");
-        println!("{}) {:?}: {}", c, clip.score, ep.title);
+        let (m, subs) = &content[&clip.srt_id];
+        println!("{}) {:?}: {}", c, clip.score, m.title());
         let base = clip.offset;
         for (offset, linescore) in clip.lines.iter().enumerate() {
             let normalized = ((5.0 * linescore.score / clip.score) + 0.5) as usize;
-            let script = CleanSubs(&ep.subtitles.inner[base + offset..base + offset + 1]);
+            let script = CleanSubs(&subs[base + offset..base + offset + 1]);
             println!("  ({:2}) [{}]- {}", offset, HIST[normalized], script);
         }
         c = ((c as u8) + 1) as char
     }
 }
 
-fn get_user_input(msg: &str) -> Result<String> {
+pub fn get_user_input(msg: &str) -> Result<String> {
     println!("{}", msg);
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;

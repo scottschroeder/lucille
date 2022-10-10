@@ -1,8 +1,11 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 
 const STORAGE_DEFAULT: &str = "storage";
 const INDEX_WINDOW_DEFAULT: &str = "5";
 const OUTPUT_DEFAULT: &str = "out.gif";
+const EXPORT_DEFAULT: &str = "out.json";
 
 use app::DEFAULT_INDEX_WINDOW_SIZE;
 
@@ -33,6 +36,20 @@ pub enum SubCommand {
 
     /// Search an index
     Search(SearchCommand),
+
+    /// Import data
+    #[clap(subcommand)]
+    Import(ImportCommand),
+
+    /// Export data
+    #[clap(subcommand)]
+    Export(ExportCommand),
+
+
+    /// Interactive Gif Creation
+    Interactive(InteractiveOpts),
+
+
     // Process and prepare media
     // #[clap(subcommand)]
     // Media(MediaCommand),
@@ -41,7 +58,6 @@ pub enum SubCommand {
     // Library(LibraryCommand),
     // Transcode(PrepareCommand),
     // Test(PrepareCommand),
-    // Interactive(PrepareCommand),
     // Render an image
     // #[clap(subcommand)]
     // Render(Render),
@@ -81,11 +97,60 @@ pub struct IndexCommand {
 pub struct PrepareCommand {}
 
 #[derive(Parser, Debug)]
+pub enum ExportCommand {
+    /// Export all details for a corpus
+    Corpus(ExportCorpusOpts),
+}
+
+#[derive(Parser, Debug)]
+pub enum ImportCommand {
+    /// Import all details for a corpus
+    Corpus(ImportCorpusOpts),
+}
+
+#[derive(Parser, Debug)]
 pub enum CorpusCommand {
     /// Create a new corpus
     New(CorpusNewOpts),
     /// List existing corpuses
     List(CorpusListOpts),
+}
+
+#[derive(Parser, Debug)]
+pub struct ImportCorpusOpts {
+    pub filename: std::path::PathBuf,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+}
+
+#[derive(Parser, Debug)]
+pub struct InteractiveOpts {
+    /// The search query
+    pub query: Vec<String>,
+
+    /// The UUID of the search index to use
+    #[clap(long)]
+    pub index: Option<String>,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+
+    #[clap(flatten)]
+    pub storage: StorageConfig,
+}
+
+#[derive(Parser, Debug)]
+pub struct ExportCorpusOpts {
+    /// Corpus to export
+    pub corpus_name: String,
+
+    /// File to export
+    #[clap(long)]
+    pub out: Option<std::path::PathBuf>,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
 }
 
 #[derive(Parser, Debug)]
