@@ -51,7 +51,7 @@ pub struct ShellApp {
     // db: Option<database::AppData>,
 }
 
-enum SearchAppState {
+pub(crate) enum SearchAppState {
     Unknown,
     None,
     App(SearchApp),
