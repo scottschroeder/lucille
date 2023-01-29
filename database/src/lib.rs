@@ -221,18 +221,18 @@ impl Database {
     pub async fn add_media_view<S: Into<String>>(
         &self,
         chapter_id: ChapterId,
-        description: S,
+        name: S,
     ) -> Result<MediaViewId, DatabaseError> {
-        let description = description.into();
+        let name = name.into();
 
         let cid = chapter_id.get();
         let id = sqlx::query!(
             r#"
-                    INSERT INTO media_view (chapter_id, description)
+                    INSERT INTO media_view (chapter_id, name)
                     VALUES ( ?1, ?2 )
                     "#,
             cid,
-            description,
+            name,
         )
         .execute(&self.pool)
         .await?
@@ -297,33 +297,23 @@ impl Database {
         subtitles: &[Subtitle],
     ) -> Result<(), DatabaseError> {
         let cid = chapter_id.get();
+        let srt_uuid = Uuid::generate();
+        let srt_uuid_string = srt_uuid.to_string();
+        let data = serde_json::to_vec(subtitles).expect("unable to serialize JSON");
         let id = sqlx::query!(
             r#"
-                    INSERT INTO srtfile (chapter_id)
-                    VALUES ( ?1 )
+                    INSERT INTO srtfile (chapter_id, uuid, data)
+                    VALUES ( ?1, ?2, ?3 )
                     "#,
             cid,
+            srt_uuid_string,
+            data,
         )
         .execute(&self.pool)
         .await?
         .last_insert_rowid();
 
-        log::info!("srt file id: {:?}", id);
-
-        let mut insert_builder: QueryBuilder<Sqlite> = QueryBuilder::new(
-            r#"INSERT INTO subtitle (srt_id, idx, content, time_start, time_end)"#,
-        );
-
-        insert_builder.push_values(subtitles.iter().enumerate(), |mut b, (idx, sub)| {
-            b.push_bind(id)
-                .push_bind(idx as u32)
-                .push_bind(sub.text.as_str())
-                .push_bind(sub.start.as_secs_f64())
-                .push_bind(sub.end.as_secs_f64());
-        });
-        let query = insert_builder.build();
-
-        query.execute(&self.pool).await?;
+        log::info!("srt file id: {:?} {}", id, srt_uuid);
 
         Ok(())
     }
@@ -368,13 +358,8 @@ impl Database {
                 SELECT 
                     srtfile.id,
                     srtfile.chapter_id,
-                    subtitle.idx,
-                    subtitle.time_start,
-                    subtitle.time_end,
-                    subtitle.content
-                FROM subtitle
-                JOIN srtfile
-                  ON subtitle.srt_id = srtfile.id
+                    srtfile.data
+                FROM srtfile
                 JOIN chapter
                   ON srtfile.chapter_id = chapter.id
                 WHERE 
@@ -389,7 +374,7 @@ impl Database {
                       GROUP BY chapter.id
                     )
                 ORDER BY
-                  srtfile.id ASC, subtitle.idx ASC
+                  srtfile.id ASC
          "#,
             cid
         )
@@ -397,32 +382,22 @@ impl Database {
         .fetch(&self.pool);
 
         let mut collected_srts = HashSet::default();
-        let mut subs_collector = sub_collector::Collector::default();
-        let mut push_content = |ids: (i64, i64), subtitle: Vec<Subtitle>| {
-            let (chapter_id, srt_id) = ids;
-            if let Some((hash, metadata)) = collector.remove(&chapter_id) {
+        while let Some(row) = rows.try_next().await.unwrap() {
+            let subtitle = deserialize_subtitle(&row.data)?;
+            if let Some((hash, metadata)) = collector.remove(&row.chapter_id) {
                 results.push(ContentData {
                     metadata,
                     hash,
-                    srt_id: srt_id as u64,
+                    srt_id: row.id as u64,
                     subtitle,
                 });
-                collected_srts.insert(srt_id);
+                collected_srts.insert(row.id);
             } else {
                 log::error!(
                     "we have subtitles for an episode `{}`, that we do not have metadata for",
-                    chapter_id
+                    row.chapter_id
                 )
             }
-        };
-        while let Some(row) = rows.try_next().await.unwrap() {
-            let sub = subtitle_from_record(row.idx, &row.time_start, &row.time_end, row.content)?;
-            if let Some((ids, subtitle)) = subs_collector.push((row.chapter_id, row.id), sub) {
-                push_content(ids, subtitle);
-            }
-        }
-        if let Some((ids, subtitle)) = subs_collector.final_subs() {
-            push_content(ids, subtitle);
         }
 
         for (id, metadata) in collector {
@@ -492,33 +467,22 @@ impl Database {
         Ok((media_hash(&ret.0)?, ret.1))
     }
     pub async fn get_all_subs_for_srt(&self, srt_id: i64) -> Result<Vec<Subtitle>, DatabaseError> {
-        let mut rows = sqlx::query!(
+        let record = sqlx::query!(
             r#"
                 SELECT 
-                    subtitle.idx,
-                    subtitle.time_start,
-                    subtitle.time_end,
-                    subtitle.content
-                FROM subtitle
-                JOIN srtfile
-                  ON subtitle.srt_id = srtfile.id
-                WHERE 
+                    srtfile.data
+                FROM srtfile
+                WHERE
                   srtfile.id = ?
-                ORDER BY
-                  subtitle.idx ASC
          "#,
             srt_id,
         )
         // .map(|r| (r.id, metadata_from_chapter(r.title, r.season, r.episode)))
-        .fetch(&self.pool);
+        .fetch_one(&self.pool)
+        .await?;
 
-        let mut results = Vec::new();
-        while let Some(row) = rows.try_next().await.unwrap() {
-            let sub = subtitle_from_record(row.idx, &row.time_start, &row.time_end, row.content)?;
-            results.push(sub);
-        }
-
-        Ok(results)
+        let subs = deserialize_subtitle(&record.data)?;
+        Ok(subs)
     }
 
     pub async fn get_media_view_options(
@@ -529,7 +493,7 @@ impl Database {
         let rows = sqlx::query!(
             r#"
                 SELECT 
-                    id, description
+                    id, name
                 FROM media_view
                 WHERE
                     chapter_id = ?
@@ -538,7 +502,7 @@ impl Database {
          "#,
             cid
         )
-        .map(|r| (MediaViewId::new(r.id), r.description))
+        .map(|r| (MediaViewId::new(r.id), r.name))
         .fetch_all(&self.pool)
         .await?;
         Ok(rows)
@@ -609,58 +573,9 @@ fn metadata_from_chapter(
     }
 }
 
-mod sub_collector {
-    use lucile_core::Subtitle;
-
-    #[derive(Default)]
-    pub(crate) struct Collector<T> {
-        identity: T,
-        inner: Vec<Subtitle>,
-    }
-
-    impl<T: PartialEq + Clone> Collector<T> {
-        pub(crate) fn push(&mut self, id: T, sub: Subtitle) -> Option<(T, Vec<Subtitle>)> {
-            if !self.inner.is_empty() && id != self.identity {
-                let old_id = self.identity.clone();
-                self.identity = id;
-                let mut swp_vec = vec![sub];
-                std::mem::swap(&mut self.inner, &mut swp_vec);
-                return Some((old_id, swp_vec));
-            }
-
-            self.identity = id;
-            self.inner.push(sub);
-            None
-        }
-        pub(crate) fn final_subs(self) -> Option<(T, Vec<Subtitle>)> {
-            if self.inner.is_empty() {
-                None
-            } else {
-                Some((self.identity, self.inner))
-            }
-        }
-    }
-}
-
-fn subtitle_from_record(
-    idx: i64,
-    start: &str,
-    end: &str,
-    text: String,
-) -> Result<Subtitle, DatabaseError> {
-    let start = start.parse::<f64>().map_err(|_e| {
-        DatabaseError::ConvertFromSqlError(format!("convert to float: {:?}", start))
-    })?;
-    let end = end.parse::<f64>().map_err(|_e| {
-        DatabaseError::ConvertFromSqlError(format!("convert to float: {:?}", start))
-    })?;
-
-    Ok(Subtitle {
-        idx: idx as u32,
-        start: Duration::from_secs_f64(start),
-        end: Duration::from_secs_f64(end),
-        text,
-    })
+fn deserialize_subtitle(data: &[u8]) -> Result<Vec<Subtitle>, DatabaseError> {
+    serde_json::from_slice(&data)
+        .map_err(|e| DatabaseError::ConvertFromSqlError(format!("deserialize JSON: {}", e)))
 }
 
 async fn migrations(pool: &Pool<Sqlite>) -> Result<(), DatabaseError> {
@@ -721,7 +636,7 @@ mod tests {
 
     use crate::Database;
 
-    const TABLES: &[&str] = &["_sqlx_migrations", "corpus", "chapter", "subtitle"];
+    const TABLES: &[&str] = &["_sqlx_migrations", "corpus", "chapter", "srtfile"];
 
     #[tokio::test]
     async fn all_tables_exist_in_new_database() {

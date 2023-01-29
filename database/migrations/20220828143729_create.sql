@@ -19,27 +19,20 @@ CREATE TABLE IF NOT EXISTS chapter
 CREATE TABLE IF NOT EXISTS srtfile
 (
     id          INTEGER PRIMARY KEY NOT NULL,
+    uuid        TEXT NOT            NULL UNIQUE,
     chapter_id   INTEGER             NOT NULL,
+    data    BLOB NOT NULL,
     FOREIGN KEY(chapter_id) REFERENCES chapter(id)
-);
-
-CREATE TABLE IF NOT EXISTS subtitle
-(
-    id          INTEGER PRIMARY KEY NOT NULL,
-    srt_id   INTEGER             NOT NULL,
-    idx      INTEGER NOT NULL,
-    content       TEXT                NOT NULL,
-    time_start       TEXT                NOT NULL,
-    time_end       TEXT                NOT NULL,
-    FOREIGN KEY(srt_id) REFERENCES srtfile(id)
 );
 
 CREATE TABLE IF NOT EXISTS media_view
 (
     id          INTEGER PRIMARY KEY NOT NULL,
     chapter_id   INTEGER             NOT NULL,
-    description       TEXT                NOT NULL,
-    FOREIGN KEY(chapter_id) REFERENCES chapter(id)
+    name       TEXT                NOT NULL,
+
+    FOREIGN KEY(chapter_id) REFERENCES chapter(id),
+    UNIQUE(chapter_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS media_segment
@@ -60,3 +53,17 @@ CREATE TABLE IF NOT EXISTS storage
     path       TEXT                NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS search_index
+(
+    id          INTEGER PRIMARY KEY NOT NULL,
+    uuid   TEXT             NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS search_assoc
+(
+    id          INTEGER PRIMARY KEY NOT NULL,
+    search_index_id   INTEGER             NOT NULL,
+    srt_id   INTEGER             NOT NULL,
+    FOREIGN KEY(search_index_id) REFERENCES search_index(id),
+    FOREIGN KEY(srt_id) REFERENCES srtfile(id)
+);
