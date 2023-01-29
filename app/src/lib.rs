@@ -59,7 +59,9 @@ pub async fn add_content_to_corpus(
             scan::ScannedSubtitles::Error(e) => {
                 log::error!("not adding subtitles for {:?}: {:?}", file, e);
             }
-            scan::ScannedSubtitles::Subtitles(subs) => db.add_subtitles(chapter_id, subs).await?,
+            scan::ScannedSubtitles::Subtitles(subs) => {
+                let _uuid = db.add_subtitles(chapter_id, subs).await?;
+            }
         }
         let media_view_id = db.add_media_view(chapter_id, "original").await?;
         db.add_media_segment(
@@ -89,7 +91,8 @@ pub async fn import_corpus_packet(
         let ContentData {
             metadata,
             hash,
-            srt_id: _,
+            local_id: _,
+            global_id: _,
             subtitle,
         } = chapter;
 

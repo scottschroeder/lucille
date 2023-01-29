@@ -64,7 +64,8 @@ pub mod storage {
 pub struct ContentData {
     pub metadata: metadata::MediaMetadata,
     pub hash: MediaHash,
-    pub srt_id: u64,
+    pub local_id: u64,
+    pub global_id: uuid::Uuid,
     pub subtitle: Vec<Subtitle>,
 }
 
@@ -73,13 +74,14 @@ impl Debug for ContentData {
         f.debug_struct("ContentData")
             .field("metadata", &self.metadata)
             .field("hash", &self.hash)
-            .field("srt_id", &self.srt_id)
+            .field("local_id", &self.local_id)
+            .field("global_id", &self.global_id)
             .field("subtitle", &self.subtitle.len())
             .finish()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Corpus {
     pub id: Option<CorpusId>,
     pub title: String,

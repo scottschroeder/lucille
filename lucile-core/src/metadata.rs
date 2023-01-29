@@ -29,8 +29,8 @@ impl Display for EpisodeMetadata {
 impl Display for MediaMetadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MediaMetadata::Episode(e) => write!(f, "{}", e),
-            MediaMetadata::Unknown(s) => write!(f, "{}", s),
+            MediaMetadata::Episode(e) => write!(f, "{e}"),
+            MediaMetadata::Unknown(s) => write!(f, "{s}"),
         }
     }
 }
@@ -50,6 +50,9 @@ pub struct MediaHash(Sha2Hash);
 impl MediaHash {
     pub fn new(hash: Sha2Hash) -> MediaHash {
         MediaHash(hash)
+    }
+    pub fn from_bytes(data: &[u8]) -> MediaHash {
+        MediaHash::new(Sha2Hash::digest(data))
     }
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_slice()

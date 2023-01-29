@@ -26,7 +26,8 @@ impl From<ContentData> for IndexableEpisode {
     fn from(c: ContentData) -> Self {
         let ContentData {
             subtitle: subs,
-            srt_id,
+            local_id,
+            global_id: _,
             metadata,
             hash: _,
         } = c;
@@ -44,7 +45,7 @@ impl From<ContentData> for IndexableEpisode {
 
         IndexableEpisode {
             title: metadata.title(),
-            srt_id,
+            srt_id: local_id,
             script,
             subs,
             index,

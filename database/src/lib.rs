@@ -295,7 +295,7 @@ impl Database {
         &self,
         chapter_id: ChapterId,
         subtitles: &[Subtitle],
-    ) -> Result<(), DatabaseError> {
+    ) -> Result<Uuid, DatabaseError> {
         let cid = chapter_id.get();
         let srt_uuid = Uuid::generate();
         let srt_uuid_string = srt_uuid.to_string();
@@ -315,13 +315,16 @@ impl Database {
 
         log::info!("srt file id: {:?} {}", id, srt_uuid);
 
-        Ok(())
+        Ok(srt_uuid)
     }
 
+    #[deprecated]
     pub async fn get_all_subs_for_corpus(
         &self,
         corpus_id: CorpusId,
     ) -> Result<(HashSet<i64>, Vec<ContentData>), DatabaseError> {
+        log::warn!("deprecated function that tries to grab the latest srt for files");
+
         let cid = corpus_id.get();
 
         let mut collector = HashMap::new();
@@ -357,6 +360,7 @@ impl Database {
             r#"
                 SELECT 
                     srtfile.id,
+                    srtfile.uuid,
                     srtfile.chapter_id,
                     srtfile.data
                 FROM srtfile
@@ -384,11 +388,13 @@ impl Database {
         let mut collected_srts = HashSet::default();
         while let Some(row) = rows.try_next().await.unwrap() {
             let subtitle = deserialize_subtitle(&row.data)?;
+            let uuid = parse_uuid(&row.uuid)?;
             if let Some((hash, metadata)) = collector.remove(&row.chapter_id) {
                 results.push(ContentData {
                     metadata,
                     hash,
-                    srt_id: row.id as u64,
+                    local_id: row.id as u64,
+                    global_id: uuid,
                     subtitle,
                 });
                 collected_srts.insert(row.id);
@@ -631,12 +637,26 @@ async fn connect_db<P: AsRef<path::Path>>(filename: P) -> Result<Pool<Sqlite>, D
 }
 
 #[cfg(test)]
-mod tests {
+mod database_test {
     use futures::TryStreamExt;
+    use lucile_core::identifiers::CorpusId;
 
     use crate::Database;
 
     const TABLES: &[&str] = &["_sqlx_migrations", "corpus", "chapter", "srtfile"];
+
+    fn assert_err_is_constraint<T: std::fmt::Debug>(
+        result: Result<T, super::DatabaseError>,
+        text: &str,
+    ) {
+        let phrase = format!("{} constraint", text);
+        if let Err(crate::DatabaseError::Sqlx(ref e)) = result {
+            if e.to_string().contains(&phrase) {
+                return;
+            }
+        }
+        panic!("expected error against {}, found: {:?}", phrase, result,)
+    }
 
     #[tokio::test]
     async fn all_tables_exist_in_new_database() {
@@ -662,6 +682,376 @@ mod tests {
         }
         for expected in TABLES {
             assert!(seen.contains(&expected.to_string()))
+        }
+    }
+
+    mod corpus {
+        use super::*;
+
+        #[tokio::test]
+        async fn create_new_corpus() {
+            let db = Database::memory().await.unwrap();
+            let c = db.add_corpus("media").await.unwrap();
+            assert_eq!(c.id, Some(CorpusId::new(1)));
+            assert_eq!(c.title, "media");
+        }
+
+        #[tokio::test]
+        async fn create_new_empty_corpus() {
+            let db = Database::memory().await.unwrap();
+            assert_err_is_constraint(db.add_corpus("").await, "CHECK")
+        }
+
+        #[tokio::test]
+        async fn fail_to_create_two_identical_corpuses() {
+            let db = Database::memory().await.unwrap();
+            let c = db.add_corpus("media").await.unwrap();
+            assert_eq!(c.id, Some(CorpusId::new(1)));
+            assert_eq!(c.title, "media");
+            assert_err_is_constraint(db.add_corpus("media").await, "UNIQUE")
+        }
+
+        #[tokio::test]
+        async fn lookup_corpus_id_from_title() {
+            let db = Database::memory().await.unwrap();
+            let c1 = db.add_corpus("media").await.unwrap();
+            let c2 = db.add_corpus("media2").await.unwrap();
+            let cid1 = db.get_corpus_id("media").await.unwrap();
+            let cid2 = db.get_corpus_id("media2").await.unwrap();
+            assert_eq!(c1.id, cid1);
+            assert_eq!(c2.id, cid2);
+        }
+
+        #[tokio::test]
+        async fn lookup_corpus_from_id() {
+            let db = Database::memory().await.unwrap();
+            let c1 = db.add_corpus("media").await.unwrap();
+            let c2 = db.add_corpus("media2").await.unwrap();
+            let c_lookup1 = db.get_corpus(c1.id.unwrap()).await.unwrap();
+            let c_lookup2 = db.get_corpus(c2.id.unwrap()).await.unwrap();
+            assert_eq!(c1, c_lookup1);
+            assert_eq!(c2, c_lookup2);
+        }
+
+        #[tokio::test]
+        async fn get_or_add_corpus() {
+            let db = Database::memory().await.unwrap();
+            let c1 = db.get_or_add_corpus("media").await.unwrap();
+            let c2 = db.get_or_add_corpus("media2").await.unwrap();
+            let c1_2 = db.get_or_add_corpus("media").await.unwrap();
+            let c2_2 = db.get_or_add_corpus("media2").await.unwrap();
+            assert_eq!(c1, c1_2);
+            assert_eq!(c2, c2_2);
+        }
+
+        #[tokio::test]
+        async fn list_all_corpus() {
+            let db = Database::memory().await.unwrap();
+            assert_eq!(db.list_corpus().await.unwrap(), vec![]);
+            let c1 = db.get_or_add_corpus("media").await.unwrap();
+            assert_eq!(db.list_corpus().await.unwrap(), vec![c1.clone()]);
+            let c2 = db.get_or_add_corpus("media2").await.unwrap();
+            assert_eq!(db.list_corpus().await.unwrap(), vec![c1, c2]);
+        }
+    }
+
+    mod chapter {
+        use lucile_core::{identifiers::ChapterId, metadata::MediaHash};
+
+        use super::*;
+
+        #[tokio::test]
+        async fn define_chapter() {
+            let db = Database::memory().await.unwrap();
+            let c = db.add_corpus("media").await.unwrap();
+            let id = db
+                .define_chapter(
+                    c.id.unwrap(),
+                    "title",
+                    Some(1),
+                    Some(2),
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            assert_eq!(id, ChapterId::new(1))
+        }
+
+        #[tokio::test]
+        async fn define_chapter_without_episodes() {
+            let db = Database::memory().await.unwrap();
+            let c = db.add_corpus("media").await.unwrap();
+            let id = db
+                .define_chapter(
+                    c.id.unwrap(),
+                    "title",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            assert_eq!(id, ChapterId::new(1))
+        }
+
+        #[tokio::test]
+        async fn define_chapter_without_title() {
+            let db = Database::memory().await.unwrap();
+            let c = db.add_corpus("media").await.unwrap();
+            assert_err_is_constraint(
+                db.define_chapter(
+                    c.id.unwrap(),
+                    "",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await,
+                "CHECK",
+            )
+        }
+    }
+    mod media {
+        use std::time::Duration;
+
+        use lucile_core::{identifiers::MediaViewId, metadata::MediaHash};
+
+        use super::*;
+
+        #[tokio::test]
+        async fn define_media_view() {
+            let db = Database::memory().await.unwrap();
+            let corpus = db.add_corpus("media").await.unwrap();
+            let ch_id = db
+                .define_chapter(
+                    corpus.id.unwrap(),
+                    "c1",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            let id = db.add_media_view(ch_id, "test-view").await.unwrap();
+            assert_eq!(id, MediaViewId::new(1))
+        }
+
+        #[tokio::test]
+        async fn define_nameless_media_view() {
+            let db = Database::memory().await.unwrap();
+            let corpus = db.add_corpus("media").await.unwrap();
+            let ch_id = db
+                .define_chapter(
+                    corpus.id.unwrap(),
+                    "c1",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            assert_err_is_constraint(db.add_media_view(ch_id, "").await, "CHECK");
+        }
+
+        #[tokio::test]
+        async fn add_media_segment() {
+            let db = Database::memory().await.unwrap();
+            let corpus = db.add_corpus("media").await.unwrap();
+            let ch_id = db
+                .define_chapter(
+                    corpus.id.unwrap(),
+                    "c1",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            let media_view_id = db.add_media_view(ch_id, "test-view").await.unwrap();
+            db.add_media_segment(
+                media_view_id,
+                MediaHash::from_bytes(b"s1data"),
+                Duration::from_secs_f64(1.2),
+                Duration::from_secs_f64(10.3),
+                None,
+            )
+            .await
+            .unwrap();
+            db.add_media_segment(
+                media_view_id,
+                MediaHash::from_bytes(b"s2data"),
+                Duration::from_secs_f64(10.3),
+                Duration::from_secs_f64(14.1),
+                Some("foo".to_string()),
+            )
+            .await
+            .unwrap();
+        }
+
+        #[tokio::test]
+        async fn add_media_segment_with_empty_key() {
+            let db = Database::memory().await.unwrap();
+            let corpus = db.add_corpus("media").await.unwrap();
+            let ch_id = db
+                .define_chapter(
+                    corpus.id.unwrap(),
+                    "c1",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            let media_view_id = db.add_media_view(ch_id, "test-view").await.unwrap();
+            assert_err_is_constraint(
+                db.add_media_segment(
+                    media_view_id,
+                    MediaHash::from_bytes(b"s1data"),
+                    Duration::from_secs_f64(1.2),
+                    Duration::from_secs_f64(10.3),
+                    Some(String::new()),
+                )
+                .await,
+                "CHECK",
+            )
+        }
+
+        #[tokio::test]
+        async fn add_storage() {
+            let db = Database::memory().await.unwrap();
+            db.add_storage(
+                MediaHash::from_bytes(b"s1data"),
+                std::path::Path::new("loc/to/path"),
+            )
+            .await
+            .unwrap();
+        }
+
+        #[tokio::test]
+        async fn two_objects_at_the_same_path() {
+            let db = Database::memory().await.unwrap();
+            db.add_storage(
+                MediaHash::from_bytes(b"s1data"),
+                std::path::Path::new("loc/to/path"),
+            )
+            .await
+            .unwrap();
+
+            assert_err_is_constraint(
+                db.add_storage(
+                    MediaHash::from_bytes(b"s2data"),
+                    std::path::Path::new("loc/to/path"),
+                )
+                .await,
+                "UNIQUE",
+            )
+        }
+    }
+
+    mod subtitle {
+        use lucile_core::{metadata::MediaHash, Subtitle};
+
+        use super::*;
+
+        const SUB1: &str = include_str!("../test_data/srt1.srt");
+        const SUB2: &str = include_str!("../test_data/srt2.srt");
+
+        fn parse_subs(srt: &str) -> Vec<Subtitle> {
+            subrip::parse(srt).expect("test SRT failed to parse")
+        }
+
+        #[tokio::test]
+        async fn add_subs() {
+            let db = Database::memory().await.unwrap();
+            let corpus = db.add_corpus("media").await.unwrap();
+            let ch_id = db
+                .define_chapter(
+                    corpus.id.unwrap(),
+                    "c1",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+
+            let s1 = parse_subs(SUB1);
+            let u1 = db.add_subtitles(ch_id, &s1).await.unwrap();
+        }
+
+        #[tokio::test]
+        async fn update_subs() {
+            let db = Database::memory().await.unwrap();
+            let corpus = db.add_corpus("media").await.unwrap();
+            let ch_id = db
+                .define_chapter(
+                    corpus.id.unwrap(),
+                    "c1",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+
+            let s1 = parse_subs(SUB1);
+            let s2 = parse_subs(SUB2);
+            let u1 = db.add_subtitles(ch_id, &s1).await.unwrap();
+            let u2 = db.add_subtitles(ch_id, &s2).await.unwrap();
+            assert_ne!(u1, u2)
+        }
+
+        #[tokio::test]
+        async fn dup_subs_in_different_media() {
+            let db = Database::memory().await.unwrap();
+            let corpus = db.add_corpus("media").await.unwrap();
+            let ch_id1 = db
+                .define_chapter(
+                    corpus.id.unwrap(),
+                    "c1",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            let ch_id2 = db
+                .define_chapter(
+                    corpus.id.unwrap(),
+                    "c1",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data2"),
+                )
+                .await
+                .unwrap();
+
+            let s1 = parse_subs(SUB1);
+            let u1 = db.add_subtitles(ch_id1, &s1).await.unwrap();
+            let u2 = db.add_subtitles(ch_id2, &s1).await.unwrap();
+            assert_ne!(u1, u2)
+        }
+
+        #[tokio::test]
+        async fn dup_subs_in_same_media() {
+            let db = Database::memory().await.unwrap();
+            let corpus = db.add_corpus("media").await.unwrap();
+            let ch_id = db
+                .define_chapter(
+                    corpus.id.unwrap(),
+                    "c1",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+
+            let s1 = parse_subs(SUB1);
+            let u1 = db.add_subtitles(ch_id, &s1).await.unwrap();
+            let u2 = db.add_subtitles(ch_id, &s1).await.unwrap();
+            // TODO this is the desired behavior!
+            // assert_eq!(u1, u2)
         }
     }
 }
