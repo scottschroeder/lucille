@@ -1,4 +1,4 @@
-use self::{metadata::MediaHash, identifiers::CorpusId};
+use self::{identifiers::CorpusId, metadata::MediaHash};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 pub use subrip::Subtitle;
@@ -16,7 +16,18 @@ pub mod export {
     #[derive(Debug, Serialize, Deserialize)]
     pub struct CorpusExport {
         pub title: String,
-        pub content: Vec<ContentData>,
+        pub content: Vec<MediaExport>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct MediaExport {
+        pub views: ViewOptions,
+        pub data: ContentData,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct ViewOptions {
+        pub views: Vec<String>,
     }
 }
 

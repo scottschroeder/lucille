@@ -198,11 +198,17 @@ impl Database {
 
         let cid = corpus_id.get();
         let hash_data = hash.to_string();
-        let id = sqlx::query!(
+        let c = sqlx::query!(
             r#"
-                    INSERT INTO chapter (corpus_id, title, season, episode, hash)
-                    VALUES ( ?1, ?2, ?3, ?4, ?5 )
-                    "#,
+                UPDATE chapter
+                SET
+                    corpus_id = ?1,
+                    title = ?2,
+                    season = ?3,
+                    episode = ?4
+                WHERE
+                    hash = ?5
+            "#,
             cid,
             title,
             season,
@@ -210,11 +216,42 @@ impl Database {
             hash_data
         )
         .execute(&self.pool)
-        .await?
-        .last_insert_rowid();
+        .await?;
+        c.rows_affected();
 
-        log::info!("chapter_id: {:?}", id);
+        log::trace!("UPDATE RESULT: {:?}", c);
 
+        let id = if c.rows_affected() > 0 {
+            sqlx::query!(
+                r#"
+                    SELECT
+                        id
+                    FROM chapter
+                    WHERE
+                        hash = ?
+                "#,
+                hash_data
+            )
+            .fetch_one(&self.pool)
+            .await?
+            .id
+        } else {
+            sqlx::query!(
+                r#"
+                    INSERT INTO chapter (corpus_id, title, season, episode, hash)
+                    VALUES ( ?1, ?2, ?3, ?4, ?5 )
+                    "#,
+                cid,
+                title,
+                season,
+                episode,
+                hash_data
+            )
+            .execute(&self.pool)
+            .await?
+            .last_insert_rowid()
+        };
+        log::trace!("UPDATE ID: {:?}", id);
         Ok(ChapterId::new(id))
     }
 
@@ -507,6 +544,30 @@ impl Database {
                     id DESC
          "#,
             cid
+        )
+        .map(|r| (MediaViewId::new(r.id), r.name))
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+    pub async fn get_srt_view_options(
+        &self,
+        srt_uuid: Uuid,
+    ) -> Result<Vec<(MediaViewId, String)>, DatabaseError> {
+        let uuid = srt_uuid.to_string();
+        let rows = sqlx::query!(
+            r#"
+                SELECT 
+                    media_view.id, name
+                FROM media_view
+                JOIN srtfile
+                  ON srtfile.chapter_id = media_view.chapter_id
+                WHERE
+                    srtfile.uuid = ?
+                ORDER BY
+                    media_view.id DESC
+         "#,
+            uuid
         )
         .map(|r| (MediaViewId::new(r.id), r.name))
         .fetch_all(&self.pool)
@@ -809,6 +870,76 @@ mod database_test {
                 .await,
                 "CHECK",
             )
+        }
+
+        #[tokio::test]
+        async fn define_and_update_chapter() {
+            let db = Database::memory().await.unwrap();
+            let c = db.add_corpus("media").await.unwrap();
+            let id1 = db
+                .define_chapter(
+                    c.id.unwrap(),
+                    "title1",
+                    Some(1),
+                    Some(1),
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            assert_eq!(id1, ChapterId::new(1));
+
+            let id2 = db
+                .define_chapter(
+                    c.id.unwrap(),
+                    "title2",
+                    Some(1),
+                    Some(2),
+                    MediaHash::from_bytes(b"data2"),
+                )
+                .await
+                .unwrap();
+            assert_eq!(id2, ChapterId::new(2));
+
+            let idx = db
+                .define_chapter(
+                    c.id.unwrap(),
+                    "title_updated",
+                    Some(1),
+                    Some(1),
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            assert_eq!(idx, id1);
+        }
+
+        #[tokio::test]
+        async fn define_and_redefine_chapter() {
+            let db = Database::memory().await.unwrap();
+            let c = db.add_corpus("media").await.unwrap();
+            let id1 = db
+                .define_chapter(
+                    c.id.unwrap(),
+                    "title1",
+                    Some(1),
+                    Some(1),
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            assert_eq!(id1, ChapterId::new(1));
+
+            let id2 = db
+                .define_chapter(
+                    c.id.unwrap(),
+                    "title1",
+                    Some(1),
+                    Some(1),
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            assert_eq!(id1, id2);
         }
     }
     mod media {

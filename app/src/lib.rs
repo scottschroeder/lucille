@@ -1,6 +1,12 @@
 use self::{app::LucileApp, scan::ScannedMedia};
 use database::Database;
-use lucile_core::{export::CorpusExport, identifiers::CorpusId, uuid::Uuid, ContentData, Corpus};
+use lucile_core::{
+    export::{CorpusExport, MediaExport, ViewOptions},
+    identifiers::CorpusId,
+    uuid::Uuid,
+    ContentData, Corpus,
+};
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 pub mod app;
@@ -88,12 +94,16 @@ pub async fn import_corpus_packet(
     let corpus_id = corpus.id.unwrap();
 
     for chapter in content {
-        let ContentData {
-            metadata,
-            hash,
-            local_id: _,
-            global_id: _,
-            subtitle,
+        let MediaExport {
+            views: ViewOptions { views },
+            data:
+                ContentData {
+                    metadata,
+                    hash,
+                    local_id: _,
+                    global_id: _,
+                    subtitle,
+                },
         } = chapter;
 
         let (title, season, episode) = match &metadata {
@@ -109,6 +119,9 @@ pub async fn import_corpus_packet(
             .define_chapter(corpus_id, title, season, episode, hash)
             .await?;
         app.db.add_subtitles(chapter_id, &subtitle).await?;
+        for name in views {
+            app.db.add_media_view(chapter_id, name).await?;
+        }
     }
 
     Ok(corpus_id)
@@ -120,8 +133,27 @@ pub async fn export_corpus_packet(
 ) -> Result<CorpusExport, LucileAppError> {
     let title = app.db.get_corpus(corpus_id).await?.title;
     let (_, content) = app.db.get_all_subs_for_corpus(corpus_id).await?;
+    //
+    let mut export = Vec::with_capacity(content.len());
 
-    Ok(CorpusExport { title, content })
+    for c in content {
+        let views = app
+            .db
+            .get_srt_view_options(c.global_id)
+            .await?
+            .into_iter()
+            .map(|(_id, name)| name)
+            .collect();
+        export.push(MediaExport {
+            views: ViewOptions { views },
+            data: c,
+        });
+    }
+
+    Ok(CorpusExport {
+        title,
+        content: export,
+    })
 }
 
 pub async fn index_subtitles(
