@@ -11,9 +11,15 @@ pub mod metadata;
 
 pub mod export {
 
+    use std::path::PathBuf;
+
     use serde::{Deserialize, Serialize};
 
-    use crate::ContentData;
+    use crate::{
+        identifiers::{ChapterId, CorpusId, StorageId},
+        metadata::{MediaHash, MediaMetadata},
+        ContentData,
+    };
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct CorpusExport {
@@ -30,6 +36,23 @@ pub mod export {
     #[derive(Debug, Serialize, Deserialize)]
     pub struct ViewOptions {
         pub views: Vec<String>,
+    }
+
+    #[derive(Debug)]
+    pub struct MediaStorage {
+        pub id: StorageId,
+        pub path: PathBuf,
+        pub hash: MediaHash,
+        pub exists_locally: Option<bool>,
+        pub verified: bool,
+    }
+
+    #[derive(Debug)]
+    pub struct ChapterExport {
+        pub id: ChapterId,
+        pub corpus_id: CorpusId,
+        pub metadata: MediaMetadata,
+        pub hash: MediaHash,
     }
 }
 

@@ -5,7 +5,10 @@ use std::{
 };
 
 use futures::TryStreamExt;
-use lucile_core::{metadata::MediaHash, uuid::Uuid};
+use lucile_core::{
+    metadata::{EpisodeMetadata, MediaHash, MediaMetadata},
+    uuid::Uuid,
+};
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteSynchronous},
     Pool, Sqlite,
@@ -108,6 +111,22 @@ WHERE search_index.uuid = "5d0b7314-4136-476a-b91a-4cf0b80bd985"
 GROUP BY corpus.title
 ;
 */
+
+fn metadata_from_chapter(
+    title: String,
+    season: Option<i64>,
+    episode: Option<i64>,
+) -> MediaMetadata {
+    if let Some((s, e)) = season.zip(episode) {
+        MediaMetadata::Episode(EpisodeMetadata {
+            title,
+            season: s as u32,
+            episode: e as u32,
+        })
+    } else {
+        MediaMetadata::Unknown(title)
+    }
+}
 
 fn media_hash(text: &str) -> Result<MediaHash, DatabaseError> {
     MediaHash::from_str(text)

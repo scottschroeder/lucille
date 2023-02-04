@@ -8,27 +8,11 @@ use lucile_core::{
     ContentData, Subtitle,
 };
 
-use crate::{media_hash, parse_uuid, Database, DatabaseError};
+use crate::{media_hash, metadata_from_chapter, parse_uuid, Database, DatabaseError};
 
 fn deserialize_subtitle(data: &[u8]) -> Result<Vec<Subtitle>, DatabaseError> {
     serde_json::from_slice(&data)
         .map_err(|e| DatabaseError::ConvertFromSqlError(format!("deserialize JSON: {}", e)))
-}
-
-fn metadata_from_chapter(
-    title: String,
-    season: Option<i64>,
-    episode: Option<i64>,
-) -> MediaMetadata {
-    if let Some((s, e)) = season.zip(episode) {
-        MediaMetadata::Episode(EpisodeMetadata {
-            title,
-            season: s as u32,
-            episode: e as u32,
-        })
-    } else {
-        MediaMetadata::Unknown(title)
-    }
 }
 
 impl Database {

@@ -1,6 +1,6 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use lucile_core::metadata::MediaHash;
+use lucile_core::{export::MediaStorage, identifiers::StorageId, metadata::MediaHash};
 
 use crate::{Database, DatabaseError};
 
@@ -22,6 +22,37 @@ impl Database {
         .last_insert_rowid();
 
         Ok(())
+    }
+
+    pub async fn get_storage_by_hash(
+        &self,
+        hash: MediaHash,
+    ) -> Result<Option<MediaStorage>, DatabaseError> {
+        let hash_data = hash.to_string();
+        let row_opt = sqlx::query!(
+            r#"
+                    SELECT
+                        id, hash, path
+                    FROM storage
+                    WHERE
+                        hash = ?
+                    "#,
+            hash_data,
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(if let Some(row) = row_opt {
+            Some(MediaStorage {
+                id: StorageId::new(row.id),
+                hash,
+                path: PathBuf::from(row.path),
+                exists_locally: None,
+                verified: false,
+            })
+        } else {
+            None
+        })
     }
 }
 
@@ -62,5 +93,17 @@ mod test {
             .await,
             "UNIQUE",
         )
+    }
+
+    #[tokio::test]
+    async fn lookup_storage_by_hash() {
+        let db = Database::memory().await.unwrap();
+        let hash = MediaHash::from_bytes(b"s1data");
+        let fpath = std::path::PathBuf::from("loc/to/path");
+        db.add_storage(hash, fpath.as_path()).await.unwrap();
+
+        let res_opt = db.get_storage_by_hash(hash).await.unwrap();
+        let res = res_opt.expect("expected object not in db");
+        assert_eq!(res.path, fpath);
     }
 }
