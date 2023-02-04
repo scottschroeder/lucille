@@ -3,6 +3,7 @@ use database::Database;
 use lucile_core::{
     export::{CorpusExport, MediaExport, ViewOptions},
     identifiers::CorpusId,
+    metadata::MediaHash,
     uuid::Uuid,
     ContentData, Corpus,
 };
@@ -70,18 +71,25 @@ pub async fn add_content_to_corpus(
             }
         }
         let media_view_id = db.add_media_view(chapter_id, "original").await?;
-        db.add_media_segment(
-            media_view_id,
-            file.hash,
-            Duration::default(),
-            Duration::MAX,
-            None,
-        )
-        .await?;
+        db.add_media_segment(media_view_id.id, 0, file.hash, Duration::default(), None)
+            .await?;
         db.add_storage(file.hash, &file.path).await?
     }
 
     Ok(())
+}
+
+pub async fn get_details_for_hash(app: &LucileApp, hash: MediaHash) -> Result<(), LucileAppError> {
+    // Lookup chapter with hash
+
+    // Lookup segments with hash
+    let segment = app.db.get_media_segment_by_hash(hash).await?;
+    if let Some(s) = segment {
+        let media_view = app.db.get_media_view(s.media_view_id).await?;
+        log::info!("found view {:?} segment: {:?}", media_view, s);
+    }
+
+    todo!("lookup chapter/views/storage/segments for hash")
 }
 
 pub async fn import_corpus_packet(
@@ -142,7 +150,7 @@ pub async fn export_corpus_packet(
             .get_srt_view_options(c.global_id)
             .await?
             .into_iter()
-            .map(|(_id, name)| name)
+            .map(|view| view.name)
             .collect();
         export.push(MediaExport {
             views: ViewOptions { views },

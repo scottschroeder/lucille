@@ -62,6 +62,75 @@ pub mod uuid {
 
 pub mod clean_sub;
 
+pub mod file_explorer {
+    use std::path::PathBuf;
+
+    use crate::{
+        identifiers::ChapterId,
+        media_segment::{MediaSegment, MediaView},
+        metadata::{MediaHash, MediaMetadata},
+        Corpus,
+    };
+
+    #[derive(Debug)]
+    pub struct HashExploreResults {
+        pub path: Option<PathBuf>,
+        pub chapter: Option<ChapterExploreResults>,
+        pub segment: Option<(MediaView, MediaSegment)>,
+    }
+
+    #[derive(Debug)]
+    pub struct ChapterExploreResults {
+        pub id: ChapterId,
+        pub corpus: Corpus,
+        pub metadata: MediaMetadata,
+        pub hash: MediaHash,
+    }
+}
+
+pub mod media_segment {
+    use std::time::Duration;
+
+    use crate::{
+        identifiers::{ChapterId, MediaSegmentId, MediaViewId},
+        metadata::MediaHash,
+    };
+
+    #[derive(Debug, PartialEq)]
+    pub struct MediaView {
+        pub id: MediaViewId,
+        pub chapter_id: ChapterId,
+        pub name: String,
+    }
+
+    pub struct EncryptionKey {
+        key: String,
+    }
+
+    impl EncryptionKey {
+        pub fn new<S: Into<String>>(key: S) -> EncryptionKey {
+            EncryptionKey { key: key.into() }
+        }
+    }
+
+    impl std::fmt::Debug for EncryptionKey {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("EncryptionKey")
+                .field("key", &"<REDACTED>")
+                .finish()
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct MediaSegment {
+        pub id: MediaSegmentId,
+        pub media_view_id: MediaViewId,
+        pub hash: MediaHash,
+        pub start: Duration,
+        pub key: Option<EncryptionKey>,
+    }
+}
+
 pub mod storage {
     use std::path::PathBuf;
 

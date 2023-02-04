@@ -45,11 +45,11 @@ pub enum SubCommand {
     #[clap(subcommand)]
     Export(ExportCommand),
 
-
     /// Interactive Gif Creation
     Interactive(InteractiveOpts),
-
-
+    ///
+    /// Interactive Gif Creation
+    HashLookup(HashLookup),
     // Process and prepare media
     // #[clap(subcommand)]
     // Media(MediaCommand),
@@ -138,6 +138,15 @@ pub struct InteractiveOpts {
 
     #[clap(flatten)]
     pub storage: StorageConfig,
+}
+
+#[derive(Parser, Debug)]
+pub struct HashLookup {
+    /// Search the database for this hash
+    pub hash: String,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
 }
 
 #[derive(Parser, Debug)]

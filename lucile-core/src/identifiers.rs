@@ -12,6 +12,9 @@ pub struct ChapterId(DbId);
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct MediaViewId(DbId);
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct MediaSegmentId(DbId);
+
 impl CorpusId {
     pub fn new(id: i64) -> CorpusId {
         CorpusId(DbId(
@@ -58,6 +61,23 @@ impl MediaViewId {
 }
 
 impl std::fmt::Display for MediaViewId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.get())
+    }
+}
+
+impl MediaSegmentId {
+    pub fn new(id: i64) -> MediaSegmentId {
+        MediaSegmentId(DbId(
+            NonZeroI64::new(id).expect("database id can not be zero"),
+        ))
+    }
+    pub fn get(&self) -> i64 {
+        self.0 .0.get()
+    }
+}
+
+impl std::fmt::Display for MediaSegmentId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.get())
     }

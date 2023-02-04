@@ -70,7 +70,7 @@ mod workflow {
         search_manager::{SearchRequest, SearchResponse},
         transcode::{MakeGifRequest, SubSegment, TranscodeRequest},
     };
-    use lucile_core::{clean_sub::CleanSubs, uuid::Uuid};
+    use lucile_core::{clean_sub::CleanSubs, metadata::MediaHash, uuid::Uuid};
 
     use super::argparse;
     use crate::cli::{cli_select, helpers};
@@ -157,6 +157,18 @@ mod workflow {
 
         Ok(())
     }
+
+    pub(crate) async fn hash_lookup(args: &argparse::HashLookup) -> anyhow::Result<()> {
+        let hash = MediaHash::from_str(&args.hash).context("could not parse hash")?;
+        let app = helpers::get_app(Some(&args.db), None).await?;
+        log::trace!("using app: {:?}", app);
+
+        app::get_details_for_hash(&app, hash).await?;
+
+        // println!("{:#?}", transcode_req);
+
+        Ok(())
+    }
 }
 
 mod export {
@@ -222,5 +234,6 @@ pub async fn run_cli(args: &argparse::CliOpts) -> anyhow::Result<()> {
             argparse::ImportCommand::Corpus(opts) => import_corpus(opts).await,
         },
         argparse::SubCommand::Interactive(opts) => interactive_search(opts).await,
+        argparse::SubCommand::HashLookup(opts) => workflow::hash_lookup(opts).await,
     }
 }

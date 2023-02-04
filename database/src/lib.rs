@@ -7,7 +7,8 @@ use std::{
 
 use futures::TryStreamExt;
 use lucile_core::{
-    identifiers::{ChapterId, CorpusId, MediaViewId},
+    identifiers::{ChapterId, CorpusId, MediaSegmentId, MediaViewId},
+    media_segment::{EncryptionKey, MediaSegment, MediaView},
     metadata::{EpisodeMetadata, MediaHash, MediaMetadata},
     uuid::Uuid,
     ContentData, Corpus, Subtitle,
@@ -259,7 +260,7 @@ impl Database {
         &self,
         chapter_id: ChapterId,
         name: S,
-    ) -> Result<MediaViewId, DatabaseError> {
+    ) -> Result<MediaView, DatabaseError> {
         let name = name.into();
 
         let cid = chapter_id.get();
@@ -275,38 +276,97 @@ impl Database {
         .await?
         .last_insert_rowid();
 
-        Ok(MediaViewId::new(id))
+        Ok(MediaView {
+            id: MediaViewId::new(id),
+            chapter_id,
+            name,
+        })
+    }
+
+    pub async fn get_media_view(
+        &self,
+        media_view_id: MediaViewId,
+    ) -> Result<MediaView, DatabaseError> {
+        let id = media_view_id.get();
+        let row = sqlx::query!(
+            r#"
+                    SELECT
+                        id, chapter_id, name
+                    FROM media_view
+                    WHERE
+                        id = ?
+                    "#,
+            id,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(MediaView {
+            id: MediaViewId::new(row.id),
+            chapter_id: ChapterId::new(row.chapter_id),
+            name: row.name,
+        })
+    }
+
+    pub async fn get_media_segment_by_hash(
+        &self,
+        hash: MediaHash,
+    ) -> Result<Option<MediaSegment>, DatabaseError> {
+        let hash_data = hash.to_string();
+        let row_opt = sqlx::query!(
+            r#"
+                    SELECT
+                        id, media_view_id, start, encryption_key
+                    FROM media_segment
+                    WHERE
+                        hash = ?
+                    "#,
+            hash_data,
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(if let Some(row) = row_opt {
+            Some(MediaSegment {
+                id: MediaSegmentId::new(row.id),
+                media_view_id: MediaViewId::new(row.media_view_id),
+                hash,
+                start: parse_duration(&row.start)?,
+                key: row.encryption_key.map(EncryptionKey::new),
+            })
+        } else {
+            None
+        })
     }
 
     pub async fn add_media_segment(
         &self,
         media_view_id: MediaViewId,
+        sequence_id: u16,
         hash: MediaHash,
         start: Duration,
-        end: Duration,
         key: Option<String>,
-    ) -> Result<(), DatabaseError> {
+    ) -> Result<MediaSegmentId, DatabaseError> {
         let cid = media_view_id.get();
         let hash_data = hash.to_string();
         let tstart = start.as_secs_f64();
-        let tend = end.as_secs_f64();
 
-        let _id = sqlx::query!(
+        let id = sqlx::query!(
             r#"
-                    INSERT INTO media_segment (media_view_id, hash, start, end, encryption_key)
+                    INSERT INTO media_segment (media_view_id, seq_id, hash, start, encryption_key)
                     VALUES ( ?1, ?2, ?3, ?4, ?5)
                     "#,
             cid,
+            sequence_id,
             hash_data,
             tstart,
-            tend,
             key,
         )
         .execute(&self.pool)
         .await?
         .last_insert_rowid();
 
-        Ok(())
+        Ok(MediaSegmentId::new(id))
     }
 
     pub async fn add_storage(&self, hash: MediaHash, path: &Path) -> Result<(), DatabaseError> {
@@ -553,12 +613,12 @@ impl Database {
     pub async fn get_srt_view_options(
         &self,
         srt_uuid: Uuid,
-    ) -> Result<Vec<(MediaViewId, String)>, DatabaseError> {
+    ) -> Result<Vec<MediaView>, DatabaseError> {
         let uuid = srt_uuid.to_string();
         let rows = sqlx::query!(
             r#"
                 SELECT 
-                    media_view.id, name
+                    media_view.id, media_view.chapter_id, media_view.name
                 FROM media_view
                 JOIN srtfile
                   ON srtfile.chapter_id = media_view.chapter_id
@@ -569,7 +629,11 @@ impl Database {
          "#,
             uuid
         )
-        .map(|r| (MediaViewId::new(r.id), r.name))
+        .map(|r| MediaView {
+            id: MediaViewId::new(r.id),
+            chapter_id: ChapterId::new(r.chapter_id),
+            name: r.name,
+        })
         .fetch_all(&self.pool)
         .await?;
         Ok(rows)
@@ -614,6 +678,13 @@ WHERE search_index.uuid = "5d0b7314-4136-476a-b91a-4cf0b80bd985"
 GROUP BY corpus.title
 ;
 */
+
+fn parse_duration(text: &str) -> Result<Duration, DatabaseError> {
+    let f = text.parse::<f64>().map_err(|e| {
+        DatabaseError::ConvertFromSqlError(format!("unable to parse f64: `{}`", text))
+    })?;
+    Ok(Duration::from_secs_f64(f))
+}
 
 fn parse_uuid(text: &str) -> Result<Uuid, DatabaseError> {
     Uuid::from_str(text)
@@ -963,8 +1034,28 @@ mod database_test {
                 )
                 .await
                 .unwrap();
-            let id = db.add_media_view(ch_id, "test-view").await.unwrap();
-            assert_eq!(id, MediaViewId::new(1))
+            let view = db.add_media_view(ch_id, "test-view").await.unwrap();
+            assert_eq!(view.id, MediaViewId::new(1))
+        }
+
+        #[tokio::test]
+        async fn define_and_get_media_view() {
+            let db = Database::memory().await.unwrap();
+            let corpus = db.add_corpus("media").await.unwrap();
+            let ch_id = db
+                .define_chapter(
+                    corpus.id.unwrap(),
+                    "c1",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            let view_insert = db.add_media_view(ch_id, "test-view").await.unwrap();
+            db.add_media_view(ch_id, "extra").await.unwrap();
+            let view_get = db.get_media_view(view_insert.id).await.unwrap();
+            assert_eq!(view_insert, view_get)
         }
 
         #[tokio::test]
@@ -1000,23 +1091,67 @@ mod database_test {
                 .unwrap();
             let media_view_id = db.add_media_view(ch_id, "test-view").await.unwrap();
             db.add_media_segment(
-                media_view_id,
+                media_view_id.id,
+                0,
                 MediaHash::from_bytes(b"s1data"),
                 Duration::from_secs_f64(1.2),
-                Duration::from_secs_f64(10.3),
                 None,
             )
             .await
             .unwrap();
             db.add_media_segment(
-                media_view_id,
+                media_view_id.id,
+                1,
                 MediaHash::from_bytes(b"s2data"),
                 Duration::from_secs_f64(10.3),
-                Duration::from_secs_f64(14.1),
                 Some("foo".to_string()),
             )
             .await
             .unwrap();
+        }
+
+        #[tokio::test]
+        async fn add_and_fetch_media_segment_by_hash() {
+            let db = Database::memory().await.unwrap();
+            let corpus = db.add_corpus("media").await.unwrap();
+            let ch_id = db
+                .define_chapter(
+                    corpus.id.unwrap(),
+                    "c1",
+                    None,
+                    None,
+                    MediaHash::from_bytes(b"data"),
+                )
+                .await
+                .unwrap();
+            let media_view_id = db.add_media_view(ch_id, "test-view").await.unwrap();
+            let s1 = db
+                .add_media_segment(
+                    media_view_id.id,
+                    0,
+                    MediaHash::from_bytes(b"s1data"),
+                    Duration::from_secs_f64(1.2),
+                    None,
+                )
+                .await
+                .unwrap();
+            let _s2 = db
+                .add_media_segment(
+                    media_view_id.id,
+                    1,
+                    MediaHash::from_bytes(b"s2data"),
+                    Duration::from_secs_f64(10.3),
+                    Some("foo".to_string()),
+                )
+                .await
+                .unwrap();
+            let segment = db
+                .get_media_segment_by_hash(MediaHash::from_bytes(b"s1data"))
+                .await
+                .unwrap();
+            let segment = segment.expect("expected data to exist in db");
+            assert_eq!(segment.id, s1);
+            assert_eq!(segment.start, Duration::from_secs_f64(1.2));
         }
 
         #[tokio::test]
@@ -1036,10 +1171,10 @@ mod database_test {
             let media_view_id = db.add_media_view(ch_id, "test-view").await.unwrap();
             assert_err_is_constraint(
                 db.add_media_segment(
-                    media_view_id,
+                    media_view_id.id,
+                    0,
                     MediaHash::from_bytes(b"s1data"),
                     Duration::from_secs_f64(1.2),
-                    Duration::from_secs_f64(10.3),
                     Some(String::new()),
                 )
                 .await,
