@@ -1,11 +1,11 @@
 // use hotkey_manager::HotKeyManager;
 // use image_sorter::NamedImage;
 
-use std::{path::Path, str::FromStr};
+use std::path::Path;
 
 use anyhow::Context;
-use app::{app::LucileApp, search_manager::SearchService};
-use lucile_core::{export::CorpusExport, uuid::Uuid};
+use app::app::LucileApp;
+use lucile_core::export::CorpusExport;
 
 pub(crate) use self::search_app::SearchApp;
 use self::{
@@ -165,7 +165,7 @@ impl eframe::App for ShellApp {
             });
         });
 
-        egui::SidePanel::right("side_panel").show(ctx, |ui| {
+        egui::SidePanel::right("side_panel").show(ctx, |_ui| {
             // lucile_manager.update_side_panel(ui);
         });
 

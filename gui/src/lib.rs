@@ -1,13 +1,11 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
 mod gui_app;
-pub use gui_app::ShellApp;
-
 // ----------------------------------------------------------------------------
 // When compiling for web:
-
 #[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::{self, prelude::*};
+pub use gui_app::ShellApp;
 
 /// This is the entry-point for all the web-assembly.
 /// This is called once from the HTML.

@@ -175,9 +175,8 @@ mod export {
     use anyhow::Context;
     use lucile_core::export::CorpusExport;
 
-    use crate::cli::helpers;
-
     use super::argparse;
+    use crate::cli::helpers;
 
     pub(crate) async fn import_corpus(args: &argparse::ImportCorpusOpts) -> anyhow::Result<()> {
         let app = helpers::get_app(Some(&args.db), None).await?;

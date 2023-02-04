@@ -1,4 +1,5 @@
-use self::{app::LucileApp, scan::ScannedMedia};
+use std::time::Duration;
+
 use database::Database;
 use lucile_core::{
     export::{CorpusExport, MediaExport, ViewOptions},
@@ -7,8 +8,8 @@ use lucile_core::{
     uuid::Uuid,
     ContentData, Corpus,
 };
-use serde::{Deserialize, Serialize};
-use std::time::Duration;
+
+use self::{app::LucileApp, scan::ScannedMedia};
 
 pub mod app;
 pub mod scan;
@@ -86,8 +87,10 @@ pub async fn get_details_for_hash(app: &LucileApp, hash: MediaHash) -> Result<()
     let segment = app.db.get_media_segment_by_hash(hash).await?;
     if let Some(s) = segment {
         let media_view = app.db.get_media_view(s.media_view_id).await?;
-        log::info!("found view {:?} segment: {:?}", media_view, s);
+        log::info!("found view {:#?}\nsegment: {:#?}", media_view, s);
     }
+
+    // Lookup storage with hash
 
     todo!("lookup chapter/views/storage/segments for hash")
 }
@@ -147,7 +150,7 @@ pub async fn export_corpus_packet(
     for c in content {
         let views = app
             .db
-            .get_srt_view_options(c.global_id)
+            .get_media_views_for_srt(c.global_id)
             .await?
             .into_iter()
             .map(|view| view.name)

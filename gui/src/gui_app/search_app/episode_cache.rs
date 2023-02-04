@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    ops::Index,
-    sync::{Arc, Mutex},
-};
+use std::sync::Arc;
 
 use dashmap::DashMap;
 use lucile_core::{metadata::MediaMetadata, Subtitle};
@@ -26,7 +22,7 @@ impl EpisodeCache {
         self.inner.insert(id, data);
     }
 
-    pub fn episode(&self, id: i64) -> dashmap::mapref::one::Ref<i64, EpisodeData> {
+    pub fn episode(&self, id: i64) -> dashmap::mapref::one::Ref<'_, i64, EpisodeData> {
         self.inner
             .get(&id)
             .expect("key should be inserted before lookup")

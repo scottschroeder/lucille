@@ -1,14 +1,14 @@
+use std::fmt::Write;
+
 use anyhow::Context;
 use app::{
     app::LucileApp,
     search_manager::{ClipResult, SearchRequest, SearchResponse, SearchService},
 };
-use egui::{Button, RichText};
-use lucile_core::{clean_sub::CleanSubs, metadata::MediaMetadata, Subtitle};
-use std::fmt::Write;
+use egui::RichText;
+use lucile_core::clean_sub::CleanSubs;
 
 use self::episode_cache::{EpisodeCache, EpisodeData};
-
 use super::{error::ErrorChainLogLine, AppCtx};
 
 const DEFAULT_SEARCH_WIDTH: usize = 5;
@@ -196,7 +196,7 @@ impl SearchApp {
         }
     }
 
-    fn run_query(&self, ui: &mut egui::Ui, ctx: &mut AppCtx) {
+    fn run_query(&self, ui: &mut egui::Ui, ctx: &mut AppCtx<'_>) {
         let results_tx = self.tx.clone();
         let service = self.search_service.clone();
         let text = self.query.body.clone();
@@ -227,7 +227,7 @@ impl SearchApp {
         }
     }
 
-    pub(crate) fn update_central_panel(&mut self, ui: &mut egui::Ui, ctx: &mut AppCtx) {
+    pub(crate) fn update_central_panel(&mut self, ui: &mut egui::Ui, ctx: &mut AppCtx<'_>) {
         ui.heading("Search");
         if ui.text_edit_singleline(&mut self.query.body).changed() {
             self.run_query(ui, ctx)

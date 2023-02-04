@@ -1,8 +1,8 @@
-use lucile_core::{clean_sub::CleanSub, metadata::MediaHash, uuid::Uuid};
+use lucile_core::uuid::Uuid;
 use search::SearchIndex;
 use serde::{Deserialize, Serialize};
 
-use crate::{app::LucileApp, LucileAppError};
+use crate::LucileAppError;
 
 const DEFAULT_WINDOW: usize = 5;
 const DEFAULT_MAX_RESPONSES: usize = 5;
@@ -56,7 +56,7 @@ impl SearchService {
     ) -> Result<SearchResponse, LucileAppError> {
         let scores = self.index.search(request.query, request.get_window())?;
 
-        // TODO what does this actually do? nothing? I think its nothing... 
+        // TODO what does this actually do? nothing? I think its nothing...
         // it reverses a list
         //
         //

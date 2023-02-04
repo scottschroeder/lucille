@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use clap::Parser;
 
 const STORAGE_DEFAULT: &str = "storage";

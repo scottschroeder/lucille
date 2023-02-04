@@ -1,7 +1,9 @@
-use self::{identifiers::CorpusId, metadata::MediaHash};
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+
+use serde::{Deserialize, Serialize};
 pub use subrip::Subtitle;
+
+use self::{identifiers::CorpusId, metadata::MediaHash};
 
 pub mod hash;
 pub mod identifiers;

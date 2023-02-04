@@ -1,12 +1,8 @@
-use std::str::FromStr;
-
 use anyhow::Context;
-use app::{app::LucileApp, search_manager::SearchService};
-use lucile_core::uuid::Uuid;
-
-use crate::gui_app::error::ErrorChainLogLine;
+use app::app::LucileApp;
 
 use super::{AppCtx, SearchApp, SearchAppState};
+use crate::gui_app::error::ErrorChainLogLine;
 
 enum LoadState {
     None,

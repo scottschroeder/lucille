@@ -46,9 +46,8 @@ impl<'a> MediaLookup<'a> {
         }
     }
 
-    async fn check(&mut self, id: MediaViewId) -> Result<bool, DatabaseError> {
+    async fn check(&mut self, _id: MediaViewId) -> Result<bool, DatabaseError> {
         // self.db.
-
 
         Ok(true)
     }
