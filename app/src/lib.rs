@@ -1,6 +1,3 @@
-
-
-
 use lucile_core::{
     export::{CorpusExport, MediaExport, ViewOptions},
     identifiers::CorpusId,
@@ -9,9 +6,7 @@ use lucile_core::{
     ContentData,
 };
 
-use self::{
-    app::LucileApp,
-};
+use self::app::LucileApp;
 
 pub mod app;
 pub mod ingest;
@@ -73,8 +68,6 @@ pub async fn import_corpus_packet(
                 ContentData {
                     metadata,
                     hash,
-                    local_id: _,
-                    global_id: _,
                     subtitle,
                 },
         } = chapter;
@@ -91,7 +84,9 @@ pub async fn import_corpus_packet(
             .db
             .define_chapter(corpus_id, title, season, episode, hash)
             .await?;
-        app.db.add_subtitles(chapter_id, &subtitle).await?;
+        app.db
+            .import_subtitles(chapter_id, subtitle.uuid, &subtitle.subs)
+            .await?;
         for name in views {
             app.db.add_media_view(chapter_id, name).await?;
         }
@@ -112,7 +107,7 @@ pub async fn export_corpus_packet(
     for c in content {
         let views = app
             .db
-            .get_media_views_for_srt(c.global_id)
+            .get_media_views_for_srt(c.subtitle.uuid)
             .await?
             .into_iter()
             .map(|view| view.name)

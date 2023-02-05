@@ -12,11 +12,20 @@ pub enum ScanError {
     Io(#[from] std::io::Error),
 }
 
-#[derive(Debug)]
 pub enum ScannedSubtitles {
     NotFound,
     Error(subrip::Error),
     Subtitles(Vec<subrip::Subtitle>),
+}
+
+impl std::fmt::Debug for ScannedSubtitles {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFound => write!(f, "NotFound"),
+            Self::Error(arg0) => f.debug_tuple("Error").field(arg0).finish(),
+            Self::Subtitles(arg0) => f.debug_tuple("Subtitles").field(&arg0.len()).finish(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -35,7 +44,6 @@ pub struct ScannedMedia {
 }
 
 pub use insert::add_content_to_corpus;
-
 pub use scan::scan_media_paths;
 
 /// batch process a list of media paths

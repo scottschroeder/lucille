@@ -26,15 +26,13 @@ impl From<ContentData> for IndexableEpisode {
     fn from(c: ContentData) -> Self {
         let ContentData {
             subtitle: subs,
-            local_id,
-            global_id: _,
             metadata,
             hash: _,
         } = c;
         let mut script = String::new();
         let mut index = vec![0];
 
-        for sub in &subs {
+        for sub in &subs.subs {
             for line in sub.text.lines() {
                 let text = line.trim().trim_start_matches('-').trim();
                 script.push(' ');
@@ -45,9 +43,9 @@ impl From<ContentData> for IndexableEpisode {
 
         IndexableEpisode {
             title: metadata.title(),
-            srt_id: local_id,
+            srt_id: subs.id,
             script,
-            subs,
+            subs: subs.subs,
             index,
         }
     }

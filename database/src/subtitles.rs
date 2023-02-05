@@ -5,7 +5,7 @@ use lucile_core::{
     identifiers::{ChapterId, CorpusId},
     metadata::{MediaHash, MediaMetadata},
     uuid::Uuid,
-    ContentData, Subtitle,
+    ContentData, LucileSub, Subtitle,
 };
 
 use crate::{media_hash, metadata_from_chapter, parse_uuid, Database, DatabaseError};
@@ -21,8 +21,37 @@ impl Database {
         chapter_id: ChapterId,
         subtitles: &[Subtitle],
     ) -> Result<Uuid, DatabaseError> {
+        if let Some(latest) = self.lookup_latest_sub_for_chapter(chapter_id).await? {
+            if latest.subs == subtitles {
+                return Ok(latest.uuid);
+            }
+        }
+
         let cid = chapter_id.get();
         let srt_uuid = Uuid::generate();
+        let srt_uuid_string = srt_uuid.to_string();
+        let data = serde_json::to_vec(subtitles).expect("unable to serialize JSON");
+        sqlx::query!(
+            r#"
+                    INSERT INTO srtfile (chapter_id, uuid, data)
+                    VALUES ( ?1, ?2, ?3 )
+                    "#,
+            cid,
+            srt_uuid_string,
+            data,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(srt_uuid)
+    }
+
+    pub async fn import_subtitles(
+        &self,
+        chapter_id: ChapterId,
+        srt_uuid: Uuid,
+        subtitles: &[Subtitle],
+    ) -> Result<Uuid, DatabaseError> {
+        let cid = chapter_id.get();
         let srt_uuid_string = srt_uuid.to_string();
         let data = serde_json::to_vec(subtitles).expect("unable to serialize JSON");
         let id = sqlx::query!(
@@ -114,13 +143,16 @@ impl Database {
         while let Some(row) = rows.try_next().await.unwrap() {
             let subtitle = deserialize_subtitle(&row.data)?;
             let uuid = parse_uuid(&row.uuid)?;
+            let lucile_sub = LucileSub {
+                id: row.id as u64,
+                uuid,
+                subs: subtitle,
+            };
             if let Some((hash, metadata)) = collector.remove(&row.chapter_id) {
                 results.push(ContentData {
                     metadata,
                     hash,
-                    local_id: row.id as u64,
-                    global_id: uuid,
-                    subtitle,
+                    subtitle: lucile_sub,
                 });
                 collected_srts.insert(row.id);
             } else {
@@ -155,6 +187,40 @@ impl Database {
 
         let subs = deserialize_subtitle(&record.data)?;
         Ok(subs)
+    }
+
+    pub async fn lookup_latest_sub_for_chapter(
+        &self,
+        chapter_id: ChapterId,
+    ) -> Result<Option<LucileSub>, DatabaseError> {
+        let ch_id = chapter_id.get();
+        let opt_row = sqlx::query!(
+            r#"
+                SELECT
+                    srtfile.id, srtfile.uuid, srtfile.data
+                FROM srtfile
+                WHERE
+                  srtfile.chapter_id = ?
+                ORDER BY srtfile.id DESC
+                LIMIT 1
+         "#,
+            ch_id,
+        )
+        // .map(|r| (r.id, metadata_from_chapter(r.title, r.season, r.episode)))
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if let Some(record) = opt_row {
+            let subs = deserialize_subtitle(&record.data)?;
+            let global_id = parse_uuid(&record.uuid)?;
+            Ok(Some(LucileSub {
+                id: record.id as u64,
+                uuid: global_id,
+                subs,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     // TODO we should not use numeric ids, or this should be better baked into the index schema?
@@ -284,9 +350,47 @@ mod test {
             .unwrap();
 
         let s1 = parse_subs(SUB1);
-        let _u1 = db.add_subtitles(ch_id, &s1).await.unwrap();
-        let _u2 = db.add_subtitles(ch_id, &s1).await.unwrap();
-        // TODO this is the desired behavior!
-        // assert_eq!(u1, u2)
+        let u1 = db.add_subtitles(ch_id, &s1).await.unwrap();
+        let u2 = db.add_subtitles(ch_id, &s1).await.unwrap();
+        assert_eq!(u1, u2)
+    }
+
+    #[tokio::test]
+    async fn lookup_latest_sub() {
+        let db = Database::memory().await.unwrap();
+        let corpus = db.add_corpus("media").await.unwrap();
+        let ch_id = db
+            .define_chapter(
+                corpus.id.unwrap(),
+                "c1",
+                None,
+                None,
+                MediaHash::from_bytes(b"data"),
+            )
+            .await
+            .unwrap();
+
+        let no_subs = db.lookup_latest_sub_for_chapter(ch_id).await.unwrap();
+        assert_eq!(no_subs, None);
+
+        let s1 = parse_subs(SUB1);
+        let u1 = db.add_subtitles(ch_id, &s1).await.unwrap();
+        let u1_subs = db
+            .lookup_latest_sub_for_chapter(ch_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(u1_subs.uuid, u1);
+        assert_eq!(u1_subs.subs, s1);
+
+        let s2 = parse_subs(SUB2);
+        let u2 = db.add_subtitles(ch_id, &s2).await.unwrap();
+        let u2_subs = db
+            .lookup_latest_sub_for_chapter(ch_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(u2_subs.uuid, u2);
+        assert_eq!(u2_subs.subs, s2);
     }
 }

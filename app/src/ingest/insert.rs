@@ -3,11 +3,14 @@ use std::time::Duration;
 use database::Database;
 use lucile_core::{
     identifiers::{ChapterId, CorpusId},
+    metadata::MediaHash,
     Corpus,
 };
 
 use super::{ScannedMedia, ScannedSubtitles};
 use crate::LucileAppError;
+
+const ORIGINAL_MEDIA_VIEW: &str = "original";
 
 pub async fn add_content_to_corpus(
     db: &Database,
@@ -25,7 +28,6 @@ pub async fn add_content_to_corpus(
     for media in &content {
         add_scanned_media_to_db(db, corpus_id, media).await?;
     }
-
     Ok(())
 }
 
@@ -57,11 +59,42 @@ pub(crate) async fn add_scanned_media_to_db(
             let _uuid = db.add_subtitles(chapter_id, subs).await?;
         }
     }
-    let media_view_id = db.add_media_view(chapter_id, "original").await?;
-    db.add_media_segment(media_view_id.id, 0, media.hash, Duration::default(), None)
-        .await?;
-    db.add_storage(media.hash, &media.path).await?;
+    if !check_if_hash_is_chapter_original(db, chapter_id, media.hash).await? {
+        let media_view_id = db.add_media_view(chapter_id, ORIGINAL_MEDIA_VIEW).await?;
+        db.add_media_segment(media_view_id.id, 0, media.hash, Duration::default(), None)
+            .await?;
+        db.add_storage(media.hash, &media.path).await?;
+    }
     Ok(chapter_id)
+}
+
+async fn check_if_hash_is_chapter_original(
+    db: &Database,
+    chapter_id: ChapterId,
+    hash: MediaHash,
+) -> Result<bool, LucileAppError> {
+    match db.get_chapter_by_hash(hash).await? {
+        Some(ch) => {
+            if ch.id != chapter_id {
+                return Ok(false);
+            }
+        }
+        None => return Ok(false),
+    }
+
+    let view_id = match db
+        .lookup_media_view(chapter_id, ORIGINAL_MEDIA_VIEW)
+        .await?
+    {
+        Some(view) => view.id,
+        None => return Ok(false),
+    };
+    let media_segment = match db.get_media_segment_by_hash(hash).await? {
+        Some(s) => s,
+        None => return Ok(false),
+    };
+
+    Ok(media_segment.media_view_id == view_id)
 }
 
 #[cfg(test)]
@@ -167,7 +200,6 @@ mod tests {
         .await
         .expect("failure adding show to db");
 
-        // TODO this should work!
         let _c2 = add_scanned_media_to_db(
             &tapp.app.db,
             corpus.id.unwrap(),
@@ -178,7 +210,51 @@ mod tests {
                 metadata: metadata.clone(),
             },
         )
-        .await;
-        // .expect("failure adding duplicate show to db");
+        .await
+        .expect("failure adding duplicate show to db");
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn add_same_chapter_new_content() {
+        let tapp = lucile_test_app().await;
+        let corpus = tapp.app.db.add_corpus("show name").await.unwrap();
+
+        let fname = std::path::PathBuf::from("/path/to/file");
+        let subs = generate_subtitle(&["line1"]);
+        let hash = MediaHash::from_bytes(b"data");
+        let hash2 = MediaHash::from_bytes(b"data2");
+        let metadata = lucile_core::metadata::MediaMetadata::Episode(EpisodeMetadata {
+            season: 3,
+            episode: 12,
+            title: "ep title".to_owned(),
+        });
+
+        let _c1 = add_scanned_media_to_db(
+            &tapp.app.db,
+            corpus.id.unwrap(),
+            &ScannedMedia {
+                path: fname.clone(),
+                subs: ScannedSubtitles::Subtitles(subs.clone()),
+                hash,
+                metadata: metadata.clone(),
+            },
+        )
+        .await
+        .expect("failure adding show to db");
+
+        // TODO this should work!
+        let _c2 = add_scanned_media_to_db(
+            &tapp.app.db,
+            corpus.id.unwrap(),
+            &ScannedMedia {
+                path: fname.clone(),
+                subs: ScannedSubtitles::Subtitles(subs),
+                hash: hash2,
+                metadata: metadata.clone(),
+            },
+        )
+        .await
+        .expect("failure adding duplicate show to db");
     }
 }

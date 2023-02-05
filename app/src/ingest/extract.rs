@@ -1,9 +1,6 @@
 use std::{io::Read, path};
 
-use lucile_core::{
-    hash::Sha2Hash,
-    metadata::{MediaHash},
-};
+use lucile_core::{hash::Sha2Hash, metadata::MediaHash};
 use sha2::{Digest, Sha256};
 
 use super::{ScanError, ScannedData, ScannedSubtitles};

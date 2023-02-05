@@ -59,6 +59,34 @@ impl Database {
         })
     }
 
+    pub async fn lookup_media_view(
+        &self,
+        chapter_id: ChapterId,
+        name: &str,
+    ) -> Result<Option<MediaView>, DatabaseError> {
+        let id = chapter_id.get();
+        let row_opt = sqlx::query!(
+            r#"
+                    SELECT
+                        id, chapter_id, name
+                    FROM media_view
+                    WHERE
+                        chapter_id = ?
+                        AND name = ?
+                    "#,
+            id,
+            name,
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row_opt.map(|row| MediaView {
+            id: MediaViewId::new(row.id),
+            chapter_id: ChapterId::new(row.chapter_id),
+            name: row.name,
+        }))
+    }
+
     pub async fn get_media_view_options(
         &self,
         chapter_id: ChapterId,
@@ -155,7 +183,7 @@ mod test {
         let view_insert = db.add_media_view(ch_id, "test-view").await.unwrap();
         db.add_media_view(ch_id, "extra").await.unwrap();
         let view_get = db.get_media_view(view_insert.id).await.unwrap();
-        assert_eq!(view_insert, view_get)
+        assert_eq!(view_get, view_insert)
     }
 
     #[tokio::test]
@@ -173,5 +201,43 @@ mod test {
             .await
             .unwrap();
         assert_err_is_constraint(db.add_media_view(ch_id, "").await, "CHECK");
+    }
+
+    #[tokio::test]
+    async fn define_and_lookup_media_view() {
+        let db = Database::memory().await.unwrap();
+        let corpus = db.add_corpus("media").await.unwrap();
+        let ch_id = db
+            .define_chapter(
+                corpus.id.unwrap(),
+                "c1",
+                None,
+                None,
+                MediaHash::from_bytes(b"data"),
+            )
+            .await
+            .unwrap();
+        let view_insert = db.add_media_view(ch_id, "test-view").await.unwrap();
+        let view_get = db.lookup_media_view(ch_id, "test-view").await.unwrap();
+        assert_eq!(view_get, Some(view_insert))
+    }
+
+    #[tokio::test]
+    async fn define_and_lookup_non_existant_media_view() {
+        let db = Database::memory().await.unwrap();
+        let corpus = db.add_corpus("media").await.unwrap();
+        let ch_id = db
+            .define_chapter(
+                corpus.id.unwrap(),
+                "c1",
+                None,
+                None,
+                MediaHash::from_bytes(b"data"),
+            )
+            .await
+            .unwrap();
+        db.add_media_view(ch_id, "test-view").await.unwrap();
+        let view_get = db.lookup_media_view(ch_id, "not-real-view").await.unwrap();
+        assert_eq!(view_get, None)
     }
 }

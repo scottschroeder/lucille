@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS media_segment
     hash        TEXT                NOT NULL CHECK(hash <> ''),
     seq_id      INTEGER             NOT NULL,
     start       TEXT                NOT NULL CHECK(start <> ''),
-    encryption_key       TEXT             CHECK(encryption_key <> '')   ,
+    encryption_key       TEXT             CHECK(encryption_key <> ''),
     FOREIGN KEY(media_view_id) REFERENCES media_view(id)
 );
 
