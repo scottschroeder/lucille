@@ -80,23 +80,26 @@ pub async fn add_content_to_corpus(
     Ok(())
 }
 
-pub async fn get_details_for_hash(app: &LucileApp, hash: MediaHash) -> Result<(), LucileAppError> {
+pub async fn print_details_for_hash(
+    app: &LucileApp,
+    hash: MediaHash,
+) -> Result<(), LucileAppError> {
     // Lookup chapter with hash
     if let Some(chapter) = app.db.get_chapter_by_hash(hash).await? {
         let corpus = app.db.get_corpus(chapter.corpus_id).await?;
-        log::info!("{}: {:#?}", corpus.title, chapter);
+        println!("{}: {:#?}", corpus.title, chapter);
     }
 
     // Lookup segments with hash
     let segment = app.db.get_media_segment_by_hash(hash).await?;
     if let Some(s) = segment {
         let media_view = app.db.get_media_view(s.media_view_id).await?;
-        log::info!("found view {:#?}\nsegment: {:#?}", media_view, s);
+        println!("found view {:#?}\nsegment: {:#?}", media_view, s);
     }
 
     // Lookup storage with hash
     if let Some(storage) = app.db.get_storage_by_hash(hash).await? {
-        log::info!("found media storage {:#?}", storage);
+        println!("found media storage {:#?}", storage);
     }
     Ok(())
 }
