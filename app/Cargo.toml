@@ -19,8 +19,12 @@ serde_json = "1"
 walkdir = "2.3"
 rayon = "1"
 directories = "4.0.1"
+tempfile = "3"
 
 subrip = "0.1.0"
 encoding_rs = "0.8.26"
 torrent-name-parser = "0.5.0"
 sha2 = "0.9"
+
+[dev-dependencies]
+tokio = { version = "1.20.0", features = ["macros"]}

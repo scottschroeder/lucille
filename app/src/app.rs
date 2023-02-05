@@ -30,12 +30,16 @@ async fn load_db_from_env() -> Result<Option<Database>, DatabaseError> {
     }
 }
 
+fn project_dirs() -> directories::ProjectDirs {
+    directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APP).unwrap()
+}
+
 impl LucileApp {
     pub async fn create<PR: AsRef<Path>, P: Into<PathBuf>>(
         database_path: Option<PR>,
         index_path: Option<P>,
     ) -> Result<Self, LucileAppError> {
-        let dirs = directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APP).unwrap();
+        let dirs = project_dirs();
 
         let db = if let Some(url) = database_path {
             Database::from_path(url).await?
@@ -53,7 +57,7 @@ impl LucileApp {
 
         Ok(LucileApp {
             db,
-            dirs: directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APP).unwrap(),
+            dirs,
             index_root_override: index_root,
         })
     }
@@ -72,5 +76,27 @@ impl LucileApp {
             .as_ref()
             .cloned()
             .unwrap_or_else(|| self.dirs.data_dir().join(INDEX_DIR))
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    pub struct LucileTestApp {
+        pub app: LucileApp,
+        pub dir: tempfile::TempDir,
+    }
+
+    pub async fn lucile_test_app() -> LucileTestApp {
+        let dir = tempfile::TempDir::new().expect("unable to create tmpdir");
+        let app = LucileApp {
+            db: Database::memory()
+                .await
+                .expect("could not build in memory database"),
+            dirs: project_dirs(),
+            index_root_override: Some(dir.path().join("index_root")),
+        };
+        LucileTestApp { app, dir }
     }
 }

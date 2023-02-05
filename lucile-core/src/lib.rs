@@ -191,3 +191,27 @@ pub struct Corpus {
     pub id: Option<CorpusId>,
     pub title: String,
 }
+
+pub mod test_util {
+    use std::time::Duration;
+
+    use super::*;
+
+    pub fn generate_subtitle(lines: &[&str]) -> Vec<Subtitle> {
+        const INTERVAL: Duration = Duration::from_millis(1500);
+        let mut subs = Vec::with_capacity(lines.len());
+        let mut t = Duration::default();
+
+        for (idx, txt) in lines.iter().enumerate() {
+            let t2 = t.saturating_add(INTERVAL);
+            subs.push(Subtitle {
+                idx: idx as u32,
+                start: t,
+                end: t2,
+                text: txt.to_string(),
+            });
+            t = t2.saturating_add(INTERVAL);
+        }
+        subs
+    }
+}

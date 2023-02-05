@@ -7,14 +7,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::hash::Sha2Hash;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EpisodeMetadata {
     pub season: u32,
     pub episode: u32,
     pub title: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum MediaMetadata {
     Episode(EpisodeMetadata),
     Unknown(String),

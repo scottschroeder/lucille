@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use futures::TryStreamExt;
 use lucile_core::{
     identifiers::{ChapterId, CorpusId},
-    metadata::{EpisodeMetadata, MediaHash, MediaMetadata},
+    metadata::{MediaHash, MediaMetadata},
     uuid::Uuid,
     ContentData, Subtitle,
 };
