@@ -30,8 +30,8 @@ mod subtitles;
 pub enum DatabaseError {
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
-    #[error(transparent)]
-    Migrate(#[from] sqlx::migrate::MigrateError),
+    #[error("unable to migrate database {:?}", _0)]
+    Migrate(DatabaseSource, #[source] sqlx::migrate::MigrateError),
     #[error(transparent)]
     VarError(#[from] std::env::VarError),
     #[error("must specify a database")]
@@ -40,7 +40,7 @@ pub enum DatabaseError {
     ConvertFromSqlError(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DatabaseSource {
     Memory,
     Env(String),
@@ -66,29 +66,24 @@ pub fn db_env() -> Result<Option<String>, DatabaseError> {
 impl Database {
     pub async fn memory() -> Result<Database, DatabaseError> {
         let pool = memory_db().await?;
-        migrations(&pool).await?;
-        Ok(Database {
-            pool,
-            source: DatabaseSource::Memory,
-        })
+
+        let source = DatabaseSource::Memory;
+        migrations(&source, &pool).await?;
+        Ok(Database { pool, source })
     }
     pub async fn from_path<P: AsRef<path::Path>>(filename: P) -> Result<Database, DatabaseError> {
         let filename = filename.as_ref();
         let pool = connect_db(filename).await?;
-        migrations(&pool).await?;
-        Ok(Database {
-            pool,
-            source: DatabaseSource::Path(filename.to_path_buf()),
-        })
+        let source = DatabaseSource::Path(filename.to_path_buf());
+        migrations(&source, &pool).await?;
+        Ok(Database { pool, source })
     }
     pub async fn from_env() -> Result<Database, DatabaseError> {
         let url = db_env()?.ok_or(DatabaseError::NoDatabaseSpecified)?;
         let pool = from_env_db(&url).await?;
-        migrations(&pool).await?;
-        Ok(Database {
-            pool,
-            source: DatabaseSource::Env(url),
-        })
+        let source = DatabaseSource::Env(url);
+        migrations(&source, &pool).await?;
+        Ok(Database { pool, source })
     }
 }
 
@@ -138,8 +133,11 @@ fn parse_uuid(text: &str) -> Result<Uuid, DatabaseError> {
         .map_err(|e| DatabaseError::ConvertFromSqlError(format!("invalid uuid: {:?}", e)))
 }
 
-async fn migrations(pool: &Pool<Sqlite>) -> Result<(), DatabaseError> {
-    sqlx::migrate!().run(pool).await?;
+async fn migrations(src: &DatabaseSource, pool: &Pool<Sqlite>) -> Result<(), DatabaseError> {
+    sqlx::migrate!()
+        .run(pool)
+        .await
+        .map_err(|e| DatabaseError::Migrate(src.clone(), e))?;
     Ok(())
 }
 

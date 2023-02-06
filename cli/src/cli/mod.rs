@@ -129,6 +129,12 @@ mod workflow {
         Ok(())
     }
 
+    pub(crate) async fn show_config(args: &argparse::ShowConfig) -> anyhow::Result<()> {
+        let app = helpers::get_app(Some(&args.db), Some(&args.storage)).await?;
+        println!("{:#?}", app);
+        Ok(())
+    }
+
     pub(crate) async fn hash_lookup(args: &argparse::HashLookup) -> anyhow::Result<()> {
         let hash = MediaHash::from_str(&args.hash).context("could not parse hash")?;
         let app = helpers::get_app(Some(&args.db), None).await?;
@@ -201,6 +207,9 @@ pub async fn run_cli(args: &argparse::CliOpts) -> anyhow::Result<()> {
             argparse::ImportCommand::Corpus(opts) => import_corpus(opts).await,
         },
         argparse::SubCommand::Interactive(opts) => interactive_search(opts).await,
-        argparse::SubCommand::HashLookup(opts) => workflow::hash_lookup(opts).await,
+        argparse::SubCommand::Debug(sub) => match sub {
+            argparse::DebugCommand::HashLookup(opts) => workflow::hash_lookup(opts).await,
+            argparse::DebugCommand::ShowConfig(opts) => workflow::show_config(opts).await,
+        },
     }
 }

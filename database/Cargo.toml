@@ -16,4 +16,4 @@ thiserror = "1"
 serde_json = "1.0"
 
 [dev-dependencies]
-subrip = "0.1.0"
+subrip = "0.1.1"

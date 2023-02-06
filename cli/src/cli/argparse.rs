@@ -22,7 +22,7 @@ pub struct CliOpts {
 
 #[derive(Parser, Debug)]
 pub enum SubCommand {
-    /// Create a new corpus
+    /// Commands working with the top-level Corpus
     #[clap(subcommand)]
     Corpus(CorpusCommand),
 
@@ -45,9 +45,10 @@ pub enum SubCommand {
 
     /// Interactive Gif Creation
     Interactive(InteractiveOpts),
-    ///
-    /// Interactive Gif Creation
-    HashLookup(HashLookup),
+
+    /// Debugging Utilities
+    #[clap(subcommand)]
+    Debug(DebugCommand),
     // Process and prepare media
     // #[clap(subcommand)]
     // Media(MediaCommand),
@@ -101,6 +102,15 @@ pub enum ExportCommand {
 }
 
 #[derive(Parser, Debug)]
+pub enum DebugCommand {
+    /// Lookup all instances where a hash appears in the database
+    HashLookup(HashLookup),
+
+    /// Show the launch configuration/directories for the given settings.
+    ShowConfig(ShowConfig),
+}
+
+#[derive(Parser, Debug)]
 pub enum ImportCommand {
     /// Import all details for a corpus
     Corpus(ImportCorpusOpts),
@@ -145,6 +155,15 @@ pub struct HashLookup {
 
     #[clap(flatten)]
     pub db: DatabaseConfig,
+}
+
+#[derive(Parser, Debug)]
+pub struct ShowConfig {
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+
+    #[clap(flatten)]
+    pub storage: StorageConfig,
 }
 
 #[derive(Parser, Debug)]
