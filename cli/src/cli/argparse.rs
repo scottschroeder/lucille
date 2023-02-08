@@ -181,11 +181,17 @@ pub struct ExportCorpusOpts {
 
 #[derive(Parser, Debug)]
 pub struct ScanChaptersOpts {
-    // /// Attach these files to an existing corpus
+    /// Root directory to start recursive scan
+    pub dir: std::path::PathBuf,
+
+    /// If a filepath is already known to our database, trust the hash instead of re-computing
+    #[clap(long)]
+    pub trust_known_hashes: bool,
+
+    /// Attach these files to an existing corpus
     #[clap(long)]
     pub corpus_name: String,
 
-    pub dir: std::path::PathBuf,
     #[clap(flatten)]
     pub db: DatabaseConfig,
 }

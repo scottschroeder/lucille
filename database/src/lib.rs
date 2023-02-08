@@ -48,9 +48,14 @@ pub enum DatabaseSource {
 }
 
 #[derive(Debug)]
+pub struct DatabaseFetcher {
+    pub db: Database,
+    pub source: DatabaseSource,
+}
+
+#[derive(Debug, Clone)]
 pub struct Database {
     pool: Pool<Sqlite>,
-    source: DatabaseSource,
 }
 
 pub fn db_env() -> Result<Option<String>, DatabaseError> {
@@ -66,24 +71,39 @@ pub fn db_env() -> Result<Option<String>, DatabaseError> {
 impl Database {
     pub async fn memory() -> Result<Database, DatabaseError> {
         let pool = memory_db().await?;
-
-        let source = DatabaseSource::Memory;
-        migrations(&source, &pool).await?;
-        Ok(Database { pool, source })
+        migrations(&DatabaseSource::Memory, &pool).await?;
+        Ok(Database { pool })
     }
-    pub async fn from_path<P: AsRef<path::Path>>(filename: P) -> Result<Database, DatabaseError> {
+}
+
+impl DatabaseFetcher {
+    pub async fn memory() -> Result<DatabaseFetcher, DatabaseError> {
+        Ok(DatabaseFetcher {
+            db: Database::memory().await?,
+            source: DatabaseSource::Memory,
+        })
+    }
+    pub async fn from_path<P: AsRef<path::Path>>(
+        filename: P,
+    ) -> Result<DatabaseFetcher, DatabaseError> {
         let filename = filename.as_ref();
         let pool = connect_db(filename).await?;
         let source = DatabaseSource::Path(filename.to_path_buf());
         migrations(&source, &pool).await?;
-        Ok(Database { pool, source })
+        Ok(DatabaseFetcher {
+            db: Database { pool },
+            source,
+        })
     }
-    pub async fn from_env() -> Result<Database, DatabaseError> {
+    pub async fn from_env() -> Result<DatabaseFetcher, DatabaseError> {
         let url = db_env()?.ok_or(DatabaseError::NoDatabaseSpecified)?;
         let pool = from_env_db(&url).await?;
         let source = DatabaseSource::Env(url);
         migrations(&source, &pool).await?;
-        Ok(Database { pool, source })
+        Ok(DatabaseFetcher {
+            db: Database { pool },
+            source,
+        })
     }
 }
 

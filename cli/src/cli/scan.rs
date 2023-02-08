@@ -9,7 +9,11 @@ pub(crate) async fn scan_chapters(args: &argparse::ScanChaptersOpts) -> anyhow::
     log::debug!("using corpus: {:?}", corpus);
 
     let media_paths = ingest::scan_media_paths(args.dir.as_path())?;
-    let media = ingest::process_media_in_parallel(&media_paths);
+    let processor = ingest::MediaProcessor {
+        db: app.db.clone(), // TODO hide this clone (which should basically be an Arc lower down
+        trust_hashes: args.trust_known_hashes,
+    };
+    let media = processor.process_all_media(&media_paths).await;
     ingest::add_content_to_corpus(&app.db, Some(&corpus), media).await?;
     Ok(())
 }

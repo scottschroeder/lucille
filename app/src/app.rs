@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use database::{Database, DatabaseError};
+use database::{Database, DatabaseError, DatabaseFetcher, DatabaseSource};
 use lucile_core::uuid::Uuid;
 use search::SearchIndex;
 
@@ -16,12 +16,13 @@ const DEFAULT_DB_NAME: &str = "lucile.db";
 #[derive(Debug)]
 pub struct LucileApp {
     pub db: Database,
+    db_source: DatabaseSource,
     pub dirs: directories::ProjectDirs,
     index_root_override: Option<PathBuf>,
 }
 
-async fn load_db_from_env() -> Result<Option<Database>, DatabaseError> {
-    match Database::from_env().await {
+async fn load_db_from_env() -> Result<Option<DatabaseFetcher>, DatabaseError> {
+    match DatabaseFetcher::from_env().await {
         Ok(db) => Ok(Some(db)),
         Err(e) => match e {
             DatabaseError::NoDatabaseSpecified => Ok(None),
@@ -42,13 +43,13 @@ impl LucileApp {
         let dirs = project_dirs();
 
         let db = if let Some(url) = database_path {
-            Database::from_path(url).await?
+            DatabaseFetcher::from_path(url).await?
         } else {
             match load_db_from_env().await? {
                 Some(db) => db,
                 None => {
                     let db_path = dirs.data_dir().join(DEFAULT_DB_NAME);
-                    Database::from_path(db_path).await?
+                    DatabaseFetcher::from_path(db_path).await?
                 }
             }
         };
@@ -56,7 +57,8 @@ impl LucileApp {
         let index_root = index_path.map(|p| p.into());
 
         Ok(LucileApp {
-            db,
+            db: db.db,
+            db_source: db.source,
             dirs,
             index_root_override: index_root,
         })
@@ -90,10 +92,12 @@ pub mod tests {
 
     pub async fn lucile_test_app() -> LucileTestApp {
         let dir = tempfile::TempDir::new().expect("unable to create tmpdir");
+        let db_fetch = DatabaseFetcher::memory()
+            .await
+            .expect("could not build in memory database");
         let app = LucileApp {
-            db: Database::memory()
-                .await
-                .expect("could not build in memory database"),
+            db: db_fetch.db,
+            db_source: db_fetch.source,
             dirs: project_dirs(),
             index_root_override: Some(dir.path().join("index_root")),
         };

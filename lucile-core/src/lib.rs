@@ -213,7 +213,7 @@ pub mod test_util {
                 idx: idx as u32,
                 start: t,
                 end: t2,
-                text: txt.to_string(),
+                text: format!("{}\n", txt),
             });
             t = t2.saturating_add(INTERVAL);
         }

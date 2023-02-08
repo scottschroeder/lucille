@@ -1,13 +1,39 @@
 use std::{io::Read, path};
 
+use database::Database;
 use lucile_core::{hash::Sha2Hash, metadata::MediaHash};
 use sha2::{Digest, Sha256};
 
 use super::{ScanError, ScannedData, ScannedSubtitles};
 
-pub(crate) fn read_media_from_path(media_path: &path::Path) -> Result<ScannedData, ScanError> {
+pub(crate) async fn read_media_from_path(
+    db: &Database,
+    media_path: &path::Path,
+    trust_hashes: bool,
+) -> Result<ScannedData, ScanError> {
     let subtitles = extract_subtitles(media_path)?;
-    let media_hash = hash_file(media_path)?;
+    // if trust_hashes {}
+    // let media_hash = hash_file(media_path)?;
+    log::trace!("get hash for {:?}", media_path);
+    let media_hash = if trust_hashes {
+        match db.get_storage_by_path(media_path).await {
+            Ok(media_opt) => media_opt.map(|m| Ok(m.hash)),
+            Err(e) => {
+                log::error!(
+                    "could not read hash for {:?} from db storage: {}",
+                    media_path,
+                    e
+                );
+                None
+            }
+        }
+    } else {
+        None
+    }
+    .unwrap_or_else(|| {
+        log::trace!("calculate hash for {:?}", media_path);
+        hash_file(media_path)
+    })?;
 
     Ok(ScannedData {
         path: media_path.to_path_buf(),

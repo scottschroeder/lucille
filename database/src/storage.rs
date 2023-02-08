@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use lucile_core::{export::MediaStorage, identifiers::StorageId, metadata::MediaHash};
 
-use crate::{Database, DatabaseError};
+use crate::{media_hash, Database, DatabaseError};
 
 impl Database {
     pub async fn add_storage(&self, hash: MediaHash, path: &Path) -> Result<(), DatabaseError> {
@@ -43,6 +43,38 @@ impl Database {
         .await?;
 
         Ok(if let Some(row) = row_opt {
+            Some(MediaStorage {
+                id: StorageId::new(row.id),
+                hash,
+                path: PathBuf::from(row.path),
+                exists_locally: None,
+                verified: false,
+            })
+        } else {
+            None
+        })
+    }
+
+    pub async fn get_storage_by_path(
+        &self,
+        path: &std::path::Path,
+    ) -> Result<Option<MediaStorage>, DatabaseError> {
+        let path_repr = path.as_os_str().to_str().expect("path was not valid utf8"); // TODO
+        let row_opt = sqlx::query!(
+            r#"
+                    SELECT
+                        id, hash, path
+                    FROM storage
+                    WHERE
+                        path = ?
+                    "#,
+            path_repr,
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(if let Some(row) = row_opt {
+            let hash = media_hash(&row.hash)?;
             Some(MediaStorage {
                 id: StorageId::new(row.id),
                 hash,
@@ -104,6 +136,20 @@ mod test {
 
         let res_opt = db.get_storage_by_hash(hash).await.unwrap();
         let res = res_opt.expect("expected object not in db");
+        assert_eq!(res.path, fpath);
+    }
+    #[tokio::test]
+    async fn lookup_storage_by_path() {
+        let db = Database::memory().await.unwrap();
+        let hash = MediaHash::from_bytes(b"s1data");
+        let fpath = std::path::PathBuf::from("loc/to/path");
+        db.add_storage(hash, fpath.as_path()).await.unwrap();
+
+        let res = db
+            .get_storage_by_path(fpath.as_path())
+            .await
+            .unwrap()
+            .expect("expected object not in db");
         assert_eq!(res.path, fpath);
     }
 }

@@ -1,3 +1,4 @@
+#![allow(clippy::uninlined_format_args)]
 use lucile_core::{
     export::{CorpusExport, MediaExport, ViewOptions},
     identifiers::CorpusId,
