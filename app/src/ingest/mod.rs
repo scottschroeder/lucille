@@ -1,6 +1,8 @@
 use database::Database;
-use lucile_core::metadata::{MediaHash, MediaMetadata};
-use rayon::prelude::*;
+use lucile_core::{
+    metadata::{MediaHash, MediaMetadata},
+    Corpus,
+};
 
 mod extract;
 mod insert;
@@ -60,6 +62,15 @@ pub struct ScannedMedia {
     pub metadata: MediaMetadata,
 }
 
+impl LucileApp {
+    pub fn media_scanner(&self, trust_hashes: bool) -> MediaProcessor {
+        MediaProcessor {
+            db: self.db.clone(),
+            trust_hashes,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct MediaProcessor {
     pub db: Database,
@@ -69,39 +80,48 @@ pub struct MediaProcessor {
 pub use insert::add_content_to_corpus;
 pub use scan::scan_media_paths;
 
+use crate::{app::LucileApp, LucileAppError};
+
 impl MediaProcessor {
+    pub async fn ingest<P: AsRef<std::path::Path>>(
+        &self,
+        root: P,
+        corpus: Option<&Corpus>,
+    ) -> Result<(), LucileAppError> {
+        let content = self.scan_and_process(root).await?;
+
+        add_content_to_corpus(&self.db, corpus, content).await
+    }
+    async fn scan_and_process<P: AsRef<std::path::Path>>(
+        &self,
+        root: P,
+    ) -> std::io::Result<Vec<ScannedMedia>> {
+        let media_paths = scan::scan_media_paths(root)?;
+        Ok(self.process_all_media(&media_paths).await)
+    }
     pub async fn process_all_media(&self, paths: &[std::path::PathBuf]) -> Vec<ScannedMedia> {
-        // let mut set = tokio::task::JoinSet::new();
+        let mut set = tokio::task::JoinSet::new();
         let mut res = vec![];
         for p in paths {
-            match self.process_single_media3(p).await {
-                Ok(s) => res.push(s),
-                Err(e) => log::warn!("unable to use {:?}: {}", p, e),
-            }
-            // let media_path = p.clone();
-            // let p = processor.clone();
-            // set.spawn(async move {
-            //     p.process_single_media3(&media_path)
-            // });
+            let media_path = p.clone();
+            let p = self.clone();
+            set.spawn(async move {
+                let r = p.process_single_media3(&media_path).await;
+                (media_path, r)
+            });
         }
+
+        while let Some(join_res) = set.join_next().await {
+            match join_res {
+                Ok((_, Ok(m))) => res.push(m),
+                Ok((p, Err(e))) => log::warn!("unable to use {:?}: {}", p, e),
+                Err(e) => log::error!("unable to join processing task: {}", e),
+            }
+        }
+
         res
     }
 
-    // /// batch process a list of media paths
-    // pub async fn process_media_in_parallel(&self, paths: &[std::path::PathBuf]) -> Vec<ScannedMedia> {
-    //     paths
-    //         .into_par_iter()
-    //         .map(|p| (p, self.process_single_media3(p.as_path())))
-    //         .filter_map(|(p, r)| match r {
-    //             Ok(m) => Some((p.to_owned(), m)),
-    //             Err(e) => {
-    //                 log::warn!("unable to use {:?}: {}", p, e);
-    //                 None
-    //             }
-    //         })
-    //         .map(|(_p, r)| r)
-    //         .collect()
-    // }
     async fn process_single_media3(
         &self,
         media_path: &std::path::Path,
@@ -111,16 +131,6 @@ impl MediaProcessor {
             .map(|data| data.extract_metadata())
     }
 }
-
-/*
- * I'm trying to take `app/src/scan.rs` and break it apart.
- *
- * ingest::scan should trawl the FS for media paths
- * ingest::extract should do anything that immediately requires the FS
- *  - in practice, that is getting the media hash, and extracting subs
- * ingest::<what> should do the logical application update to the db and
- *  we should test the bejesus out of it
- */
 
 #[cfg(test)]
 mod tests {
@@ -186,32 +196,94 @@ mod tests {
         TestMedia { root, media }
     }
 
+    fn assert_scanned_media(actual: &ScannedMedia, expected: &ScannedMedia) {
+        if actual.subs != expected.subs {
+            if let (ScannedSubtitles::Subtitles(ms), ScannedSubtitles::Subtitles(es)) =
+                (&actual.subs, &expected.subs)
+            {
+                for (l, r) in ms.iter().zip(es.iter()) {
+                    assert_eq!(l, r)
+                }
+            }
+        }
+
+        assert_eq!(actual, expected);
+    }
+
     #[tokio::test]
     async fn scan_and_extract_media() {
         let test_app = lucile_test_app().await;
         let test_media = create_simple_show_structure();
 
-        let media_paths = scan_media_paths(test_media.root.path()).expect("scan");
-        let processor = MediaProcessor {
-            db: test_app.app.db.clone(),
-            trust_hashes: false,
-        };
-        let media = processor.process_all_media(&media_paths).await;
+        let media = test_app
+            .app
+            .media_scanner(false)
+            .scan_and_process(test_media.root.path())
+            .await
+            .expect("scan and process");
 
         for m in &media {
             let expected = &test_media.media[&m.path];
+            assert_scanned_media(m, expected)
+        }
+    }
 
-            if m.subs != expected.subs {
-                if let (ScannedSubtitles::Subtitles(ms), ScannedSubtitles::Subtitles(es)) =
-                    (&m.subs, &expected.subs)
-                {
-                    for (l, r) in ms.iter().zip(es.iter()) {
-                        assert_eq!(l, r)
-                    }
-                }
+    #[tokio::test]
+    async fn scan_and_extract_with_wrong_hash_in_db() {
+        let test_app = lucile_test_app().await;
+        let test_media = create_simple_show_structure();
+
+        let (path, _) = test_media.media.iter().next().expect("no media");
+        let garbage_hash = MediaHash::from_bytes(b"total garbage");
+        test_app
+            .app
+            .db
+            .add_storage(garbage_hash, path)
+            .await
+            .unwrap();
+
+        let media = test_app
+            .app
+            .media_scanner(false)
+            .scan_and_process(test_media.root.path())
+            .await
+            .expect("scan and process");
+
+        for m in &media {
+            if &m.path != path {
+                continue;
             }
+            let expected = &test_media.media[&m.path];
+            assert_scanned_media(m, expected)
+        }
+    }
 
-            assert_eq!(m, expected);
+    #[tokio::test]
+    async fn scan_and_extract_with_wrong_hash_in_db_with_trust() {
+        let test_app = lucile_test_app().await;
+        let test_media = create_simple_show_structure();
+
+        let (path, _) = test_media.media.iter().next().expect("no media");
+        let garbage_hash = MediaHash::from_bytes(b"total garbage");
+        test_app
+            .app
+            .db
+            .add_storage(garbage_hash, path)
+            .await
+            .unwrap();
+
+        let media = test_app
+            .app
+            .media_scanner(true)
+            .scan_and_process(test_media.root.path())
+            .await
+            .expect("scan and process");
+
+        for m in &media {
+            if &m.path != path {
+                continue;
+            }
+            assert_eq!(m.hash, garbage_hash)
         }
     }
 }

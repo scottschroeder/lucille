@@ -12,9 +12,6 @@ pub(crate) async fn read_media_from_path(
     trust_hashes: bool,
 ) -> Result<ScannedData, ScanError> {
     let subtitles = extract_subtitles(media_path)?;
-    // if trust_hashes {}
-    // let media_hash = hash_file(media_path)?;
-    log::trace!("get hash for {:?}", media_path);
     let media_hash = if trust_hashes {
         match db.get_storage_by_path(media_path).await {
             Ok(media_opt) => media_opt.map(|m| Ok(m.hash)),
@@ -30,10 +27,7 @@ pub(crate) async fn read_media_from_path(
     } else {
         None
     }
-    .unwrap_or_else(|| {
-        log::trace!("calculate hash for {:?}", media_path);
-        hash_file(media_path)
-    })?;
+    .unwrap_or_else(|| hash_file(media_path))?;
 
     Ok(ScannedData {
         path: media_path.to_path_buf(),
@@ -59,9 +53,6 @@ fn extract_subtitles(media_path: &path::Path) -> Result<ScannedSubtitles, ScanEr
 fn hash_file(fname: &path::Path) -> Result<MediaHash, ScanError> {
     let mut r = std::io::BufReader::new(std::fs::File::open(fname)?);
     let mut hasher = Sha256::new();
-
-    // TODO FIXME DO NOT MERGE temp hack to speed up test cycle
-    // let mut file = std::io::Cursor::new(p.as_os_str().as_bytes());
 
     std::io::copy(&mut r, &mut hasher)?;
     Ok(MediaHash::new(Sha2Hash::from(hasher.finalize())))
