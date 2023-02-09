@@ -27,3 +27,6 @@ csv = "1"
 sha2 = "0.9"
 tokio = { version = "1.20.0", features = ["macros", "process"]}
 async-trait = "0.1"
+
+[features]
+ffmpeg-debug = []

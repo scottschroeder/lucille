@@ -98,6 +98,7 @@ pub(crate) struct FFmpegCommand {
     pub(crate) cwd: Option<FFmpegArg>,
     pub(crate) stdin: Option<StdIo>,
     pub(crate) stdout: Option<StdIo>,
+    debug: bool,
 }
 
 pub(crate) struct TestFormat<'a>(&'a FFmpegCommand);
@@ -133,18 +134,17 @@ impl FFmpegCommand {
         }
         if let Some(stdout) = self.stdout {
             st.stdout(stdout.into_exec());
+        } else {
+            st.stdout(StdIo::Null.into_exec());
         }
 
-        if !cfg!(feature = "ffmpeg-debug") {
-            st.stderr(std::process::Stdio::null());
+        if self.debug || cfg!(feature = "ffmpeg-debug") {
+            st.stderr(StdIo::Inherit.into_exec());
+        } else {
+            st.stderr(StdIo::Null.into_exec());
         }
-
-        // TODO remove
-        st.stdout(std::process::Stdio::inherit());
-        st.stderr(std::process::Stdio::inherit());
 
         log::trace!("{:?}", st);
-
-        Ok(st.spawn()?)
+        st.spawn()
     }
 }
