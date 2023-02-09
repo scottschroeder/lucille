@@ -4,9 +4,13 @@ use hex::FromHex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
 
+mod hash_io;
+
 const HASH_SIZE: usize = 32;
 type MySha = sha2::Sha256;
 type HashBytes = [u8; HASH_SIZE];
+
+pub use hash_io::HashIo;
 
 #[derive(PartialEq, Clone, Copy, Eq, Hash)]
 pub struct Sha2Hash(HashBytes);
@@ -78,14 +82,15 @@ impl<'de> Deserialize<'de> for Sha2Hash {
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
 
     use serde_json;
 
     use super::*;
 
-    const TEST_DATA: &str = "the quick brown fox jumped over the lazy log\n";
-    const TEST_HASH_STR: &str = "e2291e7093575a6f3de282e558ee85b0eab2e8e1f1025c0f277a5ee31e4cfb84";
+    pub(crate) const TEST_DATA: &str = "the quick brown fox jumped over the lazy log\n";
+    pub(crate) const TEST_HASH_STR: &str =
+        "e2291e7093575a6f3de282e558ee85b0eab2e8e1f1025c0f277a5ee31e4cfb84";
 
     fn hash_test_data() -> Sha2Hash {
         Sha2Hash::digest(TEST_DATA)
