@@ -10,7 +10,9 @@ use lucile_core::{
 use self::app::LucileApp;
 
 pub mod app;
+pub mod ffmpeg;
 pub mod ingest;
+pub mod prepare;
 pub mod search_manager;
 pub mod storage;
 pub mod transcode;

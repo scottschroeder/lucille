@@ -32,6 +32,25 @@ mod corpus {
 
 mod scan;
 
+mod debug_utils {
+    use std::time::Duration;
+
+    use super::argparse;
+
+    pub(crate) async fn split_media_file(args: &argparse::SplitMediaFile) -> anyhow::Result<()> {
+        let splitter = app::ffmpeg::split::FFMpegMediaSplit::new_with_output(
+            &app::ffmpeg::FFmpegBinary::default(),
+            &args.input,
+            Duration::from_secs_f32(args.duration),
+            &args.output,
+        )?;
+        log::info!("{:#?}", splitter);
+        let outcome = splitter.run().await?;
+        println!("{:#?}", outcome);
+        Ok(())
+    }
+}
+
 mod workflow {
     use std::str::FromStr;
 
@@ -210,6 +229,9 @@ pub async fn run_cli(args: &argparse::CliOpts) -> anyhow::Result<()> {
         argparse::SubCommand::Debug(sub) => match sub {
             argparse::DebugCommand::HashLookup(opts) => workflow::hash_lookup(opts).await,
             argparse::DebugCommand::ShowConfig(opts) => workflow::show_config(opts).await,
+            argparse::DebugCommand::SplitMediaFile(opts) => {
+                debug_utils::split_media_file(opts).await
+            }
         },
     }
 }

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 
 const STORAGE_DEFAULT: &str = "storage";
@@ -108,6 +110,9 @@ pub enum DebugCommand {
 
     /// Show the launch configuration/directories for the given settings.
     ShowConfig(ShowConfig),
+
+    /// Split a media file into segments
+    SplitMediaFile(SplitMediaFile),
 }
 
 #[derive(Parser, Debug)]
@@ -164,6 +169,19 @@ pub struct ShowConfig {
 
     #[clap(flatten)]
     pub storage: StorageConfig,
+}
+
+#[derive(Parser, Debug)]
+pub struct SplitMediaFile {
+    /// The input media file
+    pub input: PathBuf,
+
+    /// The the output directory
+    pub output: PathBuf,
+
+    /// The split duration target (may not be exact)
+    #[clap(long)]
+    pub duration: f32,
 }
 
 #[derive(Parser, Debug)]

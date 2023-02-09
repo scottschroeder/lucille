@@ -128,6 +128,7 @@ pub mod media_segment {
         pub name: String,
     }
 
+    #[derive(Clone, PartialEq)]
     pub struct EncryptionKey {
         key: String,
     }
