@@ -37,9 +37,9 @@ impl OutputDirectory {
 }
 
 #[derive(Debug)]
-struct MediaSplitFile {
-    path: PathBuf,
-    start: Duration,
+pub struct MediaSplitFile {
+    pub path: PathBuf,
+    pub start: Duration,
 }
 
 fn ffmpeg_output_to_file_records(root: &Path) -> Result<Vec<MediaSplitFile>, MediaSplitError> {
@@ -80,7 +80,7 @@ pub struct FFMpegMediaSplit {
 #[derive(Debug)]
 pub struct FFMpegSplitOutcome {
     root: OutputDirectory,
-    records: Vec<MediaSplitFile>,
+    pub records: Vec<MediaSplitFile>,
 }
 
 impl FFMpegMediaSplit {

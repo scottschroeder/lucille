@@ -12,14 +12,15 @@ pub struct HashFS {
 
 fn hash_path(hash: MediaHash) -> (String, String) {
     (
-        format!("{:x}/{:x}", &hash.as_slice()[0], &hash.as_slice()[1],),
+        format!("{:02x}/{:02x}", &hash.as_slice()[0], &hash.as_slice()[1],),
         hash.to_string(),
     )
 }
 
 impl HashFS {
     pub fn new<P: Into<PathBuf>>(p: P) -> Result<HashFS, std::io::Error> {
-        let root = p.into();
+        let root: PathBuf = p.into();
+        let root = root.canonicalize()?;
         let tmp = root.join(TMP_DIR);
         std::fs::create_dir_all(&tmp)?;
         Ok(HashFS { root, tmp })
@@ -70,11 +71,22 @@ mod test {
     const TEST_DATA: &str = "the quick brown fox jumped over the lazy log\n";
     const TEST_HASH: &str = "e2291e7093575a6f3de282e558ee85b0eab2e8e1f1025c0f277a5ee31e4cfb84";
     #[test]
-    fn feature() {
+    fn make_dir_file_structure_from_hash() {
         let hash = MediaHash::new(Sha2Hash::from_str(TEST_HASH).unwrap());
         let (d, f) = hash_path(hash);
         assert_eq!(d, "e2/29");
         assert_eq!(f, TEST_HASH);
+    }
+
+    #[test]
+    fn path_with_leading_zeros() {
+        let input = b"13750\n";
+        let hash_str = "0901fd30864ff2d77b1c54d4fe53a032bb4c193f73ca6f1241ae931414029892";
+        let hash = MediaHash::from_bytes(input);
+
+        let (d, f) = hash_path(hash);
+        assert_eq!(f, hash_str);
+        assert_eq!(d, "09/01");
     }
 
     #[tokio::test]

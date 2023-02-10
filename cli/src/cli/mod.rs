@@ -35,11 +35,26 @@ mod scan;
 mod debug_utils {
     use std::time::Duration;
 
+    use app::prepare::MediaProcessor;
+
     use super::argparse;
 
     pub(crate) async fn split_media_file(args: &argparse::SplitMediaFile) -> anyhow::Result<()> {
+        let ffmpeg = app::ffmpeg::FFmpegBinary::default();
+        if args.processor {
+            let split_buider = app::prepare::MediaSplittingStrategy::new(
+                &ffmpeg,
+                Duration::from_secs_f32(args.duration),
+                &args.output,
+            )?;
+            let split_task = split_buider.split_task(args.input.as_path());
+            let outcome = split_task.process().await?;
+            println!("{:#?}", outcome);
+            return Ok(());
+        }
+
         let splitter = app::ffmpeg::split::FFMpegMediaSplit::new_with_output(
-            &app::ffmpeg::FFmpegBinary::default(),
+            &ffmpeg,
             &args.input,
             Duration::from_secs_f32(args.duration),
             &args.output,

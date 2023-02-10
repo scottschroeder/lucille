@@ -182,6 +182,10 @@ pub struct SplitMediaFile {
     /// The split duration target (may not be exact)
     #[clap(long)]
     pub duration: f32,
+
+    /// Use the media splitter processing construct
+    #[clap(long)]
+    pub processor: bool,
 }
 
 #[derive(Parser, Debug)]

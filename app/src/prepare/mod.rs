@@ -3,11 +3,14 @@ use std::{path::PathBuf, time::Duration};
 use lucile_core::{media_segment::EncryptionKey, metadata::MediaHash};
 
 mod splitter;
+pub use splitter::{MediaSplitter, MediaSplittingStrategy};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProcessingError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Split(#[from] crate::ffmpeg::split::MediaSplitError),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,7 +22,7 @@ pub struct ProcessedMedia {
 }
 
 #[async_trait::async_trait]
-trait MediaProcessor {
+pub trait MediaProcessor {
     async fn process(&self) -> Result<Vec<ProcessedMedia>, ProcessingError>;
 }
 
