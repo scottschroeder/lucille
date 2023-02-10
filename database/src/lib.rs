@@ -1,10 +1,10 @@
+#![allow(clippy::uninlined_format_args)]
 use std::{
     path::{self, PathBuf},
     str::FromStr,
     time::Duration,
 };
 
-use futures::TryStreamExt;
 use lucile_core::{
     metadata::{EpisodeMetadata, MediaHash, MediaMetadata},
     uuid::Uuid,

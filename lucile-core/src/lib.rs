@@ -1,3 +1,4 @@
+#![allow(clippy::uninlined_format_args)]
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};

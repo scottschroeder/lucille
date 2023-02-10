@@ -11,10 +11,13 @@ pub enum ProcessingError {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Split(#[from] crate::ffmpeg::split::MediaSplitError),
+    #[error(transparent)]
+    TokioJoinError(#[from] tokio::task::JoinError),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProcessedMedia {
+    idx: usize,
     path: PathBuf,
     hash: MediaHash,
     start: Duration,
@@ -60,6 +63,7 @@ mod tests {
                     let start = s;
                     s = s.saturating_add(Duration::from_secs(30));
                     ProcessedMedia {
+                        idx,
                         path,
                         hash,
                         start,

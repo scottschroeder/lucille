@@ -82,7 +82,7 @@ fn build_index_impl<P: AsRef<Path>>(
     let clip_end = get_field(&schema, SchemaField::ClipEnd);
 
     // # Indexing documents
-    let index = Index::create_in_dir(&index_path, schema)?;
+    let index = Index::create_in_dir(index_path, schema)?;
 
     let mut index_writer = index.writer(50_000_000)?;
 

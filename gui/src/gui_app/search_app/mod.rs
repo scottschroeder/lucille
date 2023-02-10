@@ -63,7 +63,7 @@ impl<'a> PreviewRow<'a> {
         let episode = cache.episode(self.clip.srt_id);
         let episode = episode.value();
 
-        writeln!(&mut text, "{:?} {}", self.clip.score, episode.metadata);
+        writeln!(&mut text, "{:?} {}", self.clip.score, episode.metadata).unwrap();
 
         let base = self.clip.offset;
 
@@ -74,7 +74,7 @@ impl<'a> PreviewRow<'a> {
             if emit_max > 0 {
                 emit_max -= 1;
                 let script = CleanSubs(&episode.subs[base + offset..base + offset + 1]);
-                writeln!(&mut text, "{}", script);
+                writeln!(&mut text, "{}", script).unwrap();
             }
         };
         let mut start_display = false;
@@ -91,7 +91,7 @@ impl<'a> PreviewRow<'a> {
                 emit(offset)
             }
         }
-        writeln!(&mut text);
+        writeln!(&mut text).unwrap();
         text
     }
 }
