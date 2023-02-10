@@ -11,6 +11,7 @@ use self::app::LucileApp;
 
 pub mod app;
 pub mod ffmpeg;
+pub mod hashfs;
 pub mod ingest;
 pub mod prepare;
 pub mod search_manager;

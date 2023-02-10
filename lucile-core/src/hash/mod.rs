@@ -91,6 +91,9 @@ pub(crate) mod test {
     pub(crate) const TEST_DATA: &str = "the quick brown fox jumped over the lazy log\n";
     pub(crate) const TEST_HASH_STR: &str =
         "e2291e7093575a6f3de282e558ee85b0eab2e8e1f1025c0f277a5ee31e4cfb84";
+    pub(crate) const TEST_HASH_MAGIC_STR: &str =
+        "0x6e5ce6afa65bc328ed7ef2585ac6077dca716587a929ef60778a364b5680051c";
+    pub(crate) const MAGIC_PARTIAL: usize = 4;
 
     fn hash_test_data() -> Sha2Hash {
         Sha2Hash::digest(TEST_DATA)
