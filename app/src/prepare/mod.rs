@@ -1,9 +1,11 @@
 use std::{path::PathBuf, time::Duration};
 
-use lucile_core::{media_segment::EncryptionKey, metadata::MediaHash};
+use lucile_core::metadata::MediaHash;
 
 mod splitter;
 pub use splitter::{MediaSplitter, MediaSplittingStrategy};
+
+use crate::encryption::KeyData;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProcessingError {
@@ -13,6 +15,8 @@ pub enum ProcessingError {
     Split(#[from] crate::ffmpeg::split::MediaSplitError),
     #[error(transparent)]
     TokioJoinError(#[from] tokio::task::JoinError),
+    #[error(transparent)]
+    EncryptionError(#[from] crate::encryption::EncryptionError),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,7 +25,13 @@ pub struct ProcessedMedia {
     path: PathBuf,
     hash: MediaHash,
     start: Duration,
-    key: Option<EncryptionKey>,
+    key: Option<KeyData>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Encryption {
+    None,
+    EasyAes,
 }
 
 #[async_trait::async_trait]

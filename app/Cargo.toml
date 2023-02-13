@@ -27,6 +27,9 @@ csv = "1"
 sha2 = "0.9"
 tokio = { version = "1.20.0", features = ["macros", "process"]}
 async-trait = "0.1"
+rand = "0.8.5"
+aes-gcm = {version= "0.10.1", features = ["stream", "std"]}
+base64 = "0.21.0"
 
 [features]
 ffmpeg-debug = []

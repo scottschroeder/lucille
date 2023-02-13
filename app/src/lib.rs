@@ -10,6 +10,7 @@ use lucile_core::{
 use self::app::LucileApp;
 
 pub mod app;
+pub mod encryption;
 pub mod ffmpeg;
 pub mod hashfs;
 pub mod ingest;

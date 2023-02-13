@@ -113,6 +113,9 @@ pub enum DebugCommand {
 
     /// Split a media file into segments
     SplitMediaFile(SplitMediaFile),
+
+    /// Decrypt a media file manually
+    DecryptMediaFile(DecryptMediaFile),
 }
 
 #[derive(Parser, Debug)]
@@ -186,6 +189,26 @@ pub struct SplitMediaFile {
     /// Use the media splitter processing construct
     #[clap(long)]
     pub processor: bool,
+
+    /// Encrypt the segments
+    #[clap(long)]
+    pub encrypt: bool,
+}
+
+#[derive(Parser, Debug)]
+pub struct DecryptMediaFile {
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+
+    /// The input media file
+    pub input: PathBuf,
+
+    /// The the output target
+    pub output: PathBuf,
+
+    /// A key to use for decryption, blank will search DB
+    #[clap(long)]
+    pub key: Option<String>,
 }
 
 #[derive(Parser, Debug)]

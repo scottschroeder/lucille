@@ -33,24 +33,53 @@ mod corpus {
 mod scan;
 
 mod debug_utils {
-    use std::time::Duration;
+    use std::{str::FromStr, time::Duration};
 
     use app::prepare::MediaProcessor;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     use super::argparse;
 
+    pub(crate) async fn decrypt_media_file(
+        args: &argparse::DecryptMediaFile,
+    ) -> anyhow::Result<()> {
+        let mut f = tokio::io::BufReader::new(tokio::fs::File::open(args.input.as_path()).await?);
+        let mut buf = Vec::new();
+        f.read_to_end(&mut buf).await?;
+        if let Some(key) = &args.key {
+            let key_data = app::encryption::KeyData::from_str(key)?;
+            log::debug!("key data: {:#?}", key_data);
+            match key_data {
+                app::encryption::KeyData::EasyAesGcmInMemory(ref meta) => {
+                    let decrypted = app::encryption::unscramble(&buf, meta)?;
+                    let mut of = tokio::fs::File::create(args.output.as_path()).await?;
+                    of.write_all(&decrypted).await?;
+                }
+            }
+        }
+        Ok(())
+    }
     pub(crate) async fn split_media_file(args: &argparse::SplitMediaFile) -> anyhow::Result<()> {
         let ffmpeg = app::ffmpeg::FFmpegBinary::default();
         if args.processor {
             let split_buider = app::prepare::MediaSplittingStrategy::new(
                 &ffmpeg,
                 Duration::from_secs_f32(args.duration),
+                if args.encrypt {
+                    app::prepare::Encryption::EasyAes
+                } else {
+                    app::prepare::Encryption::None
+                },
                 &args.output,
             )?;
             let split_task = split_buider.split_task(args.input.as_path());
             let outcome = split_task.process().await?;
             println!("{:#?}", outcome);
             return Ok(());
+        }
+
+        if args.encrypt {
+            anyhow::bail!("can not encrypt without processor");
         }
 
         let splitter = app::ffmpeg::split::FFMpegMediaSplit::new_with_output(
@@ -246,6 +275,9 @@ pub async fn run_cli(args: &argparse::CliOpts) -> anyhow::Result<()> {
             argparse::DebugCommand::ShowConfig(opts) => workflow::show_config(opts).await,
             argparse::DebugCommand::SplitMediaFile(opts) => {
                 debug_utils::split_media_file(opts).await
+            }
+            argparse::DebugCommand::DecryptMediaFile(opts) => {
+                debug_utils::decrypt_media_file(opts).await
             }
         },
     }
