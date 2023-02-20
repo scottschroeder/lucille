@@ -6,10 +6,10 @@ pub use subrip::Subtitle;
 
 use self::{identifiers::CorpusId, metadata::MediaHash};
 
+pub mod encryption_config;
 pub mod hash;
 pub mod identifiers;
 pub mod metadata;
-pub mod encryption_config;
 
 pub mod export {
 

@@ -36,7 +36,6 @@ mod debug_utils {
     use std::{str::FromStr, time::Duration};
 
     use app::prepare::MediaProcessor;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     use super::argparse;
 
@@ -44,19 +43,15 @@ mod debug_utils {
         args: &argparse::DecryptMediaFile,
     ) -> anyhow::Result<()> {
         let mut f = tokio::io::BufReader::new(tokio::fs::File::open(args.input.as_path()).await?);
-        let mut buf = Vec::new();
-        f.read_to_end(&mut buf).await?;
-        if let Some(key) = &args.key {
-            let key_data = app::encryption::KeyData::from_str(key)?;
-            log::debug!("key data: {:#?}", key_data);
-            match key_data {
-                app::encryption::KeyData::EasyAesGcmInMemory(ref meta) => {
-                    let decrypted = app::encryption::unscramble(&buf, meta)?;
-                    let mut of = tokio::fs::File::create(args.output.as_path()).await?;
-                    of.write_all(&decrypted).await?;
-                }
-            }
-        }
+        let key = args
+            .key
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("must provide key"))?;
+        let key_data = lucile_core::encryption_config::KeyData::from_str(key)?;
+        let mut plain_reader = app::encryption::decryptor(&key_data, &mut f).await?;
+
+        let mut of = tokio::fs::File::create(args.output.as_path()).await?;
+        tokio::io::copy(&mut plain_reader, &mut of).await?;
         Ok(())
     }
     pub(crate) async fn split_media_file(args: &argparse::SplitMediaFile) -> anyhow::Result<()> {

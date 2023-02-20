@@ -1,18 +1,10 @@
 use aes_gcm::{self, aead::Aead, Aes128Gcm, KeyInit};
+use lucile_core::encryption_config::{KeyData, SimpleKeyNonce as MessageMeta};
 use rand::Rng;
-use serde::{Deserialize, Serialize};
 
-use super::{serde_base64, EncryptionError, KeyData};
+use super::EncryptionError;
 
 const NONCE_LENGTH: usize = 12;
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct MessageMeta {
-    #[serde(with = "serde_base64")]
-    key: Vec<u8>,
-    #[serde(with = "serde_base64")]
-    nonce: Vec<u8>,
-}
 
 pub(crate) fn scramble(plaintext: &[u8]) -> Result<(KeyData, Vec<u8>), EncryptionError> {
     let mut rng = rand::thread_rng();

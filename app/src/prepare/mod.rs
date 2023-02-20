@@ -3,9 +3,8 @@ use std::{path::PathBuf, time::Duration};
 use lucile_core::metadata::MediaHash;
 
 mod splitter;
+use lucile_core::encryption_config::KeyData;
 pub use splitter::{MediaSplitter, MediaSplittingStrategy};
-
-use crate::encryption::KeyData;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProcessingError {

@@ -30,9 +30,9 @@ pub enum EncryptionConfigError {
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct SimpleKeyNonce {
     #[serde(with = "serde_base64")]
-    key: Vec<u8>,
+    pub key: Vec<u8>,
     #[serde(with = "serde_base64")]
-    nonce: Vec<u8>,
+    pub nonce: Vec<u8>,
 }
 
 impl fmt::Debug for SimpleKeyNonce {
