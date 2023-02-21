@@ -96,6 +96,8 @@ impl Database {
                     FROM chapter
                     WHERE
                         hash = ?
+                    ORDER BY
+                        id
                     "#,
             hash_data,
         )
@@ -138,6 +140,36 @@ impl Database {
             metadata: metadata_from_chapter(row.title, row.season, row.episode),
             hash: parse_media_hash(&row.hash)?,
         })
+    }
+
+    pub async fn get_active_chapters_for_corpus(
+        &self,
+        corpus_id: CorpusId,
+    ) -> Result<Vec<ChapterExport>, DatabaseError> {
+        let cid = corpus_id.get();
+        let rows = sqlx::query!(
+            r#"
+                    SELECT
+                        id, corpus_id, title, season, episode, hash
+                    FROM chapter
+                    WHERE
+                        corpus_id = ?
+                    "#,
+            cid,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut chapters = Vec::new();
+        for row in rows {
+            chapters.push(ChapterExport {
+                id: ChapterId::new(row.id),
+                corpus_id: CorpusId::new(row.corpus_id),
+                metadata: metadata_from_chapter(row.title, row.season, row.episode),
+                hash: parse_media_hash(&row.hash)?,
+            });
+        }
+        Ok(chapters)
     }
 }
 
@@ -331,5 +363,53 @@ mod test {
         assert_eq!(row.corpus_id, c.id.unwrap());
         assert_eq!(row.metadata.title(), "title2");
         assert_eq!(row.hash, hash);
+    }
+
+    #[tokio::test]
+    async fn get_all_active_chapters_for_corpus_only_selects_my_corpus() {
+        let db = Database::memory().await.unwrap();
+        let c1 = db.add_corpus("media_good").await.unwrap();
+        let c2 = db.add_corpus("media_bad").await.unwrap();
+
+        let c1id1 = db
+            .define_chapter(
+                c1.id.unwrap(),
+                "title1",
+                Some(1),
+                Some(1),
+                MediaHash::from_bytes(b"data1"),
+            )
+            .await
+            .unwrap();
+
+        let c1id2 = db
+            .define_chapter(
+                c1.id.unwrap(),
+                "title2",
+                Some(1),
+                Some(2),
+                MediaHash::from_bytes(b"data2"),
+            )
+            .await
+            .unwrap();
+
+        let _ = db
+            .define_chapter(
+                c2.id.unwrap(),
+                "title3",
+                Some(2),
+                Some(1),
+                MediaHash::from_bytes(b"data3"),
+            )
+            .await
+            .unwrap();
+
+        let chapters = db
+            .get_active_chapters_for_corpus(c1.id.unwrap())
+            .await
+            .unwrap();
+        assert_eq!(chapters.len(), 2);
+        assert_eq!(chapters[0].id, c1id1);
+        assert_eq!(chapters[1].id, c1id2);
     }
 }

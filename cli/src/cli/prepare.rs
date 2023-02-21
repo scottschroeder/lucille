@@ -33,7 +33,10 @@ pub(crate) async fn create_media_view(args: &argparse::CreateMediaView) -> anyho
         );
     }
 
-    // Get all _active_ chapters for a corpus
+    let chapters = app.db.get_active_chapters_for_corpus(corpus_id).await?;
+
+    log::info!("{:#?}", chapters);
+
     // Check access to all storage hashes
     // For each file
     //   do split
