@@ -1,8 +1,9 @@
 use std::time::Duration;
 
 use lucile_core::{
+    encryption_config::KeyData,
     identifiers::{MediaSegmentId, MediaViewId},
-    media_segment::{EncryptionKey, MediaSegment},
+    media_segment::MediaSegment,
     metadata::MediaHash,
 };
 
@@ -13,6 +14,12 @@ fn parse_duration(text: &str) -> Result<Duration, DatabaseError> {
         DatabaseError::ConvertFromSqlError(format!("unable to parse f64: `{}`", text))
     })?;
     Ok(Duration::from_secs_f64(f))
+}
+
+fn parse_encryption_key(text: &str) -> Result<KeyData, DatabaseError> {
+    text.parse::<KeyData>().map_err(|e| {
+        DatabaseError::ConvertFromSqlError(format!("unable to parse KeyData: `{}`: {}", text, e))
+    })
 }
 
 impl Database {
@@ -40,7 +47,10 @@ impl Database {
                 media_view_id: MediaViewId::new(row.media_view_id),
                 hash,
                 start: parse_duration(&row.start)?,
-                key: row.encryption_key.map(EncryptionKey::new),
+                key: row
+                    .encryption_key
+                    .map(|s| parse_encryption_key(&s))
+                    .transpose()?,
             })
         } else {
             None
@@ -53,11 +63,12 @@ impl Database {
         sequence_id: u16,
         hash: MediaHash,
         start: Duration,
-        key: Option<String>,
+        key: Option<KeyData>,
     ) -> Result<MediaSegmentId, DatabaseError> {
         let cid = media_view_id.get();
         let hash_data = hash.to_string();
         let tstart = start.as_secs_f64();
+        let key_str = key.map(|k| k.to_string());
 
         let id = sqlx::query!(
             r#"
@@ -68,7 +79,7 @@ impl Database {
             sequence_id,
             hash_data,
             tstart,
-            key,
+            key_str,
         )
         .execute(&self.pool)
         .await?
@@ -82,10 +93,16 @@ impl Database {
 mod test {
     use std::time::Duration;
 
-    use lucile_core::metadata::MediaHash;
+    use lucile_core::{encryption_config::SimpleKeyNonce, metadata::MediaHash};
 
     use super::*;
-    use crate::database_test::assert_err_is_constraint;
+
+    fn create_key() -> KeyData {
+        KeyData::EasyAesGcmInMemory(SimpleKeyNonce {
+            key: "DEADBEEF".as_bytes().to_vec(),
+            nonce: "CAFEB00K".as_bytes().to_vec(),
+        })
+    }
 
     #[tokio::test]
     async fn add_media_segment() {
@@ -116,7 +133,7 @@ mod test {
             1,
             MediaHash::from_bytes(b"s2data"),
             Duration::from_secs_f64(10.3),
-            Some("foo".to_string()),
+            Some(create_key()),
         )
         .await
         .unwrap();
@@ -143,7 +160,7 @@ mod test {
                 0,
                 MediaHash::from_bytes(b"s1data"),
                 Duration::from_secs_f64(1.2),
-                None,
+                Some(create_key()),
             )
             .await
             .unwrap();
@@ -153,7 +170,7 @@ mod test {
                 1,
                 MediaHash::from_bytes(b"s2data"),
                 Duration::from_secs_f64(10.3),
-                Some("foo".to_string()),
+                None,
             )
             .await
             .unwrap();
@@ -164,33 +181,6 @@ mod test {
         let segment = segment.expect("expected data to exist in db");
         assert_eq!(segment.id, s1);
         assert_eq!(segment.start, Duration::from_secs_f64(1.2));
-    }
-
-    #[tokio::test]
-    async fn add_media_segment_with_empty_key() {
-        let db = Database::memory().await.unwrap();
-        let corpus = db.add_corpus("media").await.unwrap();
-        let ch_id = db
-            .define_chapter(
-                corpus.id.unwrap(),
-                "c1",
-                None,
-                None,
-                MediaHash::from_bytes(b"data"),
-            )
-            .await
-            .unwrap();
-        let media_view_id = db.add_media_view(ch_id, "test-view").await.unwrap();
-        assert_err_is_constraint(
-            db.add_media_segment(
-                media_view_id.id,
-                0,
-                MediaHash::from_bytes(b"s1data"),
-                Duration::from_secs_f64(1.2),
-                Some(String::new()),
-            )
-            .await,
-            "CHECK",
-        )
+        assert_eq!(segment.key, Some(create_key()));
     }
 }

@@ -8,7 +8,7 @@ use lucile_core::{
     ContentData, LucileSub, Subtitle,
 };
 
-use crate::{media_hash, metadata_from_chapter, parse_uuid, Database, DatabaseError};
+use crate::{metadata_from_chapter, parse_media_hash, parse_uuid, Database, DatabaseError};
 
 fn deserialize_subtitle(data: &[u8]) -> Result<Vec<Subtitle>, DatabaseError> {
     serde_json::from_slice(data)
@@ -104,7 +104,7 @@ impl Database {
         .fetch(&self.pool);
 
         while let Some(row) = rows.try_next().await.unwrap() {
-            let hash = media_hash(&row.1)?;
+            let hash = parse_media_hash(&row.1)?;
             collector.insert(row.0, (hash, row.2));
         }
 
@@ -245,7 +245,7 @@ impl Database {
         .fetch_one(&self.pool)
         .await?;
         // todo custom struct
-        Ok((media_hash(&ret.0)?, ret.1))
+        Ok((parse_media_hash(&ret.0)?, ret.1))
     }
 }
 

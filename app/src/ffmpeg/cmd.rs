@@ -68,6 +68,12 @@ pub struct FFmpegBinary {
     path: Option<PathBuf>,
 }
 
+impl From<Option<PathBuf>> for FFmpegBinary {
+    fn from(path: Option<PathBuf>) -> Self {
+        FFmpegBinary { path }
+    }
+}
+
 impl FFmpegBinary {
     pub fn new<P: Into<PathBuf>>(p: P) -> FFmpegBinary {
         FFmpegBinary {

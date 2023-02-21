@@ -4,7 +4,7 @@ use lucile_core::{
     metadata::MediaHash,
 };
 
-use crate::{metadata_from_chapter, Database, DatabaseError};
+use crate::{metadata_from_chapter, parse_media_hash, Database, DatabaseError};
 
 impl Database {
     pub async fn define_chapter<S: Into<String>>(
@@ -111,6 +111,32 @@ impl Database {
             })
         } else {
             None
+        })
+    }
+
+    pub async fn get_chapter_by_id(
+        &self,
+        chapter_id: ChapterId,
+    ) -> Result<ChapterExport, DatabaseError> {
+        let cid = chapter_id.get();
+        let row = sqlx::query!(
+            r#"
+                    SELECT
+                        id, corpus_id, title, season, episode, hash
+                    FROM chapter
+                    WHERE
+                        id = ?
+                    "#,
+            cid,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(ChapterExport {
+            id: ChapterId::new(row.id),
+            corpus_id: CorpusId::new(row.corpus_id),
+            metadata: metadata_from_chapter(row.title, row.season, row.episode),
+            hash: parse_media_hash(&row.hash)?,
         })
     }
 }
@@ -275,5 +301,35 @@ mod test {
         assert_eq!(row.id, id2);
         assert_eq!(row.corpus_id, c.id.unwrap());
         assert_eq!(row.metadata.title(), "title2");
+    }
+
+    #[tokio::test]
+    async fn lookup_chapter_by_id() {
+        let db = Database::memory().await.unwrap();
+        let c = db.add_corpus("media").await.unwrap();
+        let hash = MediaHash::from_bytes(b"data");
+        let id1 = db
+            .define_chapter(
+                c.id.unwrap(),
+                "title1",
+                Some(1),
+                Some(1),
+                MediaHash::from_bytes(b"data1"),
+            )
+            .await
+            .unwrap();
+        assert_eq!(id1, ChapterId::new(1));
+
+        let id2 = db
+            .define_chapter(c.id.unwrap(), "title2", Some(1), Some(2), hash)
+            .await
+            .unwrap();
+        assert_eq!(id2, ChapterId::new(2));
+
+        let row = db.get_chapter_by_id(id2).await.unwrap();
+        assert_eq!(row.id, id2);
+        assert_eq!(row.corpus_id, c.id.unwrap());
+        assert_eq!(row.metadata.title(), "title2");
+        assert_eq!(row.hash, hash);
     }
 }

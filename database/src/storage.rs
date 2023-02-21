@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use lucile_core::{export::MediaStorage, identifiers::StorageId, metadata::MediaHash};
 
-use crate::{media_hash, Database, DatabaseError};
+use crate::{parse_media_hash, Database, DatabaseError};
 
 impl Database {
     pub async fn add_storage(&self, hash: MediaHash, path: &Path) -> Result<(), DatabaseError> {
@@ -74,7 +74,7 @@ impl Database {
         .await?;
 
         Ok(if let Some(row) = row_opt {
-            let hash = media_hash(&row.hash)?;
+            let hash = parse_media_hash(&row.hash)?;
             Some(MediaStorage {
                 id: StorageId::new(row.id),
                 hash,

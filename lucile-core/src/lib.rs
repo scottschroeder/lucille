@@ -119,6 +119,7 @@ pub mod media_segment {
     use std::time::Duration;
 
     use crate::{
+        encryption_config::KeyData,
         identifiers::{ChapterId, MediaSegmentId, MediaViewId},
         metadata::MediaHash,
     };
@@ -155,7 +156,7 @@ pub mod media_segment {
         pub media_view_id: MediaViewId,
         pub hash: MediaHash,
         pub start: Duration,
-        pub key: Option<EncryptionKey>,
+        pub key: Option<KeyData>,
     }
 }
 

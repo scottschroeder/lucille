@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 
 const STORAGE_DEFAULT: &str = "storage";
 const INDEX_WINDOW_DEFAULT: &str = "5";
@@ -57,7 +57,9 @@ pub enum SubCommand {
     // Index(IndexCommand),
 
     // Library(LibraryCommand),
-    // Transcode(PrepareCommand),
+    /// Commands for pre-processing media
+    #[clap(subcommand)]
+    PrepareMedia(PrepareCommand),
     // Test(PrepareCommand),
     // Render an image
     // #[clap(subcommand)]
@@ -95,7 +97,10 @@ pub struct IndexCommand {
 }
 
 #[derive(Parser, Debug)]
-pub struct PrepareCommand {}
+pub enum PrepareCommand {
+    /// Create a new media view
+    CreateMediaView(CreateMediaView),
+}
 
 #[derive(Parser, Debug)]
 pub enum ExportCommand {
@@ -196,6 +201,44 @@ pub struct SplitMediaFile {
 }
 
 #[derive(Parser, Debug)]
+pub struct CreateMediaView {
+    /// Name of the corpus to process
+    pub corpus_name: String,
+
+    /// Name for this media view
+    pub view_name: String,
+
+    #[clap(flatten)]
+    pub media_storage: MediaStorage,
+
+    #[clap(flatten)]
+    pub split_settings: MediaSplitSettings,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+
+    #[clap(flatten)]
+    pub ffmpeg: FFMpegConfig,
+}
+
+#[derive(Parser, Debug)]
+pub struct MediaSplitSettings {
+    /// The split duration target (may not be exact)
+    #[clap(long, default_value_t = 30.)]
+    pub duration: f32,
+
+    /// Encrypt media during processing
+    #[clap(long, value_enum, default_value_t=PrepareEncryption::EasyAes)]
+    pub encryption: PrepareEncryption,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum PrepareEncryption {
+    None,
+    EasyAes,
+}
+
+#[derive(Parser, Debug)]
 pub struct DecryptMediaFile {
     #[clap(flatten)]
     pub db: DatabaseConfig,
@@ -270,6 +313,22 @@ pub struct StorageConfig {
     /// If not provided, will use user dirs
     #[clap(long)]
     pub index_root: Option<std::path::PathBuf>,
+}
+
+#[derive(Parser, Debug)]
+pub struct MediaStorage {
+    /// Path to local media storage
+    ///
+    /// If not provided, will use user dirs
+    #[clap(long)]
+    pub media_root: Option<std::path::PathBuf>,
+}
+
+#[derive(Parser, Debug)]
+pub struct FFMpegConfig {
+    /// Override binary called for `ffmpeg`
+    #[clap(long)]
+    pub ffmpeg: Option<std::path::PathBuf>,
 }
 
 #[derive(Parser, Debug)]

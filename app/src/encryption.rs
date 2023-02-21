@@ -31,3 +31,19 @@ pub async fn decryptor<T: tokio::io::AsyncRead + Unpin>(
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[tokio::test]
+    async fn encrypt_decrypt_easy_aes() {
+        let input_text = "MY SECRET DATA".repeat(50);
+        let (keydata, ciphertext) = easyaes::scramble(input_text.as_bytes()).unwrap();
+        let mut cipher_reader = std::io::Cursor::new(ciphertext);
+        let mut plain_reader = decryptor(&keydata, &mut cipher_reader).await.unwrap();
+        let mut s = String::new();
+        plain_reader.read_to_string(&mut s).await.unwrap();
+        assert_eq!(s, input_text);
+    }
+}

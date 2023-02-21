@@ -143,7 +143,7 @@ fn metadata_from_chapter(
     }
 }
 
-fn media_hash(text: &str) -> Result<MediaHash, DatabaseError> {
+fn parse_media_hash(text: &str) -> Result<MediaHash, DatabaseError> {
     MediaHash::from_str(text)
         .map_err(|e| DatabaseError::ConvertFromSqlError(format!("invalid hex: {:?}", e)))
 }

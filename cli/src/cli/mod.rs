@@ -30,6 +30,7 @@ mod corpus {
     }
 }
 
+mod prepare;
 mod scan;
 
 mod debug_utils {
@@ -273,6 +274,11 @@ pub async fn run_cli(args: &argparse::CliOpts) -> anyhow::Result<()> {
             }
             argparse::DebugCommand::DecryptMediaFile(opts) => {
                 debug_utils::decrypt_media_file(opts).await
+            }
+        },
+        argparse::SubCommand::PrepareMedia(sub) => match sub {
+            argparse::PrepareCommand::CreateMediaView(opts) => {
+                prepare::create_media_view(opts).await
             }
         },
     }

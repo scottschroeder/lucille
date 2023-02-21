@@ -1,5 +1,5 @@
 use lucile_core::{
-    identifiers::{ChapterId, MediaViewId},
+    identifiers::{ChapterId, CorpusId, MediaViewId},
     media_segment::MediaView,
     uuid::Uuid,
 };
@@ -128,6 +128,36 @@ impl Database {
                     media_view.id DESC
          "#,
             uuid
+        )
+        .map(|r| MediaView {
+            id: MediaViewId::new(r.id),
+            chapter_id: ChapterId::new(r.chapter_id),
+            name: r.name,
+        })
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    /// Fetch all views for a corpus
+    pub async fn get_media_views_for_corpus(
+        &self,
+        corpus_id: CorpusId,
+    ) -> Result<Vec<MediaView>, DatabaseError> {
+        let cid = corpus_id.get();
+        let rows = sqlx::query!(
+            r#"
+                SELECT 
+                    media_view.id, media_view.chapter_id, media_view.name
+                FROM media_view
+                JOIN chapter
+                  ON chapter.id = media_view.chapter_id
+                WHERE
+                    chapter.corpus_id = ?
+                ORDER BY
+                    media_view.id DESC
+         "#,
+            cid,
         )
         .map(|r| MediaView {
             id: MediaViewId::new(r.id),
