@@ -1,8 +1,7 @@
 use std::{io::Read, path};
 
 use database::Database;
-use lucile_core::{hash::Sha2Hash, metadata::MediaHash};
-use sha2::{Digest, Sha256};
+use lucile_core::{hash::HashIo, metadata::MediaHash};
 
 use super::{ScanError, ScannedData, ScannedSubtitles};
 
@@ -26,8 +25,12 @@ pub(crate) async fn read_media_from_path(
         }
     } else {
         None
-    }
-    .unwrap_or_else(|| hash_file(media_path))?;
+    };
+    let media_hash = if let Some(hash) = media_hash {
+        hash
+    } else {
+        hash_file(media_path).await
+    }?;
 
     Ok(ScannedData {
         path: media_path.to_path_buf(),
@@ -50,12 +53,12 @@ fn extract_subtitles(media_path: &path::Path) -> Result<ScannedSubtitles, ScanEr
 }
 
 /// Get the sha2 hash for a media path
-fn hash_file(fname: &path::Path) -> Result<MediaHash, ScanError> {
-    let mut r = std::io::BufReader::new(std::fs::File::open(fname)?);
-    let mut hasher = Sha256::new();
-
-    std::io::copy(&mut r, &mut hasher)?;
-    Ok(MediaHash::new(Sha2Hash::from(hasher.finalize())))
+async fn hash_file(fname: &path::Path) -> Result<MediaHash, ScanError> {
+    let mut r = tokio::io::BufReader::new(tokio::fs::File::open(fname).await?);
+    let mut hasher = HashIo::new(tokio::io::sink());
+    tokio::io::copy(&mut r, &mut hasher).await?;
+    let (_, hash) = hasher.into_inner();
+    Ok(MediaHash::new(hash))
 }
 
 fn read_path_to_string<P: AsRef<path::Path>>(tpath: P) -> Result<String, ScanError> {
