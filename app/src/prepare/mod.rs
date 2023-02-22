@@ -20,11 +20,11 @@ pub enum ProcessingError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProcessedMedia {
-    idx: usize,
-    path: PathBuf,
-    hash: MediaHash,
-    start: Duration,
-    key: Option<KeyData>,
+    pub idx: usize,
+    pub path: PathBuf,
+    pub hash: MediaHash,
+    pub start: Duration,
+    pub key: Option<KeyData>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -6,25 +6,25 @@ use super::{Encryption, MediaProcessor, ProcessedMedia, ProcessingError};
 use crate::{
     ffmpeg::{
         split::{FFMpegMediaSplit, MediaSplitFile},
-        FFmpegBinary,
+        FFMpegBinary,
     },
     hashfs::HashFS,
 };
 
-pub struct MediaSplittingStrategy<'a> {
-    ffmpeg: &'a FFmpegBinary,
+pub struct MediaSplittingStrategy {
+    ffmpeg: FFMpegBinary,
     target_duration: Duration,
     encryption: Encryption,
     target_destination: Arc<HashFS>,
 }
 
-impl<'a> MediaSplittingStrategy<'a> {
+impl MediaSplittingStrategy {
     pub fn new<P: Into<std::path::PathBuf>>(
-        bin: &'a FFmpegBinary,
+        bin: FFMpegBinary,
         duration: Duration,
         encryption: Encryption,
         output: P,
-    ) -> Result<MediaSplittingStrategy<'a>, std::io::Error> {
+    ) -> Result<MediaSplittingStrategy, std::io::Error> {
         let hash_fs = HashFS::new(output)?;
         Ok(MediaSplittingStrategy {
             ffmpeg: bin,
@@ -33,9 +33,9 @@ impl<'a> MediaSplittingStrategy<'a> {
             target_destination: Arc::new(hash_fs),
         })
     }
-    pub fn split_task(&'a self, src: &'a std::path::Path) -> MediaSplitter<'a> {
+    pub fn split_task<'a>(&'a self, src: &'a std::path::Path) -> MediaSplitter<'a> {
         MediaSplitter {
-            ffmpeg: self.ffmpeg,
+            ffmpeg: &self.ffmpeg,
             source: src,
             target_duration: self.target_duration,
             encryption: self.encryption,
@@ -45,7 +45,7 @@ impl<'a> MediaSplittingStrategy<'a> {
 }
 
 pub struct MediaSplitter<'a> {
-    ffmpeg: &'a FFmpegBinary,
+    ffmpeg: &'a FFMpegBinary,
     source: &'a std::path::Path,
     target_duration: Duration,
     encryption: Encryption,

@@ -17,6 +17,16 @@ fn hash_path(hash: MediaHash) -> (String, String) {
     )
 }
 
+/// Get the sha2 hash for a media path
+pub(crate) async fn compute_hash(fname: &std::path::Path) -> Result<MediaHash, std::io::Error> {
+    log::trace!("compute hash for {:?}", fname);
+    let mut r = tokio::io::BufReader::new(tokio::fs::File::open(fname).await?);
+    let mut hasher = HashIo::new(tokio::io::sink());
+    tokio::io::copy(&mut r, &mut hasher).await?;
+    let (_, hash) = hasher.into_inner();
+    Ok(MediaHash::new(hash))
+}
+
 impl HashFS {
     pub fn new<P: Into<PathBuf>>(p: P) -> Result<HashFS, std::io::Error> {
         let root: PathBuf = p.into();

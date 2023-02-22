@@ -1,3 +1,18 @@
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    time::Duration,
+};
+
+use anyhow::Context;
+use app::{
+    ffmpeg::FFMpegBinary,
+    prepare::{MediaProcessor, MediaSplittingStrategy},
+    storage::FileCheckStrategy,
+};
+use database::Database;
+use lucile_core::export::ChapterExport;
+
 use super::{argparse, helpers};
 
 pub(crate) async fn create_media_view(args: &argparse::CreateMediaView) -> anyhow::Result<()> {
@@ -37,12 +52,150 @@ pub(crate) async fn create_media_view(args: &argparse::CreateMediaView) -> anyho
 
     log::info!("{:#?}", chapters);
 
-    // Check access to all storage hashes
-    // For each file
-    //   do split
-    //   create view
-    //   add segments
-    //   add storage
+    let mut verify_source_set = tokio::task::JoinSet::new();
+    for chapter in &chapters {
+        let chapter = chapter.clone();
+        let db = app.db.clone();
+        let strategy = args.file_check_settings.check_strategy.to_app();
+        verify_source_set.spawn(async move {
+            check_storage_exists(&db, &chapter, strategy)
+                .await
+                .with_context(|| format!("unable to verify source for chapter: {:?}", chapter))
+                .map(|p| (chapter.id, p))
+        });
+    }
 
-    todo!("create media view for corpus: {:?}", corpus_id)
+    let mut pathmap = HashMap::new();
+    let mut local_files_ok = true;
+    while let Some(res) = verify_source_set.join_next().await {
+        let res = res.context("task running storage check failed to join")?;
+        match res {
+            Ok((cid, p)) => {
+                pathmap.insert(cid, p);
+            }
+            Err(e) => {
+                log::error!("{:#}", e);
+                local_files_ok = false;
+            }
+        }
+    }
+
+    if !local_files_ok {
+        anyhow::bail!("could not prepare media due to missing source(s)");
+    }
+
+    let mut split_set = tokio::task::JoinSet::new();
+
+    let output = args
+        .media_storage
+        .media_root
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("must define media root"))?;
+
+    let ffmpeg: FFMpegBinary = args.ffmpeg.ffmpeg.clone().into();
+    let split_buider = std::sync::Arc::new(
+        app::prepare::MediaSplittingStrategy::new(
+            ffmpeg,
+            Duration::from_secs_f32(args.split_settings.duration),
+            args.split_settings.encryption.to_app(),
+            output,
+        )
+        .context("build split strategy")?,
+    );
+
+    let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(args.parallel));
+    for chapter in &chapters {
+        let chapter = chapter.clone();
+        let db = app.db.clone();
+        let semaphore = semaphore.clone();
+        let strategy = split_buider.clone();
+        let path = pathmap[&chapter.id].clone();
+        let view_name = args.view_name.clone();
+        split_set.spawn(async move {
+            let _permit = semaphore.acquire_owned().await.unwrap();
+            do_split_on_chapter(&db, &view_name, &chapter, path.as_ref(), &strategy).await
+        });
+    }
+
+    let mut all_ok = true;
+    while let Some(res) = split_set.join_next().await {
+        let ok = match res {
+            Ok(Ok(())) => true,
+            Ok(Err(e)) => {
+                log::error!("failed at creating split: {}", e);
+                false
+            }
+
+            Err(join_err) => {
+                log::error!("task running split failed to join: {}", join_err);
+                false
+            }
+        };
+        all_ok = all_ok && ok;
+    }
+
+    if !all_ok {
+        anyhow::bail!("failed to process all splits");
+    }
+
+    Ok(())
+}
+
+async fn check_storage_exists(
+    db: &Database,
+    chapter: &ChapterExport,
+    strategy: FileCheckStrategy,
+) -> anyhow::Result<PathBuf> {
+    log::debug!("verify storage for chapter: {:?}", chapter);
+    let (path, outcome) = app::storage::check_local_file(db, chapter.hash, strategy)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("hash not found in database"))?;
+
+    if !outcome.as_bool() {
+        anyhow::bail!("failed validation: {:?}", outcome)
+    }
+    Ok(path)
+}
+
+async fn do_split_on_chapter<'a>(
+    db: &Database,
+    view_name: &str,
+    chapter: &ChapterExport,
+    path: &Path,
+    strategy: &MediaSplittingStrategy,
+) -> anyhow::Result<()> {
+    let split = strategy.split_task(path);
+    let processed_media = split
+        .process()
+        .await
+        .context("error while splitting media")?;
+
+    let media_view = db
+        .add_media_view(chapter.id, view_name)
+        .await
+        .context("create media view name")?;
+
+    for media in processed_media {
+        let segment = db
+            .add_media_segment(
+                media_view.id,
+                media.idx as u16,
+                media.hash,
+                media.start,
+                media.key.clone(),
+            )
+            .await
+            .context("add segment to db")?;
+        db.add_storage(media.hash, &media.path)
+            .await
+            .context("add split to storage")?;
+
+        log::debug!(
+            "Successfully added segment={:?} chapter_id={:?} {:?}",
+            segment,
+            chapter.id,
+            media
+        );
+    }
+    Ok(())
 }

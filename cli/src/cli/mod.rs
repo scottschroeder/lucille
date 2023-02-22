@@ -56,10 +56,10 @@ mod debug_utils {
         Ok(())
     }
     pub(crate) async fn split_media_file(args: &argparse::SplitMediaFile) -> anyhow::Result<()> {
-        let ffmpeg = app::ffmpeg::FFmpegBinary::default();
+        let ffmpeg = app::ffmpeg::FFMpegBinary::default();
         if args.processor {
             let split_buider = app::prepare::MediaSplittingStrategy::new(
-                &ffmpeg,
+                ffmpeg,
                 Duration::from_secs_f32(args.duration),
                 if args.encrypt {
                     app::prepare::Encryption::EasyAes

@@ -49,7 +49,7 @@ pub mod export {
         pub verified: bool,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct ChapterExport {
         pub id: ChapterId,
         pub corpus_id: CorpusId,

@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use super::{FFmpegArg, FFmpegBinary, FFmpegCommand};
+use super::{FFMpegBinary, FFmpegArg, FFmpegCommand};
 
 const CSV_FILE_NAME: &str = "split_records.csv";
 
@@ -85,7 +85,7 @@ pub struct FFMpegSplitOutcome {
 
 impl FFMpegMediaSplit {
     pub fn new<P: Into<OsString>>(
-        bin: &FFmpegBinary,
+        bin: &FFMpegBinary,
         src: P,
         duration: Duration,
     ) -> Result<FFMpegMediaSplit, MediaSplitError> {
@@ -99,7 +99,7 @@ impl FFMpegMediaSplit {
     }
 
     pub fn new_with_output<P: Into<OsString>, O: Into<PathBuf>>(
-        bin: &FFmpegBinary,
+        bin: &FFMpegBinary,
         src: P,
         duration: Duration,
         output: O,
@@ -116,7 +116,7 @@ impl FFMpegMediaSplit {
     }
 
     fn build_cmd(
-        bin: FFmpegBinary,
+        bin: FFMpegBinary,
         src: OsString,
         duration: Duration,
         root: OutputDirectory,
@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn ffmpeg_split_command() {
         let split = FFMpegMediaSplit::new(
-            &FFmpegBinary::default(),
+            &FFMpegBinary::default(),
             "video.mkv",
             Duration::from_secs(30),
         )

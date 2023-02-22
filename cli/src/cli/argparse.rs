@@ -208,11 +208,18 @@ pub struct CreateMediaView {
     /// Name for this media view
     pub view_name: String,
 
+    /// How many active transcoding jobs are allowed
+    #[clap(long, default_value_t = 8)]
+    pub parallel: usize,
+
     #[clap(flatten)]
     pub media_storage: MediaStorage,
 
     #[clap(flatten)]
     pub split_settings: MediaSplitSettings,
+
+    #[clap(flatten)]
+    pub file_check_settings: FileCheckSettings,
 
     #[clap(flatten)]
     pub db: DatabaseConfig,
@@ -221,7 +228,7 @@ pub struct CreateMediaView {
     pub ffmpeg: FFMpegConfig,
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 pub struct MediaSplitSettings {
     /// The split duration target (may not be exact)
     #[clap(long, default_value_t = 30.)]
@@ -232,10 +239,49 @@ pub struct MediaSplitSettings {
     pub encryption: PrepareEncryption,
 }
 
+#[derive(Parser, Debug, Clone)]
+pub struct FileCheckSettings {
+    /// how rigorously should we validate storage files
+    #[clap(long, value_enum, default_value_t = ArgFileCheckStrategy::CheckExists)]
+    pub check_strategy: ArgFileCheckStrategy,
+}
+
 #[derive(Debug, Clone, ValueEnum)]
 pub enum PrepareEncryption {
     None,
     EasyAes,
+}
+
+impl PrepareEncryption {
+    pub(crate) fn to_app(&self) -> app::prepare::Encryption {
+        match self {
+            PrepareEncryption::None => app::prepare::Encryption::None,
+            PrepareEncryption::EasyAes => app::prepare::Encryption::EasyAes,
+        }
+    }
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ArgFileCheckStrategy {
+    /// Verify all files by re-calculating the hash
+    VerifyAll,
+    /// If the filename matches the expected hash,
+    /// skip re-calculating the full hash
+    TrustNameIsHash,
+    /// Only check that the file exists, do not verify hashes
+    CheckExists,
+}
+
+impl ArgFileCheckStrategy {
+    pub(crate) fn to_app(&self) -> app::storage::FileCheckStrategy {
+        match self {
+            ArgFileCheckStrategy::VerifyAll => app::storage::FileCheckStrategy::VerifyAll,
+            ArgFileCheckStrategy::TrustNameIsHash => {
+                app::storage::FileCheckStrategy::TrustNameIsHash
+            }
+            ArgFileCheckStrategy::CheckExists => app::storage::FileCheckStrategy::CheckExists,
+        }
+    }
 }
 
 #[derive(Parser, Debug)]

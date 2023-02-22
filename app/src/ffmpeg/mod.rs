@@ -1,7 +1,7 @@
 mod cmd;
 pub mod split;
 
-pub use cmd::FFmpegBinary;
+pub use cmd::FFMpegBinary;
 use cmd::{FFmpegArg, FFmpegCommand};
 
 #[derive(Debug, thiserror::Error)]

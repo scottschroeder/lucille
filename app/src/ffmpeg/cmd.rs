@@ -64,19 +64,19 @@ impl Default for StdIo {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct FFmpegBinary {
+pub struct FFMpegBinary {
     path: Option<PathBuf>,
 }
 
-impl From<Option<PathBuf>> for FFmpegBinary {
+impl From<Option<PathBuf>> for FFMpegBinary {
     fn from(path: Option<PathBuf>) -> Self {
-        FFmpegBinary { path }
+        FFMpegBinary { path }
     }
 }
 
-impl FFmpegBinary {
-    pub fn new<P: Into<PathBuf>>(p: P) -> FFmpegBinary {
-        FFmpegBinary {
+impl FFMpegBinary {
+    pub fn new<P: Into<PathBuf>>(p: P) -> FFMpegBinary {
+        FFMpegBinary {
             path: Some(p.into()),
         }
     }
@@ -98,7 +98,7 @@ impl FFmpegBinary {
 /// Low level interface over calling ffmpeg
 #[derive(Debug, Default)]
 pub(crate) struct FFmpegCommand {
-    pub(crate) bin: FFmpegBinary,
+    pub(crate) bin: FFMpegBinary,
     pub(crate) args: Vec<FFmpegArg>,
     pub(crate) cwd: Option<FFmpegArg>,
     pub(crate) stdin: Option<StdIo>,
@@ -126,6 +126,7 @@ impl FFmpegCommand {
         TestFormat(self)
     }
     pub(crate) async fn spawn(self) -> Result<tokio::process::Child, std::io::Error> {
+        log::trace!("spawn {:?}", &self);
         let mut st = Command::new(self.bin.executable_path());
         for arg in self.args {
             st.arg(arg.into_exec());
@@ -149,7 +150,6 @@ impl FFmpegCommand {
             st.stderr(StdIo::Null.into_exec());
         }
 
-        log::trace!("{:?}", st);
         st.spawn()
     }
 }
