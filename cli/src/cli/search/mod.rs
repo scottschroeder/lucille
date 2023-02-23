@@ -6,7 +6,7 @@ use app::{
     search_manager::{SearchRequest, SearchResponse},
     transcode::{MakeGifRequest, SubSegment, TranscodeRequest},
 };
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use lucile_core::{clean_sub::CleanSubs, uuid::Uuid};
 
 use crate::cli::helpers;

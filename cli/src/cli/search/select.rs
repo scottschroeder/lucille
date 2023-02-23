@@ -85,8 +85,8 @@ fn parse_user_selection(s: &str) -> Result<(usize, usize, usize)> {
         .unwrap_or(start);
 
     let user_choice_index = match letter {
-        'a'..='z' => (letter as u8) - 'a' as u8,
-        'A'..='Z' => (letter as u8) - 'A' as u8,
+        'a'..='z' => (letter as u8) - b'a',
+        'A'..='Z' => (letter as u8) - b'A',
         _ => anyhow::bail!("invalid char: {:?}", letter),
     } as usize;
 
