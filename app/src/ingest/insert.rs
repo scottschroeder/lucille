@@ -147,10 +147,10 @@ mod tests {
         let view_opts = tapp
             .app
             .db
-            .get_media_view_options(chapter_id)
+            .get_media_views_for_chapter(chapter_id)
             .await
             .unwrap();
-        assert_eq!(view_opts[0].1, "original");
+        assert_eq!(view_opts[0].name, "original");
 
         let chapter = tapp
             .app

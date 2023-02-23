@@ -87,10 +87,10 @@ impl Database {
         }))
     }
 
-    pub async fn get_media_view_options(
+    pub async fn get_media_views_for_chapter(
         &self,
         chapter_id: ChapterId,
-    ) -> Result<Vec<(MediaViewId, String)>, DatabaseError> {
+    ) -> Result<Vec<MediaView>, DatabaseError> {
         let cid = chapter_id.get();
         let rows = sqlx::query!(
             r#"
@@ -104,7 +104,11 @@ impl Database {
          "#,
             cid
         )
-        .map(|r| (MediaViewId::new(r.id), r.name))
+        .map(|row| MediaView {
+            id: MediaViewId::new(row.id),
+            chapter_id,
+            name: row.name,
+        })
         .fetch_all(&self.pool)
         .await?;
         Ok(rows)
