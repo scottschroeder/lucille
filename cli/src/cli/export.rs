@@ -1,10 +1,60 @@
 use anyhow::Context;
+use clap::Parser;
 use lucile_core::export::CorpusExport;
 
-use super::argparse;
+use super::argparse::DatabaseConfig;
 use crate::cli::helpers;
 
-pub(crate) async fn import_corpus(args: &argparse::ImportCorpusOpts) -> anyhow::Result<()> {
+#[derive(Parser, Debug)]
+pub enum ExportCommand {
+    /// Export all details for a corpus
+    Corpus(ExportCorpusOpts),
+}
+
+impl ExportCommand {
+    pub(crate) async fn run(&self) -> anyhow::Result<()> {
+        match self {
+            ExportCommand::Corpus(o) => export_corpus(o).await,
+        }
+    }
+}
+
+#[derive(Parser, Debug)]
+pub enum ImportCommand {
+    /// Import all details for a corpus
+    Corpus(ImportCorpusOpts),
+}
+
+impl ImportCommand {
+    pub(crate) async fn run(&self) -> anyhow::Result<()> {
+        match self {
+            ImportCommand::Corpus(o) => import_corpus(o).await,
+        }
+    }
+}
+
+#[derive(Parser, Debug)]
+pub struct ImportCorpusOpts {
+    pub filename: std::path::PathBuf,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+}
+
+#[derive(Parser, Debug)]
+pub struct ExportCorpusOpts {
+    /// Corpus to export
+    pub corpus_name: String,
+
+    /// File to export
+    #[clap(long)]
+    pub out: Option<std::path::PathBuf>,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+}
+
+pub(crate) async fn import_corpus(args: &ImportCorpusOpts) -> anyhow::Result<()> {
     let app = helpers::get_app(Some(&args.db), None).await?;
     log::trace!("using app: {:?}", app);
 
@@ -19,7 +69,7 @@ pub(crate) async fn import_corpus(args: &argparse::ImportCorpusOpts) -> anyhow::
     Ok(())
 }
 
-pub(crate) async fn export_corpus(args: &argparse::ExportCorpusOpts) -> anyhow::Result<()> {
+pub(crate) async fn export_corpus(args: &ExportCorpusOpts) -> anyhow::Result<()> {
     let app = helpers::get_app(Some(&args.db), None).await?;
     log::trace!("using app: {:?}", app);
     let corpus_id = app

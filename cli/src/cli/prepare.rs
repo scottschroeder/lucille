@@ -10,12 +10,86 @@ use app::{
     prepare::{MediaProcessor, MediaSplittingStrategy},
     storage::FileCheckStrategy,
 };
+use clap::{Parser, ValueEnum};
 use database::Database;
 use lucile_core::{export::ChapterExport, identifiers::CorpusId};
 
-use super::{argparse, helpers};
+use super::helpers;
+use crate::cli::argparse::{DatabaseConfig, FFMpegConfig, FileCheckSettings, MediaStorage};
 
-pub(crate) async fn create_media_view(args: &argparse::CreateMediaView) -> anyhow::Result<()> {
+#[derive(Parser, Debug)]
+pub enum PrepareCommand {
+    /// Create a new media view
+    CreateMediaView(CreateMediaView),
+}
+
+impl PrepareCommand {
+    pub(crate) async fn run(&self) -> anyhow::Result<()> {
+        match self {
+            PrepareCommand::CreateMediaView(o) => create_media_view(o).await,
+        }
+    }
+}
+
+#[derive(Parser, Debug)]
+pub struct CreateMediaView {
+    /// Name of the corpus to process
+    pub corpus_name: String,
+
+    /// Name for this media view
+    pub view_name: String,
+
+    /// Skip any chapters which already have the media-view
+    #[clap(long)]
+    pub skip_conflicts: bool,
+
+    /// How many active transcoding jobs are allowed
+    #[clap(long, default_value_t = 8)]
+    pub parallel: usize,
+
+    #[clap(flatten)]
+    pub media_storage: MediaStorage,
+
+    #[clap(flatten)]
+    pub split_settings: MediaSplitSettings,
+
+    #[clap(flatten)]
+    pub file_check_settings: FileCheckSettings,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+
+    #[clap(flatten)]
+    pub ffmpeg: FFMpegConfig,
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct MediaSplitSettings {
+    /// The split duration target (may not be exact)
+    #[clap(long, default_value_t = 30.)]
+    pub duration: f32,
+
+    /// Encrypt media during processing
+    #[clap(long, value_enum, default_value_t=PrepareEncryption::EasyAes)]
+    pub encryption: PrepareEncryption,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum PrepareEncryption {
+    None,
+    EasyAes,
+}
+
+impl PrepareEncryption {
+    pub(crate) fn to_app(&self) -> app::prepare::Encryption {
+        match self {
+            PrepareEncryption::None => app::prepare::Encryption::None,
+            PrepareEncryption::EasyAes => app::prepare::Encryption::EasyAes,
+        }
+    }
+}
+
+pub(crate) async fn create_media_view(args: &CreateMediaView) -> anyhow::Result<()> {
     let app = helpers::get_app(Some(&args.db), None).await?;
 
     let corpus_id = app

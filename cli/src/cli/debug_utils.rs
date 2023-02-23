@@ -1,10 +1,109 @@
 use std::{str::FromStr, time::Duration};
 
+use anyhow::Context;
 use app::prepare::MediaProcessor;
+use clap::{Parser, ValueEnum};
+use lucile_core::metadata::MediaHash;
 
-use super::argparse;
+use super::argparse::{DatabaseConfig, StorageConfig};
+use crate::cli::helpers;
 
-pub(crate) async fn decrypt_media_file(args: &argparse::DecryptMediaFile) -> anyhow::Result<()> {
+#[derive(Parser, Debug)]
+pub enum DebugCommand {
+    /// Lookup all instances where a hash appears in the database
+    HashLookup(HashLookup),
+
+    /// Show the launch configuration/directories for the given settings.
+    ShowConfig(ShowConfig),
+
+    /// Split a media file into segments
+    SplitMediaFile(SplitMediaFile),
+
+    /// Decrypt a media file manually
+    DecryptMediaFile(DecryptMediaFile),
+}
+
+#[derive(Parser, Debug)]
+pub struct HashLookup {
+    /// Search the database for this hash
+    pub hash: String,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+}
+
+#[derive(Parser, Debug)]
+pub struct ShowConfig {
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+
+    #[clap(flatten)]
+    pub storage: StorageConfig,
+}
+
+#[derive(Parser, Debug)]
+pub struct SplitMediaFile {
+    /// The input media file
+    pub input: std::path::PathBuf,
+
+    /// The the output directory
+    pub output: std::path::PathBuf,
+
+    /// The split duration target (may not be exact)
+    #[clap(long)]
+    pub duration: f32,
+
+    /// Use the media splitter processing construct
+    #[clap(long)]
+    pub processor: bool,
+
+    /// Encrypt the segments
+    #[clap(long)]
+    pub encrypt: bool,
+}
+
+#[derive(Parser, Debug)]
+pub struct DecryptMediaFile {
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+
+    /// The input media file
+    pub input: std::path::PathBuf,
+
+    /// The the output target
+    pub output: std::path::PathBuf,
+
+    /// A key to use for decryption, blank will search DB
+    #[clap(long)]
+    pub key: Option<String>,
+}
+
+impl DebugCommand {
+    pub(crate) async fn run(&self) -> anyhow::Result<()> {
+        match &self {
+            DebugCommand::HashLookup(opts) => hash_lookup(opts).await,
+            DebugCommand::ShowConfig(opts) => show_config(opts).await,
+            DebugCommand::SplitMediaFile(opts) => split_media_file(opts).await,
+            DebugCommand::DecryptMediaFile(opts) => decrypt_media_file(opts).await,
+        }
+    }
+}
+pub(crate) async fn show_config(args: &ShowConfig) -> anyhow::Result<()> {
+    let app = helpers::get_app(Some(&args.db), Some(&args.storage)).await?;
+    println!("{:#?}", app);
+    Ok(())
+}
+
+pub(crate) async fn hash_lookup(args: &HashLookup) -> anyhow::Result<()> {
+    let hash = MediaHash::from_str(&args.hash).context("could not parse hash")?;
+    let app = helpers::get_app(Some(&args.db), None).await?;
+    log::trace!("using app: {:?}", app);
+
+    app::print_details_for_hash(&app, hash).await?;
+    Ok(())
+}
+
+pub(crate) async fn decrypt_media_file(args: &DecryptMediaFile) -> anyhow::Result<()> {
     let mut f = tokio::io::BufReader::new(tokio::fs::File::open(args.input.as_path()).await?);
     let key = args
         .key
@@ -17,7 +116,7 @@ pub(crate) async fn decrypt_media_file(args: &argparse::DecryptMediaFile) -> any
     tokio::io::copy(&mut plain_reader, &mut of).await?;
     Ok(())
 }
-pub(crate) async fn split_media_file(args: &argparse::SplitMediaFile) -> anyhow::Result<()> {
+pub(crate) async fn split_media_file(args: &SplitMediaFile) -> anyhow::Result<()> {
     let ffmpeg = app::ffmpeg::FFMpegBinary::default();
     if args.processor {
         let split_buider = app::prepare::MediaSplittingStrategy::new(
