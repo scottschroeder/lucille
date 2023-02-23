@@ -1,6 +1,7 @@
 use clap::Parser;
 
 pub mod argparse;
+mod clean;
 mod corpus;
 mod debug_utils;
 mod export;
@@ -55,6 +56,10 @@ enum SubCommand {
     /// Commands for pre-processing media
     #[clap(subcommand)]
     PrepareMedia(prepare::PrepareCommand),
+
+    /// Commands for pre-processing media
+    #[clap(subcommand)]
+    Clean(clean::CleanCommand),
 }
 
 impl CliOpts {
@@ -69,6 +74,7 @@ impl CliOpts {
             SubCommand::Interactive(cmd) => cmd.run().await,
             SubCommand::Debug(cmd) => cmd.run().await,
             SubCommand::PrepareMedia(cmd) => cmd.run().await,
+            SubCommand::Clean(cmd) => cmd.run().await,
         }
     }
 }
