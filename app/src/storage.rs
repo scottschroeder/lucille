@@ -1,10 +1,7 @@
 use std::{collections::HashMap, ffi::OsStr};
 
 use database::{Database, DatabaseError};
-use lucile_core::{
-    identifiers::{ChapterId, MediaViewId},
-    metadata::MediaHash,
-};
+use lucile_core::{identifiers::MediaViewId, metadata::MediaHash};
 use serde::{Deserialize, Serialize};
 
 use crate::{hashfs::compute_hash, LucileAppError};

@@ -9,11 +9,11 @@ mod cli;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     color_backtrace::install();
-    let args = cli::argparse::get_args();
+    let args = cli::get_args();
     setup_logger(args.verbose);
     log::trace!("Args: {:?}", args);
 
-    cli::run_cli(&args).await.map_err(|e| {
+    args.run().await.map_err(|e| {
         log::error!("{:?}", e);
         anyhow::anyhow!("unrecoverable {} failure", clap::crate_name!())
     })

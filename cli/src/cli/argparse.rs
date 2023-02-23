@@ -9,63 +9,6 @@ const EXPORT_DEFAULT: &str = "out.json";
 
 use app::DEFAULT_INDEX_WINDOW_SIZE;
 
-pub fn get_args() -> CliOpts {
-    CliOpts::parse()
-}
-
-#[derive(Parser, Debug)]
-#[clap(version = clap::crate_version!(), author = "Scott S. <scottschroeder@sent.com>")]
-pub struct CliOpts {
-    #[clap(short, long, global = true, parse(from_occurrences))]
-    pub verbose: u8,
-    #[clap(subcommand)]
-    pub subcmd: SubCommand,
-}
-
-#[derive(Parser, Debug)]
-pub enum SubCommand {
-    /// Commands working with the top-level Corpus
-    #[clap(subcommand)]
-    Corpus(CorpusCommand),
-
-    /// Scan a directory for media & subtitles
-    ScanChapters(ScanChaptersOpts),
-
-    /// Index a set of subtitles to be searched
-    Index(IndexCommand),
-
-    /// Search an index
-    Search(SearchCommand),
-
-    /// Import data
-    #[clap(subcommand)]
-    Import(ImportCommand),
-
-    /// Export data
-    #[clap(subcommand)]
-    Export(ExportCommand),
-
-    /// Interactive Gif Creation
-    Interactive(InteractiveOpts),
-
-    /// Debugging Utilities
-    #[clap(subcommand)]
-    Debug(DebugCommand),
-    // Process and prepare media
-    // #[clap(subcommand)]
-    // Media(MediaCommand),
-    // Index(IndexCommand),
-
-    // Library(LibraryCommand),
-    /// Commands for pre-processing media
-    #[clap(subcommand)]
-    PrepareMedia(PrepareCommand),
-    // Test(PrepareCommand),
-    // Render an image
-    // #[clap(subcommand)]
-    // Render(Render),
-}
-
 #[derive(Parser, Debug)]
 pub struct SearchCommand {
     /// The search query
@@ -207,6 +150,10 @@ pub struct CreateMediaView {
 
     /// Name for this media view
     pub view_name: String,
+
+    /// Skip any chapters which already have the media-view
+    #[clap(long)]
+    pub skip_conflicts: bool,
 
     /// How many active transcoding jobs are allowed
     #[clap(long, default_value_t = 8)]
