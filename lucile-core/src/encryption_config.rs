@@ -1,8 +1,11 @@
 use std::{fmt, str::FromStr};
 
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
 struct B64Bytes<'a>(&'a [u8]);
+
+const B64: base64::engine::GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
 impl<'a> fmt::Display for B64Bytes<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -87,23 +90,27 @@ impl FromStr for KeyData {
     type Err = EncryptionConfigError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let data = base64::decode(s)?;
+        let data = B64.decode(s)?;
         let key: Self = serde_json::from_slice(&data)?;
         Ok(key)
     }
 }
 
 mod serde_base64 {
+    use base64::Engine as _;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+    use super::B64;
+
     pub fn serialize<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
-        let base64 = base64::encode(v);
+        let base64 = B64.encode(v);
         String::serialize(&base64, s)
     }
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
         let base64 = String::deserialize(d)?;
-        base64::decode(base64.as_bytes()).map_err(serde::de::Error::custom)
+        B64.decode(base64.as_bytes())
+            .map_err(serde::de::Error::custom)
     }
 }
 

@@ -2,7 +2,7 @@ use std::{str::FromStr, time::Duration};
 
 use anyhow::Context;
 use app::prepare::MediaProcessor;
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use lucile_core::metadata::MediaHash;
 
 use super::argparse::{DatabaseConfig, StorageConfig};
