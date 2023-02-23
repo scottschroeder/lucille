@@ -98,59 +98,13 @@ pub(crate) async fn create_media_view(args: &CreateMediaView) -> anyhow::Result<
         .await?
         .ok_or_else(|| anyhow::anyhow!("could not find corpus: {:?}", args.corpus_name))?;
 
+    /*
+     *   Filter only chapters we want to create view on
+     */
     let chapters =
         check_filter_view_conflicts(&app.db, corpus_id, &args.view_name, args.skip_conflicts)
             .await?;
-    // let views = app.db.get_media_views_for_corpus(corpus_id).await?;
 
-    // // TODO allow for other modes like replace, or only do missing
-    // let mut conflict = false;
-    // for v in &views {
-    //     if v.name == args.view_name {
-    //         conflict = true;
-    //         let chapter = app.db.get_chapter_by_id(v.chapter_id).await?;
-    //         log::error!(
-    //             "conflicting media view on id={} [{}]: {}",
-    //             chapter.id,
-    //             chapter.hash,
-    //             chapter.metadata
-    //         );
-    //     }
-    // }
-
-    // if conflict {
-    //     anyhow::bail!(
-    //         "could not create view `{}` due to conflicts",
-    //         args.view_name
-    //     );
-    // }
-
-    // let all_chapters = app.db.get_active_chapters_for_corpus(corpus_id).await?;
-    // let mut chapters = Vec::new();
-
-    // let mut conflict = false;
-    // for chapter in all_chapters {
-    //     let chapter_conflict = app
-    //         .db
-    //         .get_media_views_for_chapter(chapter.id)
-    //         .await
-    //         .with_context(|| format!("getting media views for {:?}", chapter))?
-    //         .iter()
-    //         .any(|v| v.name == args.view_name);
-    //     if chapter_conflict {
-    //         if !args.skip_conflicts {
-    //             log::error!(
-    //                 "conflicting media view on id={} [{}]: {}",
-    //                 chapter.id,
-    //                 chapter.hash,
-    //                 chapter.metadata
-    //             );
-    //         }
-    //     } else {
-    //         chapters.push(chapter);
-    //     }
-    //     conflict = conflict || chapter_conflict;
-    // }
     if chapters.is_empty() {
         log::warn!("no chapters require processing");
         return Ok(());
@@ -158,6 +112,9 @@ pub(crate) async fn create_media_view(args: &CreateMediaView) -> anyhow::Result<
 
     log::info!("performing media split on {} chapters", chapters.len());
 
+    /*
+     *   Verify we have access to all the source media locally to transcode
+     */
     let mut verify_source_set = tokio::task::JoinSet::new();
     for chapter in &chapters {
         let chapter = chapter.clone();
@@ -190,6 +147,9 @@ pub(crate) async fn create_media_view(args: &CreateMediaView) -> anyhow::Result<
         anyhow::bail!("could not prepare media due to missing source(s)");
     }
 
+    /*
+     *   Split the Media
+     */
     let mut split_set = tokio::task::JoinSet::new();
 
     let output = args

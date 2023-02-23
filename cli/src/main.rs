@@ -1,19 +1,13 @@
 mod cli;
-// mod content;
-// mod ffmpeg;
-// mod search;
-// mod service;
-// mod srt;
-// mod storage;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     color_backtrace::install();
-    let args = cli::get_args();
-    setup_logger(args.verbose);
-    log::trace!("Args: {:?}", args);
+    let cmd = cli::get_args();
+    setup_logger(cmd.verbose);
+    log::trace!("Args: {:?}", cmd);
 
-    args.run().await.map_err(|e| {
+    cmd.run().await.map_err(|e| {
         log::error!("{:?}", e);
         anyhow::anyhow!("unrecoverable {} failure", clap::crate_name!())
     })
