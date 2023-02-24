@@ -41,7 +41,7 @@ pub mod export {
         pub views: Vec<String>,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct MediaStorage {
         pub id: StorageId,
         pub path: PathBuf,
