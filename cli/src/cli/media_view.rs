@@ -12,7 +12,7 @@ use app::{
 };
 use clap::{Parser, ValueEnum};
 use database::Database;
-use lucile_core::{export::ChapterExport, identifiers::CorpusId};
+use lucile_core::{export::ChapterExport, identifiers::CorpusId, media_segment::MediaSegment};
 
 use crate::cli::argparse::{DatabaseConfig, FFMpegConfig, FileCheckSettings, MediaStorage};
 
@@ -77,10 +77,37 @@ impl ListMediaViews {
         }
 
         for (view_name, count) in agg {
-            println!("{} => {}", view_name, count);
+            let segments = app
+                .db
+                .get_media_segments_by_view_name_across_corpus(corpus_id, &view_name)
+                .await
+                .with_context(|| {
+                    format!(
+                        "getting all the segments view `{}` within the corpus",
+                        view_name
+                    )
+                })?;
+            println!(
+                "{} => views={} segments={} [{}]",
+                view_name,
+                count,
+                segments.len(),
+                encryption_status(&segments)
+            );
         }
 
         Ok(())
+    }
+}
+
+fn encryption_status(segments: &[MediaSegment]) -> &'static str {
+    let encrypted = segments.iter().filter(|s| s.key.is_some()).count();
+    if encrypted == segments.len() {
+        "encrypted"
+    } else if encrypted == 0 {
+        "plaintext"
+    } else {
+        "mixed encryption"
     }
 }
 
@@ -121,10 +148,19 @@ impl ShowMediaView {
                 .get_chapter_by_id(v.chapter_id)
                 .await
                 .context("could not get chapter")?;
-            // let segments = app
-            //     .db
-            //     .get_view
-            println!("{:?}: {} -> {:?}", chapter.id, chapter.metadata, v.id);
+            let segments = app
+                .db
+                .get_media_segment_by_view(v.id)
+                .await
+                .context("could not get segments for view")?;
+            println!(
+                "{:?}: {} -> {:?} segments={} [{}]",
+                chapter.id,
+                chapter.metadata,
+                v.id,
+                segments.len(),
+                encryption_status(&segments),
+            );
         }
 
         Ok(())
