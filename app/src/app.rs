@@ -120,15 +120,15 @@ impl LucileBuilder {
             .add_source(config::Environment::with_prefix(APP_CAPS))
             .build()
             .map_err(ConfigError::from)?;
-        log::info!("{:#?}", cfg);
         let db_path = cfg
             .get_string(DATABASE_KEY)
             .map_err(ConfigError::ConfigError)?;
-        let db = DatabaseFetcher::from_path(db_path).await?;
+        let db = DatabaseFetcher::from_url_or_file(db_path).await?;
         let app = LucileApp {
             db: db.db,
             config: cfg,
         };
+        log::trace!("{:#?}", app);
         Ok(app)
     }
 }

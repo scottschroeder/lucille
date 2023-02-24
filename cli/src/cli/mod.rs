@@ -6,7 +6,7 @@ mod corpus;
 mod debug_utils;
 mod export;
 mod helpers;
-mod prepare;
+mod media_view;
 mod scan;
 mod search;
 
@@ -19,6 +19,7 @@ pub fn get_args() -> CliOpts {
 pub struct CliOpts {
     #[clap(short, long, global = true, parse(from_occurrences))]
     pub verbose: u8,
+
     #[clap(subcommand)]
     subcmd: SubCommand,
 }
@@ -31,6 +32,10 @@ enum SubCommand {
 
     /// Scan a directory for media & subtitles
     ScanChapters(scan::ScanChaptersOpts),
+
+    /// Commands for working with media-views
+    #[clap(subcommand)]
+    MediaView(media_view::MediaViewCommand),
 
     /// Index a set of subtitles to be searched
     Index(scan::IndexCommand),
@@ -53,11 +58,7 @@ enum SubCommand {
     #[clap(subcommand)]
     Debug(debug_utils::DebugCommand),
 
-    /// Commands for pre-processing media
-    #[clap(subcommand)]
-    PrepareMedia(prepare::PrepareCommand),
-
-    /// Commands for pre-processing media
+    /// Tools to cleanup and tidy the db or filesystem
     #[clap(subcommand)]
     Clean(clean::CleanCommand),
 
@@ -75,7 +76,7 @@ impl CliOpts {
             SubCommand::Import(cmd) => cmd.run().await,
             SubCommand::Interactive(cmd) => cmd.run().await,
             SubCommand::Debug(cmd) => cmd.run().await,
-            SubCommand::PrepareMedia(cmd) => cmd.run().await,
+            SubCommand::MediaView(cmd) => cmd.run().await,
             SubCommand::Clean(cmd) => cmd.run().await,
             SubCommand::Test(cmd) => do_test(cmd).await,
         }

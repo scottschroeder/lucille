@@ -83,6 +83,19 @@ impl DatabaseFetcher {
             source: DatabaseSource::Memory,
         })
     }
+    pub async fn from_url_or_file(url: String) -> Result<DatabaseFetcher, DatabaseError> {
+        if url.starts_with("sqlite:") {
+            let pool = from_env_db(&url).await?;
+            let source = DatabaseSource::Env(url);
+            migrations(&source, &pool).await?;
+            Ok(DatabaseFetcher {
+                db: Database { pool },
+                source,
+            })
+        } else {
+            DatabaseFetcher::from_path(url).await
+        }
+    }
     pub async fn from_path<P: AsRef<path::Path>>(
         filename: P,
     ) -> Result<DatabaseFetcher, DatabaseError> {

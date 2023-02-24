@@ -1,11 +1,12 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     path::{Path, PathBuf},
     time::Duration,
 };
 
 use anyhow::Context;
 use app::{
+    app::LucileBuilder,
     prepare::{MediaProcessor, MediaSplittingStrategy},
     storage::FileCheckStrategy,
 };
@@ -16,17 +17,134 @@ use lucile_core::{export::ChapterExport, identifiers::CorpusId};
 use crate::cli::argparse::{DatabaseConfig, FFMpegConfig, FileCheckSettings, MediaStorage};
 
 #[derive(Parser, Debug)]
-pub enum PrepareCommand {
+pub enum MediaViewCommand {
     /// Create a new media view
-    CreateMediaView(CreateMediaView),
+    Create(CreateMediaView),
+
+    /// List media views
+    List(ListMediaViews),
+
+    /// Show details for a media view
+    Show(ShowMediaView),
+
+    /// Delete a media view
+    Delete(DeleteMediaView),
 }
 
-impl PrepareCommand {
+impl MediaViewCommand {
     pub(crate) async fn run(&self) -> anyhow::Result<()> {
         match self {
-            PrepareCommand::CreateMediaView(cmd) => cmd.run().await,
+            MediaViewCommand::Create(cmd) => cmd.run().await,
+            MediaViewCommand::List(cmd) => cmd.run().await,
+            MediaViewCommand::Show(cmd) => cmd.run().await,
+            MediaViewCommand::Delete(cmd) => cmd.run().await,
         }
     }
+}
+
+#[derive(Parser, Debug)]
+pub struct ListMediaViews {
+    /// Name of the corpus to process
+    pub corpus_name: String,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+}
+
+impl ListMediaViews {
+    async fn run(&self) -> anyhow::Result<()> {
+        let app = LucileBuilder::new()?
+            .database_path(self.db.database_path())?
+            .build()
+            .await?;
+
+        let corpus_id = app
+            .db
+            .get_corpus_id(&self.corpus_name)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("could not find corpus: {:?}", self.corpus_name))?;
+
+        let views = app
+            .db
+            .get_media_views_for_corpus(corpus_id)
+            .await
+            .context("error fetching media views")?;
+
+        let mut agg = BTreeMap::new();
+        for v in views {
+            let c = agg.entry(v.name).or_insert(0u32);
+            *c += 1;
+        }
+
+        for (view_name, count) in agg {
+            println!("{} => {}", view_name, count);
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Parser, Debug)]
+pub struct ShowMediaView {
+    /// Name of the corpus to process
+    pub corpus_name: String,
+
+    /// Name for this media view
+    pub view_name: String,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+}
+
+impl ShowMediaView {
+    async fn run(&self) -> anyhow::Result<()> {
+        let app = LucileBuilder::new()?
+            .database_path(self.db.database_path())?
+            .build()
+            .await?;
+
+        let corpus_id = app
+            .db
+            .get_corpus_id(&self.corpus_name)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("could not find corpus: {:?}", self.corpus_name))?;
+
+        let views = app
+            .db
+            .get_media_views_for_corpus(corpus_id)
+            .await
+            .context("error fetching media views")?;
+
+        for v in views.into_iter().filter(|v| v.name == self.view_name) {
+            let chapter = app
+                .db
+                .get_chapter_by_id(v.chapter_id)
+                .await
+                .context("could not get chapter")?;
+            // let segments = app
+            //     .db
+            //     .get_view
+            println!("{:?}: {} -> {:?}", chapter.id, chapter.metadata, v.id);
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Parser, Debug)]
+pub struct DeleteMediaView {
+    /// Name of the corpus to process
+    pub corpus_name: String,
+
+    /// Name for this media view
+    pub view_name: String,
+
+    /// Do not perform deletion
+    #[clap(long)]
+    pub dry_run: bool,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
 }
 
 #[derive(Parser, Debug)]
@@ -303,4 +421,35 @@ async fn do_split_on_chapter<'a>(
         );
     }
     Ok(())
+}
+
+impl DeleteMediaView {
+    async fn run(&self) -> anyhow::Result<()> {
+        let app = LucileBuilder::new()?
+            .database_path(self.db.database_path())?
+            .build()
+            .await?;
+
+        let corpus_id = app
+            .db
+            .get_corpus_id(&self.corpus_name)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("could not find corpus: {:?}", self.corpus_name))?;
+
+        let chapters =
+            app::media_view::get_media_view_in_corpus(&app.db, corpus_id, &self.view_name)
+                .await
+                .context("error getting media views for chapters")?;
+
+        for (chapter, opt_view) in chapters {
+            if let Some(view) = opt_view {
+                println!("remove {:?}: {:?}", chapter, view);
+                if !self.dry_run {
+                    // app.db.delete_media_view(view.id).await.context("could not remove media view")?;
+                }
+            }
+        }
+
+        Ok(())
+    }
 }

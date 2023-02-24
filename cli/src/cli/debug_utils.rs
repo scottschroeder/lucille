@@ -5,7 +5,7 @@ use app::prepare::MediaProcessor;
 use clap::Parser;
 use lucile_core::metadata::MediaHash;
 
-use super::argparse::{AppConfig, DatabaseConfig, StorageConfig};
+use super::argparse::{AppConfig, DatabaseConfig};
 use crate::cli::helpers;
 
 #[derive(Parser, Debug)]
