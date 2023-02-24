@@ -180,6 +180,7 @@ mod test {
     use lucile_core::{encryption_config::SimpleKeyNonce, metadata::MediaHash};
 
     use super::*;
+    use crate::database_test::assert_err_is_constraint;
 
     fn create_key() -> KeyData {
         KeyData::EasyAesGcmInMemory(SimpleKeyNonce {
@@ -408,5 +409,43 @@ mod test {
         assert_eq!(segments[0].id, s0);
         assert_eq!(segments[1].id, s1);
         assert_eq!(segments[2].id, s2);
+    }
+
+    #[tokio::test]
+    async fn add_media_segments_with_same_sequence_id() {
+        let db = Database::memory().await.unwrap();
+        let corpus = db.add_corpus("media").await.unwrap();
+        let ch_id = db
+            .define_chapter(
+                corpus.id.unwrap(),
+                "c1",
+                None,
+                None,
+                MediaHash::from_bytes(b"data"),
+            )
+            .await
+            .unwrap();
+        let media_view_id = db.add_media_view(ch_id, "test-view").await.unwrap();
+
+        db.add_media_segment(
+            media_view_id.id,
+            0,
+            MediaHash::from_bytes(b"s1data"),
+            Duration::from_secs_f64(1.2),
+            None,
+        )
+        .await
+        .unwrap();
+        let result = db
+            .add_media_segment(
+                media_view_id.id,
+                0,
+                MediaHash::from_bytes(b"s2data"),
+                Duration::from_secs_f64(10.3),
+                Some(create_key()),
+            )
+            .await;
+
+        assert_err_is_constraint(result, "UNIQUE");
     }
 }
