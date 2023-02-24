@@ -144,7 +144,7 @@ impl Database {
             let subtitle = deserialize_subtitle(&row.data)?;
             let uuid = parse_uuid(&row.uuid)?;
             let lucile_sub = LucileSub {
-                id: row.id as u64,
+                id: row.id,
                 uuid,
                 subs: subtitle,
             };
@@ -214,7 +214,7 @@ impl Database {
             let subs = deserialize_subtitle(&record.data)?;
             let global_id = parse_uuid(&record.uuid)?;
             Ok(Some(LucileSub {
-                id: record.id as u64,
+                id: record.id,
                 uuid: global_id,
                 subs,
             }))
@@ -246,6 +246,23 @@ impl Database {
         .await?;
         // todo custom struct
         Ok((parse_media_hash(&ret.0)?, ret.1))
+    }
+
+    /// Translate an srt_id provided by the search index into its Uuid
+    pub async fn get_srt_uuid_by_id(&self, srt_id: i64) -> Result<Uuid, DatabaseError> {
+        let row = sqlx::query!(
+            r#"
+                SELECT 
+                    uuid
+                FROM srtfile
+                WHERE 
+                  id = ?
+         "#,
+            srt_id,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        parse_uuid(&row.uuid)
     }
 }
 
@@ -279,6 +296,37 @@ mod test {
 
         let s1 = parse_subs(SUB1);
         let _u1 = db.add_subtitles(ch_id, &s1).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn dereference_sub_id_to_uuid() {
+        let db = Database::memory().await.unwrap();
+        let corpus = db.add_corpus("media").await.unwrap();
+        let ch_id = db
+            .define_chapter(
+                corpus.id.unwrap(),
+                "c1",
+                None,
+                None,
+                MediaHash::from_bytes(b"data"),
+            )
+            .await
+            .unwrap();
+
+        let s1 = parse_subs(SUB1);
+        let u1 = db.add_subtitles(ch_id, &s1).await.unwrap();
+
+        // There just isn't a better way to get the `srt_id` right now, because its
+        // only used while translating for search indexes
+        let all_subs = db
+            .get_all_subs_for_corpus(corpus.id.unwrap())
+            .await
+            .unwrap();
+        let sub_meta = &all_subs.1[0].subtitle;
+        assert_eq!(sub_meta.uuid, u1); // make sure we are setup correctly
+                                       //
+        let actual_uuid = db.get_srt_uuid_by_id(sub_meta.id).await.unwrap();
+        assert_eq!(actual_uuid, u1);
     }
 
     #[tokio::test]

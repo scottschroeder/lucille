@@ -9,8 +9,6 @@ use app::{
 use clap::Parser;
 use lucile_core::{clean_sub::CleanSubs, uuid::Uuid};
 
-use crate::cli::helpers;
-
 mod select;
 
 use super::argparse::{DatabaseConfig, StorageConfig};
@@ -48,8 +46,11 @@ pub struct InteractiveOpts {
 
 impl InteractiveOpts {
     pub(crate) async fn run(&self) -> anyhow::Result<()> {
-        let app = helpers::get_app(Some(&self.db), Some(&self.storage)).await?;
-        log::trace!("using app: {:?}", app);
+        let app = app::app::LucileBuilder::new()?
+            .database_path(self.db.database_path())?
+            .index_root(self.storage.index_root())?
+            .build()
+            .await?;
 
         let query = self.query.join(" ");
         let resp = setup_search(&app, self.index.as_deref(), query.as_str()).await?;
@@ -57,16 +58,19 @@ impl InteractiveOpts {
 
         let sub_range = (clip.offset + range.start)..(clip.offset + range.end);
 
+        let srt_uuid = app.db.get_srt_uuid_by_id(clip.srt_id).await?;
+
         let transcode_req = TranscodeRequest {
             request: app::transcode::RequestType::MakeGif(MakeGifRequest {
                 segments: vec![SubSegment {
-                    srt_id: clip.srt_id,
+                    srt_uuid,
                     sub_range,
                 }],
             }),
         };
 
-        println!("{:#?}", transcode_req);
+        let json_req = serde_json::to_string_pretty(&transcode_req)?;
+        println!("{}", json_req);
 
         Ok(())
     }
@@ -109,8 +113,11 @@ async fn setup_search(
 const HIST: [&str; 6] = ["     ", "    *", "   **", "  ***", " ****", "*****"];
 impl SearchCommand {
     pub(crate) async fn run(&self) -> anyhow::Result<()> {
-        let app = helpers::get_app(Some(&self.db), Some(&self.storage)).await?;
-        log::trace!("using app: {:?}", app);
+        let app = app::app::LucileBuilder::new()?
+            .database_path(self.db.database_path())?
+            .index_root(self.storage.index_root())?
+            .build()
+            .await?;
 
         let query = self.query.join(" ");
         let resp = setup_search(&app, Some(self.index.as_str()), query.as_str()).await?;

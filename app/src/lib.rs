@@ -136,7 +136,7 @@ pub async fn index_subtitles(
     app: &LucileApp,
     corpus_id: CorpusId,
     max_window: Option<usize>,
-) -> Result<(), LucileAppError> {
+) -> Result<search::SearchIndex, LucileAppError> {
     log::info!("performing index for {}", corpus_id);
 
     let (srts, all_subs) = app.db.get_all_subs_for_corpus(corpus_id).await?;
@@ -153,11 +153,9 @@ pub async fn index_subtitles(
         max_window.unwrap_or(DEFAULT_INDEX_WINDOW_SIZE),
     )?;
 
-    log::info!("created index: {:?}", index);
-
     app.db.assoc_index_with_srts(index_uuid, srts).await?;
 
-    Ok(())
+    Ok(index)
 }
 
 // pub fn guess_content_name(content: &[ScannedMedia]) -> String {

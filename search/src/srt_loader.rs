@@ -9,7 +9,7 @@ pub fn generate_multi_window(
 
 pub struct IndexableEpisode {
     pub title: String,
-    pub srt_id: u64,
+    pub srt_id: i64,
     pub script: String,
     pub subs: Vec<Subtitle>,
     pub index: Vec<usize>,

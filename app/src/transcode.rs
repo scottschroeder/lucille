@@ -1,10 +1,11 @@
 use std::ops::Range;
 
+use lucile_core::uuid::Uuid;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubSegment {
-    pub srt_id: i64,
+    pub srt_uuid: Uuid,
     pub sub_range: Range<usize>,
 }
 

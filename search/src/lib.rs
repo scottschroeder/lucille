@@ -16,7 +16,7 @@ use error::TError;
 #[derive(Debug)]
 pub struct SearchIndex {
     inner: tantivy::Index,
-    uuid: Uuid,
+    pub uuid: Uuid,
 }
 
 impl SearchIndex {
@@ -133,7 +133,7 @@ fn create_schema() -> Schema {
 
     schema_builder.add_text_field(SchemaField::Title.as_str(), text_options.clone());
     schema_builder.add_text_field(SchemaField::Body.as_str(), text_options);
-    schema_builder.add_u64_field(SchemaField::Episode.as_str(), STORED);
+    schema_builder.add_i64_field(SchemaField::Episode.as_str(), STORED);
     schema_builder.add_u64_field(SchemaField::ClipStart.as_str(), STORED);
     schema_builder.add_u64_field(SchemaField::ClipEnd.as_str(), STORED);
     schema_builder.build()
@@ -171,7 +171,7 @@ fn search_impl(
         let en = doc
             .get_first(episode)
             .unwrap()
-            .u64_value()
+            .i64_value()
             .expect("no ep number") as usize;
         let cs = doc
             .get_first(clip_start)

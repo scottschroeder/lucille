@@ -58,8 +58,8 @@ impl IndexCommand {
             .await?
             .ok_or_else(|| anyhow::anyhow!("could not find corpus: {:?}", self.corpus_name))?;
 
-        app::index_subtitles(&app, corpus_id, Some(self.window_size)).await?;
-
+        let index = app::index_subtitles(&app, corpus_id, Some(self.window_size)).await?;
+        println!("Created Index: {}", index.uuid);
         Ok(())
     }
 }

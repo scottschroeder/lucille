@@ -6,6 +6,7 @@ use app::{
     search_manager::{ClipResult, SearchResponse},
 };
 use lucile_core::{clean_sub::CleanSubs, metadata::MediaMetadata, Subtitle};
+use tokio::io::AsyncBufReadExt;
 
 const HIST: [&str; 6] = ["     ", "    *", "   **", "  ***", " ****", "*****"];
 
@@ -21,7 +22,7 @@ pub async fn ask_user_for_clip<'a>(
         content.insert(clip.srt_id, (m, subs));
     }
     print_top_scores(&content, response);
-    let input = get_user_input("make a selection: e.g. 'B 3-5'")?;
+    let input = get_user_input("make a selection: e.g. 'B 3-5'").await?;
     let (index, start, end) = parse_user_selection(input.as_str())?;
     let user_clip = &response.results[index];
     // let (m, sub) = content.remove(&user_clip.srt_id).unwrap();
@@ -47,10 +48,12 @@ fn print_top_scores(
     }
 }
 
-pub fn get_user_input(msg: &str) -> Result<String> {
+async fn get_user_input(msg: &str) -> Result<String> {
     println!("{}", msg);
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
+    let mut line_reader = tokio::io::BufReader::new(tokio::io::stdin());
+    line_reader.read_line(&mut input).await?;
+    // std::io::stdin().read_line(&mut input)?;
     Ok(input)
 }
 

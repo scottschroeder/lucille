@@ -180,7 +180,7 @@ pub struct ContentData {
 #[derive(PartialEq, Serialize, Deserialize)]
 pub struct LucileSub {
     /// For use with local search index
-    pub id: u64,
+    pub id: i64,
     /// A globally unique Id transferrable between instances
     pub uuid: uuid::Uuid,
     /// The actual subtitle data
