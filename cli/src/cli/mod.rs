@@ -17,7 +17,7 @@ pub fn get_args() -> CliOpts {
 #[derive(Parser, Debug)]
 #[clap(version = clap::crate_version!(), author = "Scott S. <scottschroeder@sent.com>")]
 pub struct CliOpts {
-    #[clap(short, long, global = true, parse(from_occurrences))]
+    #[clap(short, long, global = true, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
     #[clap(subcommand)]
