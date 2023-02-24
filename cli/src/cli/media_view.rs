@@ -27,6 +27,9 @@ pub enum MediaViewCommand {
     /// Show details for a media view
     Show(ShowMediaView),
 
+    /// Rename a media-view
+    Rename(RenameMediaView),
+
     /// Delete a media view
     Delete(DeleteMediaView),
 }
@@ -37,6 +40,7 @@ impl MediaViewCommand {
             MediaViewCommand::Create(cmd) => cmd.run().await,
             MediaViewCommand::List(cmd) => cmd.run().await,
             MediaViewCommand::Show(cmd) => cmd.run().await,
+            MediaViewCommand::Rename(cmd) => cmd.run().await,
             MediaViewCommand::Delete(cmd) => cmd.run().await,
         }
     }
@@ -165,6 +169,21 @@ impl ShowMediaView {
 
         Ok(())
     }
+}
+
+#[derive(Parser, Debug)]
+pub struct RenameMediaView {
+    /// Name of the corpus to process
+    pub corpus_name: String,
+
+    /// Current Name
+    pub src: String,
+
+    /// Target Name
+    pub dst: String,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
 }
 
 #[derive(Parser, Debug)]
@@ -459,6 +478,25 @@ async fn do_split_on_chapter<'a>(
     Ok(())
 }
 
+impl RenameMediaView {
+    async fn run(&self) -> anyhow::Result<()> {
+        let app = LucileBuilder::new()?
+            .database_path(self.db.database_path())?
+            .build()
+            .await?;
+
+        let corpus_id = app
+            .db
+            .get_corpus_id(&self.corpus_name)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("could not find corpus: {:?}", self.corpus_name))?;
+
+        app.db
+            .rename_media_view(corpus_id, &self.src, &self.dst)
+            .await?;
+        Ok(())
+    }
+}
 impl DeleteMediaView {
     async fn run(&self) -> anyhow::Result<()> {
         let app = LucileBuilder::new()?
@@ -481,7 +519,10 @@ impl DeleteMediaView {
             if let Some(view) = opt_view {
                 println!("remove {:?}: {:?}", chapter, view);
                 if !self.dry_run {
-                    // app.db.delete_media_view(view.id).await.context("could not remove media view")?;
+                    app.db
+                        .delete_media_view(view.id)
+                        .await
+                        .context("could not remove media view")?;
                 }
             }
         }

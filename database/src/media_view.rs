@@ -202,19 +202,15 @@ impl Database {
         dst: &str,
     ) -> Result<(), DatabaseError> {
         let cid = corpus_id.get();
-
         sqlx::query!(
             r#"
             UPDATE media_view
             SET name = ?
-            WHERE EXISTS (
-                SELECT media_view.name
-                FROM media_view
-                JOIN chapter ON media_view.chapter_id = chapter.id
+                FROM media_view as s
+                JOIN chapter ON s.chapter_id = chapter.id
                 JOIN corpus ON chapter.corpus_id = corpus.id
-                WHERE corpus.id = ?
-                    AND media_view.name = ?
-            )
+            WHERE corpus.id = ?
+                AND media_view.name = ?
             "#,
             dst,
             cid,
@@ -424,6 +420,68 @@ mod test {
         let view_v2 = db.get_media_view(view.id).await.unwrap();
         assert_eq!(view.id, view_v2.id);
         assert_eq!(view_v2.name, "new-name");
+    }
+
+    #[tokio::test]
+    async fn rename_media_view_multiple() {
+        let db = Database::memory().await.unwrap();
+        let corpus = db.add_corpus("media").await.unwrap();
+        let ch1 = db
+            .define_chapter(
+                corpus.id.unwrap(),
+                "c1",
+                None,
+                None,
+                MediaHash::from_bytes(b"data"),
+            )
+            .await
+            .unwrap();
+
+        let ch2 = db
+            .define_chapter(
+                corpus.id.unwrap(),
+                "c2",
+                None,
+                None,
+                MediaHash::from_bytes(b"data2"),
+            )
+            .await
+            .unwrap();
+
+        let ch1_view1 = db.add_media_view(ch1, "view1").await.unwrap();
+        let ch2_view1 = db.add_media_view(ch2, "view1").await.unwrap();
+        let ch2_view2 = db.add_media_view(ch2, "view2").await.unwrap();
+
+        db.rename_media_view(corpus.id.unwrap(), "view1", "view3")
+            .await
+            .unwrap();
+        let ch1_views = db.get_media_views_for_chapter(ch1).await.unwrap();
+        let ch2_views = db.get_media_views_for_chapter(ch2).await.unwrap();
+
+        assert_eq!(
+            ch1_views,
+            vec![MediaView {
+                id: ch1_view1.id,
+                chapter_id: ch1,
+                name: "view3".to_string(),
+            }]
+        );
+
+        assert_eq!(
+            ch2_views,
+            vec![
+                MediaView {
+                    id: ch2_view1.id,
+                    chapter_id: ch2,
+                    name: "view3".to_string(),
+                },
+                MediaView {
+                    id: ch2_view2.id,
+                    chapter_id: ch2,
+                    name: "view2".to_string(),
+                },
+            ]
+        );
     }
 
     #[tokio::test]
