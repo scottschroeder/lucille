@@ -24,7 +24,7 @@ tempfile = "3"
 
 subrip = "0.1.1"
 encoding_rs = "0.8.26"
-torrent-name-parser = "0.5.0"
+torrent-name-parser = "0.11.0"
 csv = "1"
 tokio = { version = "1.20.0", features = ["macros", "process"]}
 async-trait = "0.1"
