@@ -100,7 +100,7 @@ impl Database {
                 WHERE
                     chapter_id = ?
                 ORDER BY
-                    id DESC
+                    id ASC
          "#,
             cid
         )
@@ -191,6 +191,40 @@ impl Database {
 
         Ok(())
     }
+
+    /// Rename a media-view for an entire corpus. This will update every chapter.
+    /// This operation will fail (safely) if the `dst` name is already in use within
+    /// the corpus.
+    pub async fn rename_media_view(
+        &self,
+        corpus_id: CorpusId,
+        src: &str,
+        dst: &str,
+    ) -> Result<(), DatabaseError> {
+        let cid = corpus_id.get();
+
+        sqlx::query!(
+            r#"
+            UPDATE media_view
+            SET name = ?
+            WHERE EXISTS (
+                SELECT media_view.name
+                FROM media_view
+                JOIN chapter ON media_view.chapter_id = chapter.id
+                JOIN corpus ON chapter.corpus_id = corpus.id
+                WHERE corpus.id = ?
+                    AND media_view.name = ?
+            )
+            "#,
+            dst,
+            cid,
+            src
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -198,10 +232,7 @@ mod test {
 
     use std::time::Duration;
 
-    use lucile_core::{
-        identifiers::{MediaSegmentId, MediaViewId},
-        metadata::MediaHash,
-    };
+    use lucile_core::{identifiers::MediaViewId, metadata::MediaHash};
 
     use super::*;
     use crate::database_test::assert_err_is_constraint;
@@ -369,5 +400,93 @@ mod test {
         assert!(db.get_media_segment_by_hash(v0s1).await.unwrap().is_none());
         assert!(db.get_media_segment_by_hash(v1s0).await.unwrap().is_some());
         assert!(db.get_media_segment_by_hash(v1s1).await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn rename_media_view_simple() {
+        let db = Database::memory().await.unwrap();
+        let corpus = db.add_corpus("media").await.unwrap();
+        let ch_id = db
+            .define_chapter(
+                corpus.id.unwrap(),
+                "c1",
+                None,
+                None,
+                MediaHash::from_bytes(b"data"),
+            )
+            .await
+            .unwrap();
+
+        let view = db.add_media_view(ch_id, "test-view").await.unwrap();
+        db.rename_media_view(corpus.id.unwrap(), "test-view", "new-name")
+            .await
+            .unwrap();
+        let view_v2 = db.get_media_view(view.id).await.unwrap();
+        assert_eq!(view.id, view_v2.id);
+        assert_eq!(view_v2.name, "new-name");
+    }
+
+    #[tokio::test]
+    async fn rename_media_view_with_conflict() {
+        let db = Database::memory().await.unwrap();
+        let corpus = db.add_corpus("media").await.unwrap();
+        let ch1 = db
+            .define_chapter(
+                corpus.id.unwrap(),
+                "c1",
+                None,
+                None,
+                MediaHash::from_bytes(b"data"),
+            )
+            .await
+            .unwrap();
+
+        let ch2 = db
+            .define_chapter(
+                corpus.id.unwrap(),
+                "c2",
+                None,
+                None,
+                MediaHash::from_bytes(b"data2"),
+            )
+            .await
+            .unwrap();
+
+        let ch1_view1 = db.add_media_view(ch1, "view1").await.unwrap();
+        let ch2_view1 = db.add_media_view(ch2, "view1").await.unwrap();
+        let ch2_view2 = db.add_media_view(ch2, "view2").await.unwrap();
+
+        let res = db
+            .rename_media_view(corpus.id.unwrap(), "view1", "view2")
+            .await;
+        assert_err_is_constraint(res, "UNIQUE");
+
+        let ch1_views = db.get_media_views_for_chapter(ch1).await.unwrap();
+        let ch2_views = db.get_media_views_for_chapter(ch2).await.unwrap();
+
+        assert_eq!(
+            ch1_views,
+            vec![MediaView {
+                id: ch1_view1.id,
+                chapter_id: ch1,
+                name: "view1".to_string(),
+            }]
+        );
+
+        assert_eq!(
+            ch2_views,
+            vec![
+                MediaView {
+                    id: ch2_view1.id,
+                    chapter_id: ch2,
+                    name: "view1".to_string(),
+                },
+                MediaView {
+                    id: ch2_view2.id,
+                    chapter_id: ch2,
+                    name: "view2".to_string(),
+                },
+            ]
+        );
     }
 }
