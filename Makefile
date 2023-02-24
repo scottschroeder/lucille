@@ -12,13 +12,18 @@ MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 
 #.DEFAULT: config
-.PHONY: all build clean
+.PHONY: all build clean sqlx-prepare build-docker win-build-local win-build-docker
 
 build:
 	$(CARGO) $(CARGO_OPTS) build --release
 
 clean:
 	$(CARGO) $(CARGO_OPTS) clean
+
+schema: schema.sql
+
+schema.sql: scripts/dump_schema.sh database/migrations/*
+	./scripts/dump_schema.sh > schema.sql
 
 sqlx-prepare:
 	cargo sqlx prepare --merged

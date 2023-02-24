@@ -16,4 +16,5 @@ index/*
 
 # sql
 !database/migrations/*
+!schema.sql
 *.db*
