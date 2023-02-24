@@ -107,7 +107,7 @@ impl LoadedShell {
             .context("could not start tokio runtime")?;
 
         let lucile = rt
-            .block_on(async { LucileApp::create::<&str, &str>(None, None).await })
+            .block_on(async { app::app::LucileBuilder::new()?.build().await })
             .context("could not load lucile app")?;
 
         Ok(LoadedShell {

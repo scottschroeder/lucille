@@ -7,7 +7,7 @@ use database::Database;
 use lucile_core::metadata::MediaHash;
 
 use super::argparse::MediaStorage;
-use crate::cli::{argparse::DatabaseConfig, helpers};
+use crate::cli::argparse::DatabaseConfig;
 
 #[derive(Parser, Debug)]
 pub enum CleanCommand {
@@ -33,19 +33,18 @@ pub struct CleanMediaRootCmd {
     pub db: DatabaseConfig,
 
     #[clap(flatten)]
-    pub media_storage: MediaStorage,
+    pub media_root: MediaStorage,
 }
 
 impl CleanMediaRootCmd {
     async fn run(&self) -> anyhow::Result<()> {
-        let app = helpers::get_app(Some(&self.db), None).await?;
-        let media_root = self
-            .media_storage
-            .media_root
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("must define media root"))?;
+        let app = app::app::LucileBuilder::new()?
+            .database_path(self.db.database_path())?
+            .media_root(self.media_root.media_root())?
+            .build()
+            .await?;
 
-        let hashfs = HashFS::new(media_root).context("open HashFS")?;
+        let hashfs = HashFS::new(app.media_root()).context("open HashFS")?;
         log::trace!("start get all hashes");
         let contents = hashfs
             .all_hashes()

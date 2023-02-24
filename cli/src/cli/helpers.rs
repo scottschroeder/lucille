@@ -2,13 +2,14 @@ use app::app::LucileApp;
 
 use super::argparse;
 
+#[deprecated]
 pub async fn get_app(
     db_args: Option<&argparse::DatabaseConfig>,
     storage_args: Option<&argparse::StorageConfig>,
 ) -> anyhow::Result<LucileApp> {
-    Ok(LucileApp::create(
-        db_args.and_then(|o| o.database_path.as_ref()),
-        storage_args.and_then(|o| o.index_root.as_ref()),
-    )
-    .await?)
+    Ok(app::app::LucileBuilder::new()?
+        .index_root(storage_args.and_then(|a| a.index_root()))?
+        .database_path(db_args.and_then(|a| a.database_path()))?
+        .build()
+        .await?)
 }

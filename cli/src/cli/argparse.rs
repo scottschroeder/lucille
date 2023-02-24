@@ -30,7 +30,38 @@ impl ArgFileCheckStrategy {
     }
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default)]
+pub struct AppConfig {
+    #[clap(flatten)]
+    pub config_file: AppConfigFile,
+
+    #[clap(flatten)]
+    pub db: DatabaseConfig,
+
+    #[clap(flatten)]
+    pub storage: StorageConfig,
+
+    #[clap(flatten)]
+    pub media_root: MediaStorage,
+
+    #[clap(flatten)]
+    pub ffmpeg: FFMpegConfig,
+}
+
+impl AppConfig {
+    pub async fn build_app(&self) -> Result<app::app::LucileApp, app::LucileAppError> {
+        app::app::LucileBuilder::new()?
+            .config_file(self.config_file.config_file())
+            .ffmpeg_override(self.ffmpeg.ffmpeg())?
+            .database_path(self.db.database_path())?
+            .index_root(self.storage.index_root())?
+            .media_root(self.media_root.media_root())?
+            .build()
+            .await
+    }
+}
+
+#[derive(Parser, Debug, Default)]
 pub struct DatabaseConfig {
     /// Path to sqlite database file.
     ///
@@ -39,7 +70,13 @@ pub struct DatabaseConfig {
     pub database_path: Option<std::path::PathBuf>,
 }
 
-#[derive(Parser, Debug)]
+impl DatabaseConfig {
+    pub fn database_path(&self) -> Option<&std::path::Path> {
+        self.database_path.as_deref()
+    }
+}
+
+#[derive(Parser, Debug, Default)]
 pub struct StorageConfig {
     /// Path to search index directory
     ///
@@ -48,7 +85,13 @@ pub struct StorageConfig {
     pub index_root: Option<std::path::PathBuf>,
 }
 
-#[derive(Parser, Debug)]
+impl StorageConfig {
+    pub fn index_root(&self) -> Option<&std::path::Path> {
+        self.index_root.as_deref()
+    }
+}
+
+#[derive(Parser, Debug, Default)]
 pub struct MediaStorage {
     /// Path to local media storage
     ///
@@ -57,19 +100,36 @@ pub struct MediaStorage {
     pub media_root: Option<std::path::PathBuf>,
 }
 
-#[derive(Parser, Debug)]
+impl MediaStorage {
+    pub fn media_root(&self) -> Option<&std::path::Path> {
+        self.media_root.as_deref()
+    }
+}
+
+#[derive(Parser, Debug, Default)]
 pub struct FFMpegConfig {
     /// Override binary called for `ffmpeg`
     #[clap(long)]
     pub ffmpeg: Option<std::path::PathBuf>,
 }
 
-#[derive(Parser, Debug)]
-pub enum MediaCommand {
-    /// Scan raw media and create a new corpus
-    Scan,
-    /// Index corpus to create searchable database
-    Index,
-    /// Process raw media files for transcoding
-    Prepare,
+impl FFMpegConfig {
+    pub fn ffmpeg(&self) -> Option<&std::path::Path> {
+        self.ffmpeg.as_deref()
+    }
+}
+
+#[derive(Parser, Debug, Default)]
+pub struct AppConfigFile {
+    /// Path to application config file
+    ///
+    /// If not provided, will use user dirs
+    #[clap(long)]
+    config_file: Option<std::path::PathBuf>,
+}
+
+impl AppConfigFile {
+    pub fn config_file(&self) -> Option<&std::path::Path> {
+        self.config_file.as_deref()
+    }
 }

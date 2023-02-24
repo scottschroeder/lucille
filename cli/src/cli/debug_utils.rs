@@ -5,7 +5,7 @@ use app::prepare::MediaProcessor;
 use clap::Parser;
 use lucile_core::metadata::MediaHash;
 
-use super::argparse::{DatabaseConfig, StorageConfig};
+use super::argparse::{AppConfig, DatabaseConfig, StorageConfig};
 use crate::cli::helpers;
 
 #[derive(Parser, Debug)]
@@ -35,10 +35,7 @@ pub struct HashLookup {
 #[derive(Parser, Debug)]
 pub struct ShowConfig {
     #[clap(flatten)]
-    pub db: DatabaseConfig,
-
-    #[clap(flatten)]
-    pub storage: StorageConfig,
+    pub cfg: AppConfig,
 }
 
 #[derive(Parser, Debug)]
@@ -89,7 +86,7 @@ impl DebugCommand {
     }
 }
 pub(crate) async fn show_config(args: &ShowConfig) -> anyhow::Result<()> {
-    let app = helpers::get_app(Some(&args.db), Some(&args.storage)).await?;
+    let app = args.cfg.build_app().await?;
     println!("{:#?}", app);
     Ok(())
 }

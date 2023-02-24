@@ -6,7 +6,6 @@ use std::{
 
 use anyhow::Context;
 use app::{
-    ffmpeg::FFMpegBinary,
     prepare::{MediaProcessor, MediaSplittingStrategy},
     storage::FileCheckStrategy,
 };
@@ -14,7 +13,6 @@ use clap::{Parser, ValueEnum};
 use database::Database;
 use lucile_core::{export::ChapterExport, identifiers::CorpusId};
 
-use super::helpers;
 use crate::cli::argparse::{DatabaseConfig, FFMpegConfig, FileCheckSettings, MediaStorage};
 
 #[derive(Parser, Debug)]
@@ -26,7 +24,7 @@ pub enum PrepareCommand {
 impl PrepareCommand {
     pub(crate) async fn run(&self) -> anyhow::Result<()> {
         match self {
-            PrepareCommand::CreateMediaView(o) => create_media_view(o).await,
+            PrepareCommand::CreateMediaView(cmd) => cmd.run().await,
         }
     }
 }
@@ -48,7 +46,7 @@ pub struct CreateMediaView {
     pub parallel: usize,
 
     #[clap(flatten)]
-    pub media_storage: MediaStorage,
+    pub media_root: MediaStorage,
 
     #[clap(flatten)]
     pub split_settings: MediaSplitSettings,
@@ -89,122 +87,125 @@ impl PrepareEncryption {
     }
 }
 
-pub(crate) async fn create_media_view(args: &CreateMediaView) -> anyhow::Result<()> {
-    let app = helpers::get_app(Some(&args.db), None).await?;
-
-    let corpus_id = app
-        .db
-        .get_corpus_id(&args.corpus_name)
-        .await?
-        .ok_or_else(|| anyhow::anyhow!("could not find corpus: {:?}", args.corpus_name))?;
-
-    /*
-     *   Filter only chapters we want to create view on
-     */
-    let chapters =
-        check_filter_view_conflicts(&app.db, corpus_id, &args.view_name, args.skip_conflicts)
+impl CreateMediaView {
+    pub(crate) async fn run(&self) -> anyhow::Result<()> {
+        let app = app::app::LucileBuilder::new()?
+            .ffmpeg_override(self.ffmpeg.ffmpeg())?
+            .database_path(self.db.database_path())?
+            .media_root(self.media_root.media_root())?
+            .build()
             .await?;
 
-    if chapters.is_empty() {
-        log::warn!("no chapters require processing");
-        return Ok(());
-    }
+        let corpus_id = app
+            .db
+            .get_corpus_id(&self.corpus_name)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("could not find corpus: {:?}", self.corpus_name))?;
 
-    log::info!("performing media split on {} chapters", chapters.len());
+        /*
+         *   Filter only chapters we want to create view on
+         */
+        let chapters =
+            check_filter_view_conflicts(&app.db, corpus_id, &self.view_name, self.skip_conflicts)
+                .await?;
 
-    /*
-     *   Verify we have access to all the source media locally to transcode
-     */
-    let mut verify_source_set = tokio::task::JoinSet::new();
-    for chapter in &chapters {
-        let chapter = chapter.clone();
-        let db = app.db.clone();
-        let strategy = args.file_check_settings.check_strategy.to_app();
-        verify_source_set.spawn(async move {
-            check_storage_exists(&db, &chapter, strategy)
-                .await
-                .with_context(|| format!("unable to verify source for chapter: {:?}", chapter))
-                .map(|p| (chapter.id, p))
-        });
-    }
+        if chapters.is_empty() {
+            log::warn!("no chapters require processing");
+            return Ok(());
+        }
 
-    let mut pathmap = HashMap::new();
-    let mut local_files_ok = true;
-    while let Some(res) = verify_source_set.join_next().await {
-        let res = res.context("task running storage check failed to join")?;
-        match res {
-            Ok((cid, p)) => {
-                pathmap.insert(cid, p);
-            }
-            Err(e) => {
-                log::error!("{:#}", e);
-                local_files_ok = false;
+        log::info!("performing media split on {} chapters", chapters.len());
+
+        /*
+         *   Verify we have access to all the source media locally to transcode
+         */
+        let mut verify_source_set = tokio::task::JoinSet::new();
+        for chapter in &chapters {
+            let chapter = chapter.clone();
+            let db = app.db.clone();
+            let strategy = self.file_check_settings.check_strategy.to_app();
+            verify_source_set.spawn(async move {
+                check_storage_exists(&db, &chapter, strategy)
+                    .await
+                    .with_context(|| format!("unable to verify source for chapter: {:?}", chapter))
+                    .map(|p| (chapter.id, p))
+            });
+        }
+
+        let mut pathmap = HashMap::new();
+        let mut local_files_ok = true;
+        while let Some(res) = verify_source_set.join_next().await {
+            let res = res.context("task running storage check failed to join")?;
+            match res {
+                Ok((cid, p)) => {
+                    pathmap.insert(cid, p);
+                }
+                Err(e) => {
+                    log::error!("{:#}", e);
+                    local_files_ok = false;
+                }
             }
         }
+
+        if !local_files_ok {
+            anyhow::bail!("could not prepare media due to missing source(s)");
+        }
+
+        /*
+         *   Split the Media
+         */
+        let mut split_set = tokio::task::JoinSet::new();
+
+        let output = app.media_root();
+        let ffmpeg = app.ffmpeg();
+
+        let split_buider = std::sync::Arc::new(
+            app::prepare::MediaSplittingStrategy::new(
+                ffmpeg,
+                Duration::from_secs_f32(self.split_settings.duration),
+                self.split_settings.encryption.to_app(),
+                output,
+            )
+            .context("build split strategy")?,
+        );
+
+        let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(self.parallel));
+        for chapter in &chapters {
+            let chapter = chapter.clone();
+            let db = app.db.clone();
+            let semaphore = semaphore.clone();
+            let strategy = split_buider.clone();
+            let path = pathmap[&chapter.id].clone();
+            let view_name = self.view_name.clone();
+            split_set.spawn(async move {
+                let _permit = semaphore.acquire_owned().await.unwrap();
+                do_split_on_chapter(&db, &view_name, &chapter, path.as_ref(), &strategy).await
+            });
+        }
+
+        let mut all_ok = true;
+        while let Some(res) = split_set.join_next().await {
+            let ok = match res {
+                Ok(Ok(())) => true,
+                Ok(Err(e)) => {
+                    log::error!("failed at creating split: {}", e);
+                    false
+                }
+
+                Err(join_err) => {
+                    log::error!("task running split failed to join: {}", join_err);
+                    false
+                }
+            };
+            all_ok = all_ok && ok;
+        }
+
+        if !all_ok {
+            anyhow::bail!("failed to process all splits");
+        }
+
+        Ok(())
     }
-
-    if !local_files_ok {
-        anyhow::bail!("could not prepare media due to missing source(s)");
-    }
-
-    /*
-     *   Split the Media
-     */
-    let mut split_set = tokio::task::JoinSet::new();
-
-    let output = args
-        .media_storage
-        .media_root
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("must define media root"))?;
-
-    let ffmpeg: FFMpegBinary = args.ffmpeg.ffmpeg.clone().into();
-    let split_buider = std::sync::Arc::new(
-        app::prepare::MediaSplittingStrategy::new(
-            ffmpeg,
-            Duration::from_secs_f32(args.split_settings.duration),
-            args.split_settings.encryption.to_app(),
-            output,
-        )
-        .context("build split strategy")?,
-    );
-
-    let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(args.parallel));
-    for chapter in &chapters {
-        let chapter = chapter.clone();
-        let db = app.db.clone();
-        let semaphore = semaphore.clone();
-        let strategy = split_buider.clone();
-        let path = pathmap[&chapter.id].clone();
-        let view_name = args.view_name.clone();
-        split_set.spawn(async move {
-            let _permit = semaphore.acquire_owned().await.unwrap();
-            do_split_on_chapter(&db, &view_name, &chapter, path.as_ref(), &strategy).await
-        });
-    }
-
-    let mut all_ok = true;
-    while let Some(res) = split_set.join_next().await {
-        let ok = match res {
-            Ok(Ok(())) => true,
-            Ok(Err(e)) => {
-                log::error!("failed at creating split: {}", e);
-                false
-            }
-
-            Err(join_err) => {
-                log::error!("task running split failed to join: {}", join_err);
-                false
-            }
-        };
-        all_ok = all_ok && ok;
-    }
-
-    if !all_ok {
-        anyhow::bail!("failed to process all splits");
-    }
-
-    Ok(())
 }
 
 async fn check_filter_view_conflicts(

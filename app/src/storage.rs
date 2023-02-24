@@ -152,7 +152,7 @@ pub async fn check_local_file(
 
     let local_path = file_meta.path.as_path();
 
-    if !tokio::fs::metadata(local_path).await.is_ok() {
+    if tokio::fs::metadata(local_path).await.is_err() {
         return Ok(Some((file_meta.path, FileCheckOutcome::DoesNotExist)));
     }
 

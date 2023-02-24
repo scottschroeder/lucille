@@ -27,6 +27,8 @@ pub enum LucileAppError {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Database(#[from] database::DatabaseError),
+    #[error(transparent)]
+    Config(#[from] app::ConfigError),
     #[error("failed to build search index")]
     BuildIndexError(#[from] search::error::TError),
     #[error("could not find video source")]

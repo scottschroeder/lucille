@@ -16,7 +16,7 @@ use sqlx::{
 
 const POOL_TIMEOUT: Duration = Duration::from_secs(30);
 const POOL_MAX_CONN: u32 = 2;
-const DATABASE_ENV_VAR: &str = "DATABASE_URL";
+pub const DATABASE_ENV_VAR: &str = "DATABASE_URL";
 
 mod chapter;
 mod corpus;

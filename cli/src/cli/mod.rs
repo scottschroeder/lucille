@@ -60,6 +60,8 @@ enum SubCommand {
     /// Commands for pre-processing media
     #[clap(subcommand)]
     Clean(clean::CleanCommand),
+
+    Test(TestCommand),
 }
 
 impl CliOpts {
@@ -75,6 +77,19 @@ impl CliOpts {
             SubCommand::Debug(cmd) => cmd.run().await,
             SubCommand::PrepareMedia(cmd) => cmd.run().await,
             SubCommand::Clean(cmd) => cmd.run().await,
+            SubCommand::Test(cmd) => do_test(cmd).await,
         }
     }
+}
+
+#[derive(Parser, Debug)]
+pub struct TestCommand {
+    #[clap(flatten)]
+    pub cfg: argparse::AppConfig,
+}
+
+async fn do_test(args: &TestCommand) -> anyhow::Result<()> {
+    let app = args.cfg.build_app().await?;
+    log::debug!("{:#?}", app);
+    Ok(())
 }
