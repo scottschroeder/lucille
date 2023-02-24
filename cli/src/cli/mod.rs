@@ -90,6 +90,6 @@ pub struct TestCommand {
 }
 
 async fn do_test(args: &TestCommand) -> anyhow::Result<()> {
-    let app = args.cfg.build_app().await?;
+    let _app = args.cfg.build_app().await?;
     Ok(())
 }

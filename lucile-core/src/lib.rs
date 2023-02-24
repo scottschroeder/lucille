@@ -1,11 +1,11 @@
 #![allow(clippy::uninlined_format_args)]
 use std::fmt::Debug;
 
+pub use metadata::MediaHash;
 use serde::{Deserialize, Serialize};
 pub use subrip::Subtitle;
 
 use self::identifiers::CorpusId;
-pub use metadata::MediaHash;
 
 pub mod encryption_config;
 pub mod hash;
