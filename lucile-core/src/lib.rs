@@ -4,7 +4,8 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 pub use subrip::Subtitle;
 
-use self::{identifiers::CorpusId, metadata::MediaHash};
+use self::identifiers::CorpusId;
+pub use metadata::MediaHash;
 
 pub mod encryption_config;
 pub mod hash;
