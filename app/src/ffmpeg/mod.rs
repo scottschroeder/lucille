@@ -1,5 +1,6 @@
 mod cmd;
 pub mod split;
+pub mod gif;
 
 pub use cmd::FFMpegBinary;
 use cmd::{FFmpegArg, FFmpegCommand};

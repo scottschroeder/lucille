@@ -78,7 +78,7 @@ impl CliOpts {
             SubCommand::Debug(cmd) => cmd.run().await,
             SubCommand::MediaView(cmd) => cmd.run().await,
             SubCommand::Clean(cmd) => cmd.run().await,
-            SubCommand::Test(cmd) => do_test(cmd).await,
+            SubCommand::Test(cmd) => do_test(cmd).await
         }
     }
 }
@@ -90,6 +90,7 @@ pub struct TestCommand {
 }
 
 async fn do_test(args: &TestCommand) -> anyhow::Result<()> {
-    let _app = args.cfg.build_app().await?;
-    Ok(())
+    search::test_cmd(args).await
+    // let _app = args.cfg.build_app().await?;
+    // Ok(())
 }

@@ -3,6 +3,7 @@ use std::str::FromStr;
 use anyhow::Context;
 use app::{
     app::LucileApp,
+    ffmpeg::gif::{FFMpegGifTranscoder, GifSettings},
     search_manager::{SearchRequest, SearchResponse},
     transcode::{MakeGifRequest, SubSegment, TranscodeRequest},
 };
@@ -44,6 +45,40 @@ pub struct InteractiveOpts {
     pub storage: StorageConfig,
 }
 
+pub async fn test_cmd(args: &super::TestCommand) -> anyhow::Result<()> {
+    let app = args.cfg.build_app().await?;
+    let srt_uuid = Uuid::from_str("1394603f-c591-400f-87f7-52c9c6f5be12").unwrap();
+    let s = 278;
+    let e = 279;
+
+    let subs = app.db.get_all_subs_for_srt_by_uuid(srt_uuid).await?;
+    let clip_subs = &subs[s..(e + 1)];
+
+    let settings = GifSettings::default();
+    let transcoder = FFMpegGifTranscoder::build_cmd(app.ffmpeg(), clip_subs, &settings).await?;
+    log::debug!("{:#?}", transcoder);
+
+    let views = app.db.get_media_views_for_srt(srt_uuid).await?;
+    let orig = views.into_iter().find(|v| v.name == "original").unwrap();
+    let segments = app.db.get_media_segment_by_view(orig.id).await?;
+    let media = app
+        .db
+        .get_storage_by_hash(segments[0].hash)
+        .await?
+        .expect("could not find media");
+    let input = tokio::fs::File::open(&media.path).await?;
+
+    let (res, mut output) = transcoder.launch(Box::new(input)).await?;
+    let mut out_gif = tokio::fs::File::open("out.gif").await?;
+    log::debug!("copy stdout to out.gif");
+    let b = tokio::io::copy(&mut output, &mut out_gif).await?;
+    log::debug!("copy stdout to out.gif complete ({} bytes)", b);
+
+    res.check().await?;
+
+    Ok(())
+}
+
 impl InteractiveOpts {
     pub(crate) async fn run(&self) -> anyhow::Result<()> {
         let app = app::app::LucileBuilder::new()?
@@ -60,6 +95,12 @@ impl InteractiveOpts {
 
         let srt_uuid = app.db.get_srt_uuid_by_id(clip.srt_id).await?;
 
+        let subs = app.db.get_all_subs_for_srt_by_uuid(srt_uuid).await?;
+        let clip_subs = &subs[sub_range.start..sub_range.end + 1];
+        for s in clip_subs {
+            println!("{}", s);
+        }
+
         let transcode_req = TranscodeRequest {
             request: app::transcode::RequestType::MakeGif(MakeGifRequest {
                 segments: vec![SubSegment {
@@ -71,6 +112,28 @@ impl InteractiveOpts {
 
         let json_req = serde_json::to_string_pretty(&transcode_req)?;
         println!("{}", json_req);
+
+        let settings = GifSettings::default();
+        let transcoder = FFMpegGifTranscoder::build_cmd(app.ffmpeg(), clip_subs, &settings).await?;
+        log::debug!("{:#?}", transcoder);
+
+        let views = app.db.get_media_views_for_srt(srt_uuid).await?;
+        let orig = views.into_iter().find(|v| v.name == "original").unwrap();
+        let segments = app.db.get_media_segment_by_view(orig.id).await?;
+        let media = app
+            .db
+            .get_storage_by_hash(segments[0].hash)
+            .await?
+            .expect("could not find media");
+        let input = tokio::fs::File::open(&media.path).await?;
+
+        let (res, mut output) = transcoder.launch(Box::new(input)).await?;
+        let mut out_gif = tokio::fs::File::open("out.gif").await?;
+        log::debug!("copy stdout to out.gif");
+        let b = tokio::io::copy(&mut output, &mut out_gif).await?;
+        log::debug!("copy stdout to out.gif complete ({} bytes)", b);
+
+        res.check().await?;
 
         Ok(())
     }

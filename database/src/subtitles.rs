@@ -189,6 +189,29 @@ impl Database {
         Ok(subs)
     }
 
+    pub async fn get_all_subs_for_srt_by_uuid(
+        &self,
+        uuid: Uuid,
+    ) -> Result<Vec<Subtitle>, DatabaseError> {
+        let uuid_str = uuid.to_string();
+        let record = sqlx::query!(
+            r#"
+                SELECT 
+                    srtfile.data
+                FROM srtfile
+                WHERE
+                  srtfile.uuid = ?
+         "#,
+            uuid_str,
+        )
+        // .map(|r| (r.id, metadata_from_chapter(r.title, r.season, r.episode)))
+        .fetch_one(&self.pool)
+        .await?;
+
+        let subs = deserialize_subtitle(&record.data)?;
+        Ok(subs)
+    }
+
     pub async fn lookup_latest_sub_for_chapter(
         &self,
         chapter_id: ChapterId,
