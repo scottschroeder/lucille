@@ -1,4 +1,4 @@
-use lucile_core::{identifiers::MediaSegmentId, media_segment::MediaSegment, MediaHash};
+use lucile_core::{media_segment::MediaSegment, MediaHash};
 use tokio::io::AsyncRead;
 
 use crate::{app::LucileApp, LucileAppError};

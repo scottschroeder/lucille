@@ -34,6 +34,14 @@ pub struct InteractiveOpts {
     /// The search query
     pub query: Vec<String>,
 
+    /// output gif file
+    #[clap(long, default_value = "out.gif")]
+    pub output: String,
+
+    /// The name of the media view to use
+    #[clap(long, default_value = "orig-segment30")]
+    pub media_view: String,
+
     /// The UUID of the search index to use
     #[clap(long)]
     pub index: Option<String>,
@@ -97,9 +105,6 @@ impl InteractiveOpts {
 
         let subs = app.db.get_all_subs_for_srt_by_uuid(srt_uuid).await?;
         let clip_subs = &subs[sub_range.start..sub_range.end + 1];
-        for s in clip_subs {
-            println!("{}", s);
-        }
 
         let transcode_req = TranscodeRequest {
             request: app::transcode::RequestType::MakeGif(MakeGifRequest {
@@ -113,20 +118,23 @@ impl InteractiveOpts {
         let json_req = serde_json::to_string_pretty(&transcode_req)?;
         println!("{}", json_req);
 
-        let settings = GifSettings::default();
-        let transcoder = FFMpegGifTranscoder::build_cmd(app.ffmpeg(), clip_subs, &settings).await?;
-        log::debug!("{:#?}", transcoder);
+        let mut settings = GifSettings::default();
+        let (start, end) = settings.cut_selection.content_cut_times(clip_subs);
 
         let views = app.db.get_media_views_for_srt(srt_uuid).await?;
-        let orig = views.into_iter().find(|v| v.name == "original").unwrap();
-        let segments = app.db.get_media_segment_by_view(orig.id).await?;
-        let media = app
-            .db
-            .get_storage_by_hash(segments[0].hash)
-            .await?
-            .expect("could not find media");
-        let input = tokio::fs::File::open(&media.path).await?;
+        let target_media_view = views
+            .into_iter()
+            .find(|v| v.name == self.media_view)
+            .ok_or_else(|| anyhow::anyhow!("could not find media view: {}", self.media_view))?;
+        let (segment_start, input) =
+            app::media_view::get_surrounding_media(&app, target_media_view.id, start, end).await?;
+        settings.cut_selection.segment_start = Some(segment_start);
 
+        let transcoder = FFMpegGifTranscoder::build_cmd(app.ffmpeg(), clip_subs, &settings).await?;
+        let (res, mut output) = transcoder.launch(input).await?;
+        let mut out_gif = tokio::fs::File::create(&self.output).await?;
+        tokio::io::copy(&mut output, &mut out_gif).await?;
+        res.check().await?;
         Ok(())
     }
 }

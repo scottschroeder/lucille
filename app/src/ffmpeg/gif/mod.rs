@@ -220,6 +220,7 @@ impl FFMpegGifTranscoder {
             log::debug!("copy input to {:?} ({} bytes)", self.media_path, bytes);
         }
         // tokio::time::sleep(Duration::from_secs(10)).await;
+        let begin = std::time::Instant::now();
         let mut handle = self.cmd.spawn().await?;
         let mut stdin = handle.stdin.take().unwrap();
         stdin.shutdown().await?;
@@ -234,6 +235,7 @@ impl FFMpegGifTranscoder {
         });
         let result = FFMpegCmdAsyncResult {
             inner: cmd_result,
+            begin,
             _root: tmp,
         };
 
@@ -243,13 +245,14 @@ impl FFMpegGifTranscoder {
 
 pub struct FFMpegCmdAsyncResult {
     inner: tokio::task::JoinHandle<Result<std::process::ExitStatus, std::io::Error>>,
+    begin: std::time::Instant,
     _root: tempfile::TempDir,
 }
 
 impl FFMpegCmdAsyncResult {
     pub async fn check(self) -> Result<(), GifTranscodeError> {
         let st = self.inner.await??;
-        log::trace!("ffmpeg complete: {:?}", st);
+        log::trace!("ffmpeg complete after {:?}: {:?}", self.begin.elapsed(), st);
         if st.success() {
             Ok(())
         } else if let Some(code) = st.code() {

@@ -37,7 +37,7 @@ fn print_top_scores(
     let mut c = 'A';
     for clip in &response.results {
         let (m, subs) = &content[&clip.srt_id];
-        println!("{}) {:?}: {}", c, clip.score, m.title());
+        println!("{}) {:?}: {}", c, clip.score, m);
         let base = clip.offset;
         for (offset, linescore) in clip.lines.iter().enumerate() {
             let normalized = ((5.0 * linescore.score / clip.score) + 0.5) as usize;

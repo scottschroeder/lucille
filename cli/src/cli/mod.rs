@@ -78,7 +78,7 @@ impl CliOpts {
             SubCommand::Debug(cmd) => cmd.run().await,
             SubCommand::MediaView(cmd) => cmd.run().await,
             SubCommand::Clean(cmd) => cmd.run().await,
-            SubCommand::Test(cmd) => do_test(cmd).await
+            SubCommand::Test(cmd) => do_test(cmd).await,
         }
     }
 }
