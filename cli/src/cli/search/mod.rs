@@ -48,27 +48,27 @@ pub struct InteractiveOpts {
 pub async fn test_cmd(args: &super::TestCommand) -> anyhow::Result<()> {
     let app = args.cfg.build_app().await?;
     let srt_uuid = Uuid::from_str("1394603f-c591-400f-87f7-52c9c6f5be12").unwrap();
-    let s = 278;
+    let s = 270;
     let e = 279;
 
     let subs = app.db.get_all_subs_for_srt_by_uuid(srt_uuid).await?;
     let clip_subs = &subs[s..(e + 1)];
 
-    let settings = GifSettings::default();
-    let transcoder = FFMpegGifTranscoder::build_cmd(app.ffmpeg(), clip_subs, &settings).await?;
-    log::debug!("{:#?}", transcoder);
+    let mut settings = GifSettings::default();
+    let (start, end) = settings.cut_selection.content_cut_times(clip_subs);
 
     let views = app.db.get_media_views_for_srt(srt_uuid).await?;
-    let orig = views.into_iter().find(|v| v.name == "original").unwrap();
-    let segments = app.db.get_media_segment_by_view(orig.id).await?;
-    let media = app
-        .db
-        .get_storage_by_hash(segments[0].hash)
-        .await?
-        .expect("could not find media");
-    let input = tokio::fs::File::open(&media.path).await?;
+    // let target_media_view = views.into_iter().find(|v| v.name == "original").unwrap();
+    let target_media_view = views
+        .into_iter()
+        .find(|v| v.name == "orig-segment30")
+        .unwrap();
+    let (segment_start, input) =
+        app::media_view::get_surrounding_media(&app, target_media_view.id, start, end).await?;
+    settings.cut_selection.segment_start = Some(segment_start);
 
-    let (res, mut output) = transcoder.launch(Box::new(input)).await?;
+    let transcoder = FFMpegGifTranscoder::build_cmd(app.ffmpeg(), clip_subs, &settings).await?;
+    let (res, mut output) = transcoder.launch(input).await?;
     let mut out_gif = tokio::fs::File::create("out.gif").await?;
     log::debug!("copy stdout to out.gif");
     let b = tokio::io::copy(&mut output, &mut out_gif).await?;
@@ -126,7 +126,6 @@ impl InteractiveOpts {
             .await?
             .expect("could not find media");
         let input = tokio::fs::File::open(&media.path).await?;
-
 
         Ok(())
     }

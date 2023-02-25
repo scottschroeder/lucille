@@ -98,8 +98,28 @@ impl Default for CutSetting {
 
 #[derive(Debug, Default)]
 pub struct GifTimeSelection {
+    pub segment_start: Option<Duration>,
     pub start: CutSetting,
     pub end: CutSetting,
+}
+
+impl GifTimeSelection {
+    pub fn content_cut_times(&self, subs: &[Subtitle]) -> (Duration, Duration) {
+        get_cut_times(subs, self)
+    }
+    fn clip_seek_duration(&self, subs: &[Subtitle]) -> (f32, f32) {
+        let (e_start, e_end) = self.content_cut_times(subs);
+        log::trace!("e_start: {:?} e_end: {:?}", e_start, e_end);
+
+        let clip_length = e_end
+            .checked_sub(e_start)
+            .expect("it should not be possible for the end time to be before the start time");
+        log::trace!("length: {:?}", clip_length);
+        log::trace!("segment start clock: {:?}", self.segment_start);
+        let clip_seek = e_start - self.segment_start.unwrap_or_default();
+        log::trace!("clip seek: {:?}", clip_seek);
+        (clip_seek.as_secs_f32(), clip_length.as_secs_f32())
+    }
 }
 
 #[derive(Debug)]
@@ -131,13 +151,13 @@ impl FFMpegGifTranscoder {
             ))
         })?;
 
-        let (start, end) = get_cut_times(subs, &settings.cut_selection);
+        let (sub_offset_start, _) = settings.cut_selection.content_cut_times(subs);
 
         let mut f = tokio::fs::File::create(&srt_path)
             .await
             .map_err(GifTranscodeError::SubtitlePrep)?;
 
-        for sub in offset_subs(start, subs) {
+        for sub in offset_subs(sub_offset_start, subs) {
             let s = format!("{}", sub);
             f.write_all(s.as_bytes())
                 .await
@@ -146,12 +166,13 @@ impl FFMpegGifTranscoder {
 
         let mut cmd = bin.build_command();
 
+        let (clip_start, clip_length) = settings.cut_selection.clip_seek_duration(subs);
         cmd.args.push(FFmpegArg::plain("-ss"));
         cmd.args
-            .push(FFmpegArg::plain(format!("{:.02}", start.as_secs_f32())));
+            .push(FFmpegArg::plain(format!("{:.02}", clip_start)));
         cmd.args.push(FFmpegArg::plain("-t"));
         cmd.args
-            .push(FFmpegArg::plain(format!("{:.02}", end.as_secs_f32())));
+            .push(FFmpegArg::plain(format!("{:.02}", clip_length)));
 
         // cmd.args.push(FFmpegArg::plain("-f"));
         // cmd.args.push(FFmpegArg::plain("h264"));
@@ -198,6 +219,7 @@ impl FFMpegGifTranscoder {
             let bytes = tokio::io::copy(&mut input, &mut media_file).await?;
             log::debug!("copy input to {:?} ({} bytes)", self.media_path, bytes);
         }
+        // tokio::time::sleep(Duration::from_secs(10)).await;
         let mut handle = self.cmd.spawn().await?;
         let mut stdin = handle.stdin.take().unwrap();
         stdin.shutdown().await?;
@@ -256,10 +278,7 @@ fn get_cut_times(subs: &[Subtitle], cut_selection: &GifTimeSelection) -> (Durati
             .saturating_add(t),
     };
 
-    let e = end_time
-        .checked_sub(start_time)
-        .expect("it should not be possible for the end time to be before the start time");
-    (start_time, e)
+    (start_time, end_time)
 }
 
 fn create_filter(settings: &GifSettings, srt_file: &str) -> Result<String, std::fmt::Error> {

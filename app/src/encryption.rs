@@ -18,7 +18,7 @@ pub enum EncryptionError {
 pub async fn decryptor<T: tokio::io::AsyncRead + Unpin>(
     cfg: &KeyData,
     reader: &mut T,
-) -> Result<Box<dyn tokio::io::AsyncRead + Unpin>, EncryptionError> {
+) -> Result<Box<dyn tokio::io::AsyncRead + Unpin + Send>, EncryptionError> {
     match cfg {
         KeyData::EasyAesGcmInMemory(key_nonce) => {
             // TODO make an async decryptor.

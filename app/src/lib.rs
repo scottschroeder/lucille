@@ -14,6 +14,7 @@ pub mod encryption;
 pub mod ffmpeg;
 pub mod hashfs;
 pub mod ingest;
+pub mod media_backend;
 pub mod media_view;
 pub mod prepare;
 pub mod search_manager;
@@ -34,6 +35,8 @@ pub enum LucileAppError {
     BuildIndexError(#[from] search::error::TError),
     #[error("could not find video source")]
     MissingVideoSource,
+    #[error(transparent)]
+    Encryption(#[from] crate::encryption::EncryptionError),
 }
 
 pub async fn print_details_for_hash(

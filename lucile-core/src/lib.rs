@@ -151,7 +151,7 @@ pub mod media_segment {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct MediaSegment {
         pub id: MediaSegmentId,
         pub media_view_id: MediaViewId,
