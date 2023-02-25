@@ -69,7 +69,7 @@ pub async fn test_cmd(args: &super::TestCommand) -> anyhow::Result<()> {
     let input = tokio::fs::File::open(&media.path).await?;
 
     let (res, mut output) = transcoder.launch(Box::new(input)).await?;
-    let mut out_gif = tokio::fs::File::open("out.gif").await?;
+    let mut out_gif = tokio::fs::File::create("out.gif").await?;
     log::debug!("copy stdout to out.gif");
     let b = tokio::io::copy(&mut output, &mut out_gif).await?;
     log::debug!("copy stdout to out.gif complete ({} bytes)", b);
@@ -127,13 +127,6 @@ impl InteractiveOpts {
             .expect("could not find media");
         let input = tokio::fs::File::open(&media.path).await?;
 
-        let (res, mut output) = transcoder.launch(Box::new(input)).await?;
-        let mut out_gif = tokio::fs::File::open("out.gif").await?;
-        log::debug!("copy stdout to out.gif");
-        let b = tokio::io::copy(&mut output, &mut out_gif).await?;
-        log::debug!("copy stdout to out.gif complete ({} bytes)", b);
-
-        res.check().await?;
 
         Ok(())
     }

@@ -1,4 +1,4 @@
-use std::{io, time::Duration};
+use std::{io, path::PathBuf, time::Duration};
 
 use lucile_core::Subtitle;
 use tokio::io::{AsyncRead, AsyncWriteExt};
@@ -104,8 +104,8 @@ pub struct GifTimeSelection {
 
 #[derive(Debug)]
 pub struct FFMpegGifTranscoder {
-    root: tempfile::TempPath,
-    media: tempfile::NamedTempFile,
+    root: tempfile::TempDir,
+    media_path: PathBuf,
     cmd: FFmpegCommand,
 }
 
@@ -115,25 +115,29 @@ impl FFMpegGifTranscoder {
         subs: &[Subtitle],
         settings: &GifSettings,
     ) -> Result<FFMpegGifTranscoder, GifTranscodeError> {
-        let srt = tempfile::NamedTempFile::new().map_err(GifTranscodeError::SubtitlePrep)?;
-        let media_tmp = tempfile::NamedTempFile::new().map_err(GifTranscodeError::SubtitlePrep)?;
-
-        let (tmp_file, tmp_path) = srt.into_parts();
-        let path_arg = tmp_path.to_str().ok_or_else(|| {
+        let root = tempfile::tempdir().map_err(GifTranscodeError::SubtitlePrep)?;
+        let srt_path = root.path().join("subtitles.srt");
+        let media_path = root.path().join("media.mkv");
+        let path_arg = srt_path.to_str().ok_or_else(|| {
             GifTranscodeError::SubtitlePrep(io::Error::new(
                 io::ErrorKind::Other,
                 "path was not utf8",
             ))
         })?;
-        let media_path_arg = media_tmp.path().to_str().ok_or_else(|| {
+        let media_path_arg = media_path.to_str().ok_or_else(|| {
             GifTranscodeError::SubtitlePrep(io::Error::new(
                 io::ErrorKind::Other,
                 "path was not utf8",
             ))
         })?;
 
-        let mut f = tokio::fs::File::from_std(tmp_file);
-        for sub in subs {
+        let (start, end) = get_cut_times(subs, &settings.cut_selection);
+
+        let mut f = tokio::fs::File::create(&srt_path)
+            .await
+            .map_err(GifTranscodeError::SubtitlePrep)?;
+
+        for sub in offset_subs(start, subs) {
             let s = format!("{}", sub);
             f.write_all(s.as_bytes())
                 .await
@@ -142,13 +146,12 @@ impl FFMpegGifTranscoder {
 
         let mut cmd = bin.build_command();
 
-        let (start, end) = get_cut_times(subs, &settings.cut_selection);
-        // TODO ss if we have the file, `-s` if we only have a stream?
-        // cmd.args.push(FFmpegArg::plain("-s"));
         cmd.args.push(FFmpegArg::plain("-ss"));
-        cmd.args.push(FFmpegArg::plain(format!("{:.02}", start)));
+        cmd.args
+            .push(FFmpegArg::plain(format!("{:.02}", start.as_secs_f32())));
         cmd.args.push(FFmpegArg::plain("-t"));
-        cmd.args.push(FFmpegArg::plain(format!("{:.02}", end)));
+        cmd.args
+            .push(FFmpegArg::plain(format!("{:.02}", end.as_secs_f32())));
 
         // cmd.args.push(FFmpegArg::plain("-f"));
         // cmd.args.push(FFmpegArg::plain("h264"));
@@ -168,16 +171,16 @@ impl FFMpegGifTranscoder {
         cmd.args
             .push(FFmpegArg::plain(settings.media_type.format_name()));
 
-        // cmd.args.push(FFmpegArg::plain("-"));
-        cmd.args.push(FFmpegArg::plain("ffout.gif"));
+        cmd.args.push(FFmpegArg::plain("pipe:"));
+        // cmd.args.push(FFmpegArg::plain("ffout.gif"));
 
         cmd.stdin = Some(super::cmd::StdIo::Piped);
         cmd.stdout = Some(super::cmd::StdIo::Piped);
 
         Ok(FFMpegGifTranscoder {
-            root: tmp_path,
-            media: media_tmp,
+            root,
             cmd,
+            media_path,
         })
     }
 
@@ -188,15 +191,13 @@ impl FFMpegGifTranscoder {
     pub async fn launch(
         self,
         mut input: Box<dyn AsyncRead + Unpin + Send>,
-        // mut input: impl AsyncRead + Unpin + Send,
     ) -> Result<(FFMpegCmdAsyncResult, impl tokio::io::AsyncRead), GifTranscodeError> {
         let tmp = self.root;
-        let (media_file, media_tmp_path) = self.media.into_parts();
-        let mut media_file = tokio::fs::File::from_std(media_file);
-
-        log::debug!("copy input to {:?}", media_tmp_path);
-        tokio::io::copy(&mut input, &mut media_file).await?;
-
+        {
+            let mut media_file = tokio::fs::File::create(&self.media_path).await?;
+            let bytes = tokio::io::copy(&mut input, &mut media_file).await?;
+            log::debug!("copy input to {:?} ({} bytes)", self.media_path, bytes);
+        }
         let mut handle = self.cmd.spawn().await?;
         let mut stdin = handle.stdin.take().unwrap();
         stdin.shutdown().await?;
@@ -211,7 +212,7 @@ impl FFMpegGifTranscoder {
         });
         let result = FFMpegCmdAsyncResult {
             inner: cmd_result,
-            _tmpfile: (tmp, media_tmp_path),
+            _root: tmp,
         };
 
         Ok((result, stdout))
@@ -220,7 +221,7 @@ impl FFMpegGifTranscoder {
 
 pub struct FFMpegCmdAsyncResult {
     inner: tokio::task::JoinHandle<Result<std::process::ExitStatus, std::io::Error>>,
-    _tmpfile: (tempfile::TempPath, tempfile::TempPath),
+    _root: tempfile::TempDir,
 }
 
 impl FFMpegCmdAsyncResult {
@@ -237,7 +238,7 @@ impl FFMpegCmdAsyncResult {
     }
 }
 
-fn get_cut_times(subs: &[Subtitle], cut_selection: &GifTimeSelection) -> (f32, f32) {
+fn get_cut_times(subs: &[Subtitle], cut_selection: &GifTimeSelection) -> (Duration, Duration) {
     let start_time = match cut_selection.start {
         CutSetting::Exact(t) => t,
         CutSetting::Relative(t) => subs
@@ -255,12 +256,10 @@ fn get_cut_times(subs: &[Subtitle], cut_selection: &GifTimeSelection) -> (f32, f
             .saturating_add(t),
     };
 
-    let s = start_time.as_secs_f32();
     let e = end_time
         .checked_sub(start_time)
-        .expect("it should not be possible for the end time to be before the start time")
-        .as_secs_f32();
-    (s, e)
+        .expect("it should not be possible for the end time to be before the start time");
+    (start_time, e)
 }
 
 fn create_filter(settings: &GifSettings, srt_file: &str) -> Result<String, std::fmt::Error> {
@@ -269,14 +268,23 @@ fn create_filter(settings: &GifSettings, srt_file: &str) -> Result<String, std::
 
     write!(filter, "fps={}", settings.quality.fps)?;
     write!(filter, ",scale=w={}:h=-1", settings.quality.width)?;
-    // write!(
-    //     filter,
-    //     ",subtitles={}:force_style='Fontsize={}'",
-    //     srt_file, settings.font_size,
-    // )?;
-    // filter.push(',');
-    // filter.push_str(
-    //     "split [a][b];[a] palettegen=stats_mode=single:reserve_transparent=false [p];[b][p] paletteuse=new=1"
-    //     );
+    write!(
+        filter,
+        ",subtitles={}:force_style='Fontsize={}'",
+        srt_file, settings.font_size,
+    )?;
+    filter.push(',');
+    filter.push_str(
+        "split [a][b];[a] palettegen=stats_mode=single:reserve_transparent=false [p];[b][p] paletteuse=new=1"
+        );
     Ok(filter)
+}
+
+fn offset_subs(offset: Duration, subs: &[Subtitle]) -> impl Iterator<Item = Subtitle> + '_ {
+    subs.iter().map(move |s| {
+        let mut offset_sub = s.clone();
+        offset_sub.start = s.start.saturating_sub(offset);
+        offset_sub.end = s.end.saturating_sub(offset);
+        offset_sub
+    })
 }
