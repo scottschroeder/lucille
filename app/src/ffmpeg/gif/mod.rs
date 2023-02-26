@@ -302,10 +302,12 @@ fn create_filter(settings: &GifSettings, srt_file: &str) -> Result<String, std::
     let mut filter = String::new();
 
     write!(filter, "fps={}", settings.quality.fps)?;
-    write!(filter, ",scale=w={}:h=-1", settings.quality.width)?;
+    filter.push(',');
+    write!(filter, "scale=w={}:h=-1", settings.quality.width)?;
+    filter.push(',');
     write!(
         filter,
-        ",subtitles={}:force_style='Fontsize={}'",
+        "subtitles={}:force_style='Fontsize={}'",
         srt_file, settings.font_size,
     )?;
     filter.push(',');

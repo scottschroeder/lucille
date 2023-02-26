@@ -3,6 +3,7 @@ pub mod error;
 mod lucile;
 
 pub mod egui_logger;
+pub mod error_popup;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -10,8 +11,10 @@ pub mod egui_logger;
 pub struct ShellApp {
     #[serde(skip)]
     lucile: lucile::LucileShell,
-    #[serde(skip)]
     show_logger: bool,
+    logger_ui: egui_logger::LoggerUi,
+    #[serde(skip)]
+    error_manager: error_popup::ErrorManager,
     // #[serde(skip)]
     // search_app_state: SearchAppState,
     // #[serde(skip)]
@@ -22,11 +25,15 @@ pub struct ShellApp {
     // db: Option<database::AppData>,
 }
 
+
+
 impl Default for ShellApp {
     fn default() -> Self {
         Self {
             lucile: lucile::LucileShell::default(),
             show_logger: false,
+            logger_ui: egui_logger::LoggerUi::default(),
+            error_manager: error_popup::ErrorManager::default(),
             // search_app_state: SearchAppState::Unknown,
             // hotkeys: HotKeyManager::default(),
             // dirs: directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APP).unwrap(),
@@ -140,6 +147,20 @@ impl eframe::App for ShellApp {
                     if ui.button("Error").clicked() {
                         log::error!("log message button clicked!");
                     }
+
+                    if ui.button("Raise Simple Error").clicked() {
+                        self.error_manager
+                            .raise(anyhow::anyhow!("this is an error"))
+                    }
+
+                    if ui.button("Raise Layered Error").clicked() {
+                        let root =
+                            std::io::Error::new(std::io::ErrorKind::Other, "I/O device blocked");
+                        let e = anyhow::Error::from(root)
+                            .context("unable to read media")
+                            .context("transcoding failed");
+                        self.error_manager.raise(e)
+                    }
                 });
             });
         });
@@ -149,12 +170,14 @@ impl eframe::App for ShellApp {
         });
 
         egui::CentralPanel::default().show(ctx, |_ui| {
-            if self.show_logger {
-                egui::Window::new("Debug Logs").show(ctx, |ui| {
+            egui::Window::new("Debug Logs")
+                .open(&mut self.show_logger)
+                .show(ctx, |ui| {
                     // draws the logger ui.
-                    egui_logger::logger_ui(ui);
+                    self.logger_ui.ui(ui);
+                    // egui_logger::logger_ui(ui);
                 });
-            }
+            self.error_manager.show(ctx);
             // app_ctx.hotkeys.check_cleared(ui);
             // lucile_manager.update_central_panel(ui, &mut app_ctx);
             // if let SearchAppState::App(search_app) = search_app_state {
