@@ -22,6 +22,7 @@ const MEDIA_ROOT_KEY: &str = "media_root";
 const MEDIA_DIR: &str = "media";
 
 const FFMPEG_CMD_KEY: &str = "ffmpeg";
+const MEDIA_VIEW_KEY: &str = "media_view_priority";
 
 const DEFAULT_CONFIG_FILE: &str = "lucile.toml";
 
@@ -164,6 +165,18 @@ impl LucileApp {
             Ok(None) => crate::ffmpeg::FFMpegBinary::default(),
             Err(e) => panic!("{}", e),
         }
+    }
+    pub fn media_view_priority(&self) -> Vec<String> {
+        if let Ok(v) = self.config.get_string(MEDIA_VIEW_KEY) {
+            return vec![v];
+        }
+        self.config
+            .get_array(MEDIA_VIEW_KEY)
+            .unwrap_or_else(|_| Vec::new())
+            .into_iter()
+            .map(|v| v.into_string())
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap_or_else(|_| Vec::new())
     }
 }
 

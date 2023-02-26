@@ -37,6 +37,8 @@ pub enum LucileAppError {
     MissingVideoSource,
     #[error(transparent)]
     Encryption(#[from] crate::encryption::EncryptionError),
+    #[error(transparent)]
+    RequestError(#[from] crate::transcode::RequestError),
 }
 
 pub async fn print_details_for_hash(

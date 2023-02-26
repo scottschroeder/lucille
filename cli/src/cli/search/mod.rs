@@ -3,9 +3,8 @@ use std::str::FromStr;
 use anyhow::Context;
 use app::{
     app::LucileApp,
-    ffmpeg::gif::{FFMpegGifTranscoder, GifSettings},
     search_manager::{SearchRequest, SearchResponse},
-    transcode::{MakeGifRequest, SubSegment, TranscodeRequest},
+    transcode::{MakeGifRequest, SubSegment},
 };
 use clap::Parser;
 use lucile_core::{clean_sub::CleanSubs, uuid::Uuid};
@@ -38,10 +37,6 @@ pub struct InteractiveOpts {
     #[clap(long, default_value = "out.gif")]
     pub output: String,
 
-    /// The name of the media view to use
-    #[clap(long, default_value = "orig-segment30")]
-    pub media_view: String,
-
     /// The UUID of the search index to use
     #[clap(long)]
     pub index: Option<String>,
@@ -51,40 +46,6 @@ pub struct InteractiveOpts {
 
     #[clap(flatten)]
     pub storage: StorageConfig,
-}
-
-pub async fn test_cmd(args: &super::TestCommand) -> anyhow::Result<()> {
-    let app = args.cfg.build_app().await?;
-    let srt_uuid = Uuid::from_str("1394603f-c591-400f-87f7-52c9c6f5be12").unwrap();
-    let s = 270;
-    let e = 279;
-
-    let subs = app.db.get_all_subs_for_srt_by_uuid(srt_uuid).await?;
-    let clip_subs = &subs[s..(e + 1)];
-
-    let mut settings = GifSettings::default();
-    let (start, end) = settings.cut_selection.content_cut_times(clip_subs);
-
-    let views = app.db.get_media_views_for_srt(srt_uuid).await?;
-    // let target_media_view = views.into_iter().find(|v| v.name == "original").unwrap();
-    let target_media_view = views
-        .into_iter()
-        .find(|v| v.name == "orig-segment30")
-        .unwrap();
-    let (segment_start, input) =
-        app::media_view::get_surrounding_media(&app, target_media_view.id, start, end).await?;
-    settings.cut_selection.segment_start = Some(segment_start);
-
-    let transcoder = FFMpegGifTranscoder::build_cmd(app.ffmpeg(), clip_subs, &settings).await?;
-    let (res, mut output) = transcoder.launch(input).await?;
-    let mut out_gif = tokio::fs::File::create("out.gif").await?;
-    log::debug!("copy stdout to out.gif");
-    let b = tokio::io::copy(&mut output, &mut out_gif).await?;
-    log::debug!("copy stdout to out.gif complete ({} bytes)", b);
-
-    res.check().await?;
-
-    Ok(())
 }
 
 impl InteractiveOpts {
@@ -100,41 +61,20 @@ impl InteractiveOpts {
         let (clip, range) = select::ask_user_for_clip(&app, &resp).await?;
 
         let sub_range = (clip.offset + range.start)..(clip.offset + range.end);
-
         let srt_uuid = app.db.get_srt_uuid_by_id(clip.srt_id).await?;
 
-        let subs = app.db.get_all_subs_for_srt_by_uuid(srt_uuid).await?;
-        let clip_subs = &subs[sub_range.start..sub_range.end + 1];
-
-        let transcode_req = TranscodeRequest {
-            request: app::transcode::RequestType::MakeGif(MakeGifRequest {
-                segments: vec![SubSegment {
-                    srt_uuid,
-                    sub_range,
-                }],
-            }),
+        let gif_request = MakeGifRequest {
+            segments: vec![SubSegment {
+                srt_uuid,
+                sub_range,
+            }],
         };
 
-        let json_req = serde_json::to_string_pretty(&transcode_req)?;
-        println!("{}", json_req);
-
-        let mut settings = GifSettings::default();
-        let (start, end) = settings.cut_selection.content_cut_times(clip_subs);
-
-        let views = app.db.get_media_views_for_srt(srt_uuid).await?;
-        let target_media_view = views
-            .into_iter()
-            .find(|v| v.name == self.media_view)
-            .ok_or_else(|| anyhow::anyhow!("could not find media view: {}", self.media_view))?;
-        let (segment_start, input) =
-            app::media_view::get_surrounding_media(&app, target_media_view.id, start, end).await?;
-        settings.cut_selection.segment_start = Some(segment_start);
-
-        let transcoder = FFMpegGifTranscoder::build_cmd(app.ffmpeg(), clip_subs, &settings).await?;
-        let (res, mut output) = transcoder.launch(input).await?;
+        let mut res = app::transcode::handle_make_gif_request(&app, &gif_request).await?;
+        let mut output = res.output();
         let mut out_gif = tokio::fs::File::create(&self.output).await?;
         tokio::io::copy(&mut output, &mut out_gif).await?;
-        res.check().await?;
+        res.wait().await?;
         Ok(())
     }
 }

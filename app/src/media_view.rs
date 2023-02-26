@@ -5,10 +5,32 @@ use lucile_core::{
     export::ChapterExport,
     identifiers::{CorpusId, MediaViewId},
     media_segment::{MediaSegment, MediaView},
+    uuid::Uuid,
 };
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 use crate::{app::LucileApp, LucileAppError};
+
+pub async fn get_media_view_for_transcode(
+    app: &LucileApp,
+    srt_uuid: Uuid,
+) -> Result<Option<MediaView>, LucileAppError> {
+    let views = app.db.get_media_views_for_srt(srt_uuid).await?;
+    let priorities = app.media_view_priority();
+    Ok(select_best_media_view(&priorities, views))
+}
+
+// TODO do we need to see if we actually have segments around? what about remote?
+fn select_best_media_view(priorities: &[String], mut views: Vec<MediaView>) -> Option<MediaView> {
+    for p in priorities {
+        for idx in 0..views.len() {
+            if views[idx].name == *p {
+                return Some(views.swap_remove(idx));
+            }
+        }
+    }
+    views.into_iter().next()
+}
 
 pub async fn get_media_view_in_corpus(
     db: &Database,

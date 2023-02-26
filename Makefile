@@ -19,7 +19,7 @@ fmt:
 
 fix:
 	cargo fix --allow-staged
-	cargo clippy --fix --allow-staged
+	cargo clippy --fix --allow-staged --allow-dirty
 
 test:
 	cargo test

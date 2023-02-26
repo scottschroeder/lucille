@@ -213,7 +213,7 @@ impl FFMpegGifTranscoder {
     pub async fn launch(
         self,
         mut input: Box<dyn AsyncRead + Unpin + Send>,
-    ) -> Result<(FFMpegCmdAsyncResult, impl tokio::io::AsyncRead), GifTranscodeError> {
+    ) -> Result<FFMpegCmdAsyncResult, GifTranscodeError> {
         let tmp = self.root;
         {
             let mut media_file = tokio::fs::File::create(&self.media_path).await?;
@@ -236,22 +236,28 @@ impl FFMpegGifTranscoder {
         });
         let result = FFMpegCmdAsyncResult {
             inner: cmd_result,
+            stdout: Some(stdout),
             begin,
             _root: tmp,
         };
 
-        Ok((result, stdout))
+        Ok(result)
     }
 }
 
 pub struct FFMpegCmdAsyncResult {
     inner: tokio::task::JoinHandle<Result<std::process::ExitStatus, std::io::Error>>,
     begin: std::time::Instant,
+    stdout: Option<tokio::process::ChildStdout>,
     _root: tempfile::TempDir,
 }
 
 impl FFMpegCmdAsyncResult {
-    pub async fn check(self) -> Result<(), GifTranscodeError> {
+    pub async fn wait(self) -> Result<(), GifTranscodeError> {
+        if self.stdout.is_some() {
+            panic!("you must call (and consume) .output() before waiting");
+        }
+
         let st = self.inner.await??;
         log::trace!("ffmpeg complete after {:?}: {:?}", self.begin.elapsed(), st);
         if st.success() {
@@ -261,6 +267,12 @@ impl FFMpegCmdAsyncResult {
         } else {
             Err(GifTranscodeError::FFMpegCmd(-1))
         }
+    }
+
+    pub fn output(&mut self) -> tokio::process::ChildStdout {
+        self.stdout
+            .take()
+            .expect("you must only call .output() a single time")
     }
 }
 

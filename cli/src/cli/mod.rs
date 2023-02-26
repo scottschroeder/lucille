@@ -89,8 +89,7 @@ pub struct TestCommand {
     pub cfg: argparse::AppConfig,
 }
 
-async fn do_test(args: &TestCommand) -> anyhow::Result<()> {
-    search::test_cmd(args).await
+async fn do_test(_args: &TestCommand) -> anyhow::Result<()> {
     // let _app = args.cfg.build_app().await?;
-    // Ok(())
+    Ok(())
 }
