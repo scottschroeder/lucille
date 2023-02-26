@@ -2,7 +2,7 @@ use app::app::LucileApp;
 
 use super::argparse;
 
-#[deprecated]
+#[deprecated(note = "use the app builder interface")]
 pub async fn get_app(
     db_args: Option<&argparse::DatabaseConfig>,
     storage_args: Option<&argparse::StorageConfig>,

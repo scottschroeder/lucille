@@ -130,6 +130,7 @@ pub struct FFMpegGifTranscoder {
 }
 
 impl FFMpegGifTranscoder {
+    #[deprecated(note = "move this to be a single call to build & launch")]
     pub async fn build_cmd(
         bin: FFMpegBinary,
         subs: &[Subtitle],

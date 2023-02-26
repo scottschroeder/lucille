@@ -12,7 +12,20 @@ MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 
 #.DEFAULT: config
-.PHONY: all build clean sqlx-prepare build-docker win-build-local win-build-docker
+.PHONY: build clean build-docker win-build-local win-build-docker fmt fix test cov
+
+fmt:
+	cargo +nightly fmt
+
+fix:
+	cargo fix --allow-staged
+	cargo clippy --fix --allow-staged
+
+test:
+	cargo test
+
+
+pre-commit: fix fmt test
 
 build:
 	$(CARGO) $(CARGO_OPTS) build --release
@@ -22,13 +35,16 @@ clean:
 
 schema: schema.sql
 
+cov:
+	./scripts/coverage.sh
+
 schema.sql: scripts/dump_schema.sh database/migrations/*
 	./scripts/dump_schema.sh > schema.sql
 
-sqlx-prepare:
+sqlx-data.json:
 	cargo sqlx prepare --merged
 
-build-docker: sqlx-prepare
+build-docker: sqlx-data.json
 	docker build . -t rust_cross_compile/windows -f Dockerfile.windows
 
 win-build-docker: build-docker

@@ -70,10 +70,10 @@ impl Default for ShellApp {
 }
 
 async fn import_and_index(lucile: &LucileApp, packet: CorpusExport) -> anyhow::Result<()> {
-    let cid = app::import_corpus_packet(&lucile, packet)
+    let cid = app::import_corpus_packet(lucile, packet)
         .await
         .context("could not import packet")?;
-    app::index_subtitles(&lucile, cid, None)
+    app::index_subtitles(lucile, cid, None)
         .await
         .context("could not index subtitles")?;
     Ok(())
