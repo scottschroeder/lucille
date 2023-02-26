@@ -1,0 +1,935 @@
+{
+  "db": "SQLite",
+  "0194c3b7824dec928caab519142fcd31a628328052e6cc0e4a62b9989329805d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "data",
+          "ordinal": 0,
+          "type_info": "Blob"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT \n                    srtfile.data\n                FROM srtfile\n                WHERE\n                  srtfile.id = ?\n         "
+  },
+  "03b48cf3097e69f63e6d235b5ff8359afa4a45fdf0327e91b3bb381b307f7198": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "title",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "season",
+          "ordinal": 2,
+          "type_info": "Int64"
+        },
+        {
+          "name": "episode",
+          "ordinal": 3,
+          "type_info": "Int64"
+        },
+        {
+          "name": "hash",
+          "ordinal": 4,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        true,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n            SELECT \n                chapter.id, chapter.title, chapter.season, chapter.episode, chapter.hash\n            FROM \n                chapter\n            WHERE\n                chapter.corpus_id = ?\n         "
+  },
+  "0501ea76d16bbce35c733b17c46b3767c1f56106443fb54e6570914cd84eab78": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                    SELECT\n                        id\n                    FROM chapter\n                    WHERE\n                        hash = ?\n                "
+  },
+  "0c3f28e2ff4dee97ecb1173a5016ca3f5bc9fff26d67bce8db80388ccdc58240": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n            SELECT \n                id\n            FROM \n                corpus\n            WHERE\n                title = ?\n         "
+  },
+  "1b046f3118641e335056e761e6a00b10bc3e3391e91968dc59d395d323011c1c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 5
+      }
+    },
+    "query": "\n                UPDATE chapter\n                SET\n                    corpus_id = ?1,\n                    title = ?2,\n                    season = ?3,\n                    episode = ?4\n                WHERE\n                    hash = ?5\n            "
+  },
+  "1bc91d097249cc3ace3d7c69a204b393988c22ae8d0ccac7e65d04da3e4c54d1": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n            DELETE FROM storage\n            WHERE id = ?\n            "
+  },
+  "1cbffed45d8f31336403a8fadbf16dd8344264d4e58dbfdc12ab04dd551f3337": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "media_view_id",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "start",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "hash",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "encryption_key",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "seq_id",
+          "ordinal": 5,
+          "type_info": "Int64"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                    SELECT\n                        id, media_view_id, start, hash, encryption_key, seq_id\n                    FROM media_segment\n                    WHERE\n                        media_view_id = ?\n                    ORDER BY\n                        seq_id\n                    "
+  },
+  "1fc9c5cf135eb79fc6b33767f9be4af7985d3768d8e7d47d7c1eeeb40f977261": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "media_view_id",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "hash",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "start",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "encryption_key",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "seq_id",
+          "ordinal": 5,
+          "type_info": "Int64"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                    SELECT\n                        id, media_view_id, hash, start, encryption_key, seq_id\n                    FROM media_segment\n                    WHERE\n                        hash = ?\n                    "
+  },
+  "204eab28db267bd508a9177abe34d1c4139b567d6448533792e946457c6d1913": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "corpus_id",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "season",
+          "ordinal": 3,
+          "type_info": "Int64"
+        },
+        {
+          "name": "episode",
+          "ordinal": 4,
+          "type_info": "Int64"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                    SELECT\n                        id, corpus_id, title, season, episode\n                    FROM chapter\n                    WHERE\n                        hash = ?\n                    ORDER BY\n                        id\n                    "
+  },
+  "2f4abddceaedc926db3b33056d7e20526d3e0e24305daf63459c59fc745dfda1": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "\n                    INSERT INTO storage (hash, path)\n                    VALUES ( ?1, ?2)\n                    "
+  },
+  "362e4da692c51533e9fc70f76d3b6f4c543dc420ee87cbdd01fd75f1761e2181": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "title",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "season",
+          "ordinal": 2,
+          "type_info": "Int64"
+        },
+        {
+          "name": "episode",
+          "ordinal": 3,
+          "type_info": "Int64"
+        },
+        {
+          "name": "hash",
+          "ordinal": 4,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        true,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT \n                    chapter.id, chapter.title, chapter.season, chapter.episode,\n                    chapter.hash\n                FROM chapter\n                JOIN srtfile\n                  ON srtfile.chapter_id = chapter.id\n                WHERE \n                  srtfile.id = ?\n         "
+  },
+  "3646eae2730d0dafea1630f71f9c9b6987501c3e639a129bcb7448455da6571f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "name",
+          "ordinal": 2,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "\n                    SELECT\n                        id, chapter_id, name\n                    FROM media_view\n                    WHERE\n                        chapter_id = ?\n                        AND name = ?\n                    "
+  },
+  "3932cca69b8aa3f65290502d7ac451e4425dbeda20524d4c81bac0b5de83ba16": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n            DELETE FROM media_view\n            WHERE id = ?\n            "
+  },
+  "3a6001a1783a8174793cbb1e3100f8d8420421a347c73d5991f0af36f1e11a1f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "title",
+          "ordinal": 1,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "\n            SELECT \n                id, title\n            FROM \n                corpus\n         "
+  },
+  "46538b323c853bee45a63b25b3914f88a08948c245355581de822cdee23f737d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT \n                    id, name\n                FROM media_view\n                WHERE\n                    chapter_id = ?\n                ORDER BY\n                    id ASC\n         "
+  },
+  "4b49053937d0a20debefc6f62f1391d863468e104b0c76bcf4cd743f3a823c23": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 3
+      }
+    },
+    "query": "\n                    INSERT INTO srtfile (chapter_id, uuid, data)\n                    VALUES ( ?1, ?2, ?3 )\n                    "
+  },
+  "5250abbdb75273c01c72ef32f2c9089cf2ba3998c122d0ea36119eb74b6a2934": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "name",
+          "ordinal": 2,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                    SELECT\n                        id, chapter_id, name\n                    FROM media_view\n                    WHERE\n                        id = ?\n                    "
+  },
+  "5ffd7e7bea30600aef2c8d655c568f0cfba3b3c99cc2be91aaef2c931286523c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                    INSERT INTO search_index (uuid)\n                    VALUES ( ?1 )\n                    "
+  },
+  "634046802427627a11bbfb25761033d23e0c879f62ba2491e28ce9ed8970fa23": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "corpus_id",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "season",
+          "ordinal": 3,
+          "type_info": "Int64"
+        },
+        {
+          "name": "episode",
+          "ordinal": 4,
+          "type_info": "Int64"
+        },
+        {
+          "name": "hash",
+          "ordinal": 5,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                    SELECT\n                        id, corpus_id, title, season, episode, hash\n                    FROM chapter\n                    WHERE\n                        id = ?\n                    "
+  },
+  "74dbe7abb690afe05b53375ed946429ca22be83f18786bceb1fcce0d418ce3d5": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "name",
+          "ordinal": 2,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT \n                    media_view.id, media_view.chapter_id, media_view.name\n                FROM media_view\n                JOIN chapter\n                  ON chapter.id = media_view.chapter_id\n                WHERE\n                    chapter.corpus_id = ?\n                ORDER BY\n                    media_view.id DESC\n         "
+  },
+  "7cce8eb7d12be371c45c959a27b0e6b65e4e4bcfc07b40456811d1afc8230e80": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "media_view_id",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "start",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "hash",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "encryption_key",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "seq_id",
+          "ordinal": 5,
+          "type_info": "Int64"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "\n                    SELECT\n                        ms.id, media_view_id, start, ms.hash, encryption_key, seq_id\n                    FROM media_segment as ms\n                    JOIN media_view ON ms.media_view_id = media_view.id\n                    JOIN chapter ON media_view.chapter_id = chapter.id\n                    JOIN corpus ON chapter.corpus_id = corpus.id\n                    WHERE\n                        media_view.name = ?\n                        AND corpus.id = ?\n                    ORDER BY\n                        ms.id\n                    "
+  },
+  "8298a09a0d737d597682dcfc5c306d5a100f701e231fc98fa9f1ba08a8bda1e3": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "hash",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "path",
+          "ordinal": 2,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "\n                SELECT \n                    storage.id, storage.hash, storage.path\n                FROM storage\n                LEFT JOIN media_segment\n                    ON storage.hash = media_segment.hash\n                LEFT JOIN chapter\n                    ON storage.hash = chapter.hash\n                WHERE media_segment.id IS NULL\n                    AND chapter.id IS NULL\n            "
+  },
+  "96fb0b574f728c622a0431f8ce71a7e17b43d2d3a09d76d7d3a9f97de9b3b6a6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "uuid",
+          "ordinal": 0,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT \n                    uuid\n                FROM srtfile\n                WHERE \n                  id = ?\n         "
+  },
+  "97cd789b3d88fa1bd137e112fbe9da2c8d52eb60ae0a1e9b8c05e388cb596f36": {
+    "describe": {
+      "columns": [
+        {
+          "name": "data",
+          "ordinal": 0,
+          "type_info": "Blob"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT \n                    srtfile.data\n                FROM srtfile\n                WHERE\n                  srtfile.uuid = ?\n         "
+  },
+  "a3f1746e9f36d55fe5bd707d1541b834824141a81e2e865211a36ffcb18bfc87": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                    INSERT INTO corpus (title)\n                    VALUES ( ?1 )\n                    "
+  },
+  "aa2fa127d94f65538a47d1281ff19968537d2d0c9ecc6ace55d0e9a0628c5f58": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "hash",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "path",
+          "ordinal": 2,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                    SELECT\n                        id, hash, path\n                    FROM storage\n                    WHERE\n                        path = ?\n                    "
+  },
+  "abb5d8088d51d1eb23cf38bbf08d4c6e1bd3b712b6af5000effebe876cb4c8ce": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "uuid",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "data",
+          "ordinal": 2,
+          "type_info": "Blob"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT\n                    srtfile.id, srtfile.uuid, srtfile.data\n                FROM srtfile\n                WHERE\n                  srtfile.chapter_id = ?\n                ORDER BY srtfile.id DESC\n                LIMIT 1\n         "
+  },
+  "c6d330f26444e4c1b07fc2ab8d9c1a82dfbbf180b41e94531d7cf360332a7892": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "name",
+          "ordinal": 2,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT \n                    media_view.id, media_view.chapter_id, media_view.name\n                FROM media_view\n                JOIN srtfile\n                  ON srtfile.chapter_id = media_view.chapter_id\n                WHERE\n                    srtfile.uuid = ?\n                ORDER BY\n                    media_view.id DESC\n         "
+  },
+  "cedcf09729fd394c17f7c3d8015cd485fcce307f970be85fcf697a9ba283738f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 5
+      }
+    },
+    "query": "\n                    INSERT INTO chapter (corpus_id, title, season, episode, hash)\n                    VALUES ( ?1, ?2, ?3, ?4, ?5 )\n                    "
+  },
+  "d4c8755bdbf373759f761061946e96a691050f1b786be5e29b1bca335571b884": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "hash",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "path",
+          "ordinal": 2,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                    SELECT\n                        id, hash, path\n                    FROM storage\n                    WHERE\n                        hash = ?\n                    "
+  },
+  "d4d38c22f22160ff2697e0e6bc4c055de71dc422aa066ee77aefb591c1815b5d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "title",
+          "ordinal": 1,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n            SELECT \n                id, title\n            FROM \n                corpus\n            WHERE\n                id = ?\n         "
+  },
+  "dc612151cf18963799bc4c0908906df79df92bb9fccd8f53a8894ee23b2a2a63": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "\n                    INSERT INTO media_view (chapter_id, name)\n                    VALUES ( ?1, ?2 )\n                    "
+  },
+  "e4d56d9351a67cabe577b411606d3ef3e6708be8612002cb6a0656e940b7dc64": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "corpus_id",
+          "ordinal": 1,
+          "type_info": "Int64"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "season",
+          "ordinal": 3,
+          "type_info": "Int64"
+        },
+        {
+          "name": "episode",
+          "ordinal": 4,
+          "type_info": "Int64"
+        },
+        {
+          "name": "hash",
+          "ordinal": 5,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                    SELECT\n                        id, corpus_id, title, season, episode, hash\n                    FROM chapter\n                    WHERE\n                        corpus_id = ?\n                    "
+  },
+  "e8751425686bb6ebf99e23e2bef28ce79faf187ec587d32ca5a57fea88bb574a": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 3
+      }
+    },
+    "query": "\n            UPDATE media_view\n            SET name = ?\n                FROM media_view as s\n                JOIN chapter ON s.chapter_id = chapter.id\n                JOIN corpus ON chapter.corpus_id = corpus.id\n            WHERE corpus.id = ?\n                AND media_view.name = ?\n            "
+  },
+  "edf5815547dd08ba70ede6c0cec5a63465da297ca387fa7f2dddd77554f0c32a": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 5
+      }
+    },
+    "query": "\n                    INSERT INTO media_segment (media_view_id, seq_id, hash, start, encryption_key)\n                    VALUES ( ?1, ?2, ?3, ?4, ?5)\n                    "
+  },
+  "f8ec6457f1edd7a94144f57d3f1155807526731c311633f602f2af08eef40d45": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "uuid",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 2,
+          "type_info": "Int64"
+        },
+        {
+          "name": "data",
+          "ordinal": 3,
+          "type_info": "Blob"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT \n                    srtfile.id,\n                    srtfile.uuid,\n                    srtfile.chapter_id,\n                    srtfile.data\n                FROM srtfile\n                JOIN chapter\n                  ON srtfile.chapter_id = chapter.id\n                WHERE \n                  chapter.corpus_id = ? AND\n                  srtfile.id in\n                    (\n                      SELECT \n                        MAX(srtfile.id) \n                      FROM srtfile\n                      JOIN chapter\n                        ON srtfile.chapter_id = chapter.id\n                      GROUP BY chapter.id\n                    )\n                ORDER BY\n                  srtfile.id ASC\n         "
+  },
+  "f95aae32d43b0639e272cb75eebe49c37b669f2ad8fc3d0e10ad5d12cd429961": {
+    "describe": {
+      "columns": [
+        {
+          "name": "uuid",
+          "ordinal": 0,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "\n                SELECT \n                    uuid\n                FROM search_index\n                ORDER BY\n                    id\n         "
+  }
+}

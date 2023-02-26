@@ -1,0 +1,19 @@
+[package]
+name = "database"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lucile-core = {path = "../lucile-core"}
+log = "0.4"
+
+sqlx = { version = "0.6", features = ["offline", "sqlite", "runtime-tokio-native-tls"] }
+tokio = { version = "1.20.0", features = ["macros"]}
+futures = "0.3"
+thiserror = "1"
+serde_json = "1.0"
+
+[dev-dependencies]
+subrip = "0.1.1"

@@ -1,0 +1,28 @@
+[package]
+name = "lucile"
+version = "0.2.0"
+authors = ["Scott Schroeder <scottschroeder@sent.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+database = {path = "../database"}
+lucile-core = {path = "../lucile-core"}
+app = {path = "../app"}
+
+clap = {version = "4.1", features = ["derive", "cargo"]}
+color-backtrace = { version = "0.5" }
+pretty_env_logger = "0.4"
+
+log = "0.4"
+anyhow = "1"
+serde_json = "1"
+once-cell-regex = "0.2.1"
+
+tokio = { version = "1.20.0", features = ["macros", "io-std"]}
+
+
+[features]
+# Defines a feature named `webp` that does not enable any other features.
+ffmpeg-debug = []
