@@ -5,7 +5,8 @@
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     // Log to stdout (if you run with `RUST_LOG=debug`).
-    tracing_subscriber::fmt::init();
+    // tracing_subscriber::fmt::init();
+    gui::egui_logger::init().unwrap();
 
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(

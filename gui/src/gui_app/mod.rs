@@ -1,46 +1,17 @@
-// use hotkey_manager::HotKeyManager;
-// use image_sorter::NamedImage;
-
-use std::path::Path;
-
-use anyhow::Context;
-use app::app::LucileApp;
-use lucile_core::export::CorpusExport;
-
-pub(crate) use self::search_app::SearchApp;
-use self::{
-    error::ErrorChainLogLine,
-    loader::{load_last_index, LoadedShell},
-};
-
 pub mod error;
-mod loader;
-mod search_app;
-// mod import_manager;
 
-// pub(crate) mod lucileimage;
-// pub(crate) mod components {
-//     pub(crate) mod card;
-//     pub(crate) mod choice;
-// }
-// mod database;
-// mod hotkey_manager;
-// mod image_sorter;
-// mod lucile_app;
-// mod lucile_manager;
-//
+mod lucile;
 
-pub struct AppCtx<'a> {
-    pub(crate) rt: &'a tokio::runtime::Handle,
-    pub(crate) lucile: &'a std::sync::Arc<LucileApp>,
-}
+pub mod egui_logger;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct ShellApp {
-    // #[serde(skip)]
-    // loaded: Option<LoadedShell>,
+    #[serde(skip)]
+    lucile: lucile::LucileShell,
+    #[serde(skip)]
+    show_logger: bool,
     // #[serde(skip)]
     // search_app_state: SearchAppState,
     // #[serde(skip)]
@@ -51,32 +22,17 @@ pub struct ShellApp {
     // db: Option<database::AppData>,
 }
 
-pub(crate) enum SearchAppState {
-    Unknown,
-    None,
-    App(SearchApp),
-}
-
 impl Default for ShellApp {
     fn default() -> Self {
         Self {
-            // loaded: None,
+            lucile: lucile::LucileShell::default(),
+            show_logger: false,
             // search_app_state: SearchAppState::Unknown,
             // hotkeys: HotKeyManager::default(),
             // dirs: directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APP).unwrap(),
             // db: None,
         }
     }
-}
-
-async fn import_and_index(lucile: &LucileApp, packet: CorpusExport) -> anyhow::Result<()> {
-    let cid = app::import_corpus_packet(lucile, packet)
-        .await
-        .context("could not import packet")?;
-    app::index_subtitles(lucile, cid, None)
-        .await
-        .context("could not index subtitles")?;
-    Ok(())
 }
 
 impl ShellApp {
@@ -96,17 +52,6 @@ impl ShellApp {
 
         app
     }
-}
-
-fn import(ctx: &mut AppCtx<'_>, selection: &Path) -> anyhow::Result<()> {
-    let f = std::fs::File::open(selection)
-        .with_context(|| format!("unable to open file {:?} for import", selection))?;
-    let packet = serde_json::from_reader(f).context("could not deserialize import packet")?;
-    let lucile = ctx.lucile.clone();
-    ctx.rt
-        .block_on(async { import_and_index(&lucile, packet).await })
-        .context("unable to run import/index in background thread")?;
-    Ok(())
 }
 
 impl eframe::App for ShellApp {
@@ -160,7 +105,40 @@ impl eframe::App for ShellApp {
                     //     ui.close_menu()
                     // }
                     if ui.button("Quit").clicked() {
-                        frame.quit();
+                        frame.close();
+                    }
+                });
+                ui.menu_button("View", |ui| {
+                    // if ui.button("Import").clicked() {
+                    //     if let Some(p) = rfd::FileDialog::new().pick_file() {
+                    //         if let Err(e) = import(&mut app_ctx, p.as_path()) {
+                    //             log::error!("{:?}", ErrorChainLogLine::from(e));
+                    //         } else {
+                    //             *search_app_state = SearchAppState::Unknown;
+                    //         }
+                    //         // selection = Some(LoaderSelection::Path(p));
+                    //     }
+                    //     ui.close_menu()
+                    // }
+                    if ui.button("Debug Logs").clicked() {
+                        self.show_logger = !self.show_logger;
+                    }
+                });
+                ui.menu_button("Log Message", |ui| {
+                    if ui.button("Trace").clicked() {
+                        log::trace!("log message button clicked!");
+                    }
+                    if ui.button("Debug").clicked() {
+                        log::debug!("log message button clicked!");
+                    }
+                    if ui.button("Info").clicked() {
+                        log::info!("log message button clicked!");
+                    }
+                    if ui.button("Warn").clicked() {
+                        log::warn!("log message button clicked!");
+                    }
+                    if ui.button("Error").clicked() {
+                        log::error!("log message button clicked!");
                     }
                 });
             });
@@ -170,7 +148,13 @@ impl eframe::App for ShellApp {
             // lucile_manager.update_side_panel(ui);
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ctx, |_ui| {
+            if self.show_logger {
+                egui::Window::new("Debug Logs").show(ctx, |ui| {
+                    // draws the logger ui.
+                    egui_logger::logger_ui(ui);
+                });
+            }
             // app_ctx.hotkeys.check_cleared(ui);
             // lucile_manager.update_central_panel(ui, &mut app_ctx);
             // if let SearchAppState::App(search_app) = search_app_state {

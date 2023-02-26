@@ -7,6 +7,7 @@ mod gui_app;
 #[cfg(target_arch = "wasm32")]
 use eframe::wasm_bindgen::{self, prelude::*};
 pub use gui_app::ShellApp;
+pub use gui_app::egui_logger;
 
 /// This is the entry-point for all the web-assembly.
 /// This is called once from the HTML.

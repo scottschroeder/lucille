@@ -9,7 +9,7 @@ use egui::RichText;
 use lucile_core::clean_sub::CleanSubs;
 
 use self::episode_cache::{EpisodeCache, EpisodeData};
-use super::{error::ErrorChainLogLine, AppCtx};
+use super::{super::error::ErrorChainLogLine, AppCtx};
 
 const DEFAULT_SEARCH_WIDTH: usize = 5;
 const SEARCH_BUFFER_DEPTH: usize = 32;

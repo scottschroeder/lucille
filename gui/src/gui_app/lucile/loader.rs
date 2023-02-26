@@ -1,13 +1,45 @@
 use anyhow::Context;
 use app::app::LucileApp;
 
-use super::{AppCtx, SearchApp, SearchAppState};
+use super::{AppCtx, SearchApp};
 use crate::gui_app::error::ErrorChainLogLine;
+
+enum LoadManager<T> {
+    Init,
+    Unloaded,
+    Error(Option<anyhow::Error>),
+    Ready(T),
+}
+
+impl<T> Default for LoadManager<T> {
+    fn default() -> Self {
+        LoadManager::Init
+    }
+}
+
+impl<T> LoadManager<T> {
+    pub fn reset(&mut self) {
+        *self = LoadManager::Unloaded
+    }
+
+    pub fn get(&self) -> Option<&T> {
+        match self {
+            LoadManager::Ready(t) => Some(t),
+            _ => None,
+        }
+    }
+}
 
 enum LoadState {
     None,
     App(std::sync::Arc<LucileApp>),
     Ready((std::sync::Arc<LucileApp>, SearchApp)),
+}
+//
+pub(crate) enum SearchAppState {
+    Unknown,
+    None,
+    App(SearchApp),
 }
 
 impl LoadState {
