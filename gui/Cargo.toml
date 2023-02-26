@@ -17,9 +17,9 @@ crate-type = ["cdylib", "rlib"]
 
 
 [dependencies]
-egui = "0.18.0"
-egui_extras = "0.18.0"
-eframe = { version = "0.18.0", features = ["persistence"] }
+egui = "0.21"
+egui_extras = "0.21"
+eframe = { version = "0.21", features = ["persistence"] }
 rfd = "0.8.2"
 
 log = "0.4"

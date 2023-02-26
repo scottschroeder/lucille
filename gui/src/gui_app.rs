@@ -39,10 +39,10 @@ pub struct AppCtx<'a> {
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct ShellApp {
-    #[serde(skip)]
-    loaded: Option<LoadedShell>,
-    #[serde(skip)]
-    search_app_state: SearchAppState,
+    // #[serde(skip)]
+    // loaded: Option<LoadedShell>,
+    // #[serde(skip)]
+    // search_app_state: SearchAppState,
     // #[serde(skip)]
     // hotkeys: HotKeyManager,
     // #[serde(skip)]
@@ -60,8 +60,8 @@ pub(crate) enum SearchAppState {
 impl Default for ShellApp {
     fn default() -> Self {
         Self {
-            loaded: None,
-            search_app_state: SearchAppState::Unknown,
+            // loaded: None,
+            // search_app_state: SearchAppState::Unknown,
             // hotkeys: HotKeyManager::default(),
             // dirs: directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APP).unwrap(),
             // db: None,
@@ -114,50 +114,50 @@ impl eframe::App for ShellApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let Self {
-            // lucile_manager,
-            // hotkeys,
-            // dirs,
-            // db,
-            search_app_state,
-            loaded,
-        } = self;
+        // let Self {
+        //     // lucile_manager,
+        //     // hotkeys,
+        //     // dirs,
+        //     // db,
+        //     search_app_state,
+        //     loaded,
+        // } = self;
 
-        let LoadedShell { rt, lucile } = match loaded {
-            Some(s) => s,
-            None => {
-                let s = LoadedShell::load()
-                    .context("failed to initialize GUI")
-                    .unwrap();
-                *loaded = Some(s);
-                loaded.as_mut().unwrap()
-            }
-        };
+        // let LoadedShell { rt, lucile } = match loaded {
+        //     Some(s) => s,
+        //     None => {
+        //         let s = LoadedShell::load()
+        //             .context("failed to initialize GUI")
+        //             .unwrap();
+        //         *loaded = Some(s);
+        //         loaded.as_mut().unwrap()
+        //     }
+        // };
 
-        let mut app_ctx = AppCtx {
-            rt: rt.handle(),
-            lucile,
-        };
+        // let mut app_ctx = AppCtx {
+        //     rt: rt.handle(),
+        //     lucile,
+        // };
 
-        if let SearchAppState::Unknown = search_app_state {
-            *search_app_state = load_last_index(&mut app_ctx);
-        };
+        // if let SearchAppState::Unknown = search_app_state {
+        //     *search_app_state = load_last_index(&mut app_ctx);
+        // };
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
-                    if ui.button("Import").clicked() {
-                        if let Some(p) = rfd::FileDialog::new().pick_file() {
-                            if let Err(e) = import(&mut app_ctx, p.as_path()) {
-                                log::error!("{:?}", ErrorChainLogLine::from(e));
-                            } else {
-                                *search_app_state = SearchAppState::Unknown;
-                            }
-                            // selection = Some(LoaderSelection::Path(p));
-                        }
-                        ui.close_menu()
-                    }
+                    // if ui.button("Import").clicked() {
+                    //     if let Some(p) = rfd::FileDialog::new().pick_file() {
+                    //         if let Err(e) = import(&mut app_ctx, p.as_path()) {
+                    //             log::error!("{:?}", ErrorChainLogLine::from(e));
+                    //         } else {
+                    //             *search_app_state = SearchAppState::Unknown;
+                    //         }
+                    //         // selection = Some(LoaderSelection::Path(p));
+                    //     }
+                    //     ui.close_menu()
+                    // }
                     if ui.button("Quit").clicked() {
                         frame.quit();
                     }
@@ -172,9 +172,9 @@ impl eframe::App for ShellApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             // app_ctx.hotkeys.check_cleared(ui);
             // lucile_manager.update_central_panel(ui, &mut app_ctx);
-            if let SearchAppState::App(search_app) = search_app_state {
-                search_app.update_central_panel(ui, &mut app_ctx);
-            }
+            // if let SearchAppState::App(search_app) = search_app_state {
+            //     search_app.update_central_panel(ui, &mut app_ctx);
+            // }
         });
     }
 }
