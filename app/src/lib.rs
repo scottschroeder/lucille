@@ -149,7 +149,7 @@ pub async fn index_subtitles(
     log::trace!("ALL SUBS: {:#?}", all_subs);
 
     let index_uuid = Uuid::generate();
-    let index_path = app.index_root().join(index_uuid.to_string());
+    let index_path = app.config.index_root().join(index_uuid.to_string());
     std::fs::create_dir_all(&index_path)?;
     let index = search::build_index(
         index_uuid,

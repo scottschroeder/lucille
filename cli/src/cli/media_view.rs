@@ -329,8 +329,8 @@ impl CreateMediaView {
          */
         let mut split_set = tokio::task::JoinSet::new();
 
-        let output = app.media_root();
-        let ffmpeg = app.ffmpeg();
+        let output = app.config.media_root();
+        let ffmpeg = app.config.ffmpeg();
 
         let split_buider = std::sync::Arc::new(
             app::prepare::MediaSplittingStrategy::new(

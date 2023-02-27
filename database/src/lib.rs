@@ -1,6 +1,6 @@
 #![allow(clippy::uninlined_format_args)]
 use std::{
-    path::{self, PathBuf},
+    path::{self},
     str::FromStr,
     time::Duration,
 };
@@ -9,15 +9,15 @@ use lucile_core::{
     metadata::{EpisodeMetadata, MediaHash, MediaMetadata},
     uuid::Uuid,
 };
-use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteSynchronous},
-    Pool, Sqlite,
-};
+use sqlx::{Pool, Sqlite};
+
+pub use self::build::{DatabaseBuider, DatabaseSource, LucileDbConnectOptions};
 
 const POOL_TIMEOUT: Duration = Duration::from_secs(30);
 const POOL_MAX_CONN: u32 = 2;
 pub const DATABASE_ENV_VAR: &str = "DATABASE_URL";
 
+mod build;
 mod chapter;
 mod corpus;
 mod index;
@@ -28,23 +28,18 @@ mod subtitles;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DatabaseError {
+    #[error("state error: {}", _0)]
+    ConnectStateError(&'static str),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
-    #[error("unable to migrate database {:?}", _0)]
-    Migrate(DatabaseSource, #[source] sqlx::migrate::MigrateError),
+    #[error("database migration failed")]
+    Migrate(#[from] sqlx::migrate::MigrateError),
     #[error(transparent)]
     VarError(#[from] std::env::VarError),
     #[error("must specify a database")]
     NoDatabaseSpecified,
     #[error("unable to convert datatype from sql: {}", _0)]
     ConvertFromSqlError(String),
-}
-
-#[derive(Debug, Clone)]
-pub enum DatabaseSource {
-    Memory,
-    Env(String),
-    Path(PathBuf),
 }
 
 #[derive(Debug)]
@@ -70,75 +65,68 @@ pub fn db_env() -> Result<Option<String>, DatabaseError> {
 
 impl Database {
     pub async fn memory() -> Result<Database, DatabaseError> {
-        let pool = memory_db().await?;
-        migrations(&DatabaseSource::Memory, &pool).await?;
-        Ok(Database { pool })
+        let mut builder = DatabaseBuider::default();
+        builder.add_opts(LucileDbConnectOptions::memory())?;
+        builder.connect().await?;
+        builder.migrate().await?;
+        let (db, _) = builder.into_parts()?;
+        Ok(db)
+    }
+
+    pub async fn get_db_migration_status(
+        &self,
+    ) -> Result<Vec<build::MigrationRecord>, DatabaseError> {
+        build::get_db_migration_status(&self.pool).await
     }
 }
 
 impl DatabaseFetcher {
+    #[deprecated(note = "use stateful `DatabaseBuilder` api")]
     pub async fn memory() -> Result<DatabaseFetcher, DatabaseError> {
-        Ok(DatabaseFetcher {
-            db: Database::memory().await?,
-            source: DatabaseSource::Memory,
-        })
+        let mut builder = DatabaseBuider::default();
+        builder.add_opts(LucileDbConnectOptions::memory())?;
+        builder.connect().await?;
+        builder.migrate().await?;
+        let (db, source) = builder.into_parts()?;
+        Ok(DatabaseFetcher { db, source })
     }
+    #[deprecated(note = "use stateful `DatabaseBuilder` api")]
     pub async fn from_url_or_file(url: String) -> Result<DatabaseFetcher, DatabaseError> {
-        if url.starts_with("sqlite:") {
-            let pool = from_env_db(&url).await?;
-            let source = DatabaseSource::Env(url);
-            migrations(&source, &pool).await?;
-            Ok(DatabaseFetcher {
-                db: Database { pool },
-                source,
-            })
+        let mut builder = DatabaseBuider::default();
+        let opts = if url.starts_with("sqlite:") {
+            LucileDbConnectOptions::from_url(&url)?
         } else {
-            DatabaseFetcher::from_path(url).await
-        }
+            LucileDbConnectOptions::from_path(&url)
+        };
+        builder.add_opts(opts)?;
+        builder.connect().await?;
+        builder.migrate().await?;
+        let (db, source) = builder.into_parts()?;
+        Ok(DatabaseFetcher { db, source })
     }
+
+    #[deprecated(note = "use stateful `DatabaseBuilder` api")]
     pub async fn from_path<P: AsRef<path::Path>>(
         filename: P,
     ) -> Result<DatabaseFetcher, DatabaseError> {
-        let filename = filename.as_ref();
-        let pool = connect_db(filename).await?;
-        let source = DatabaseSource::Path(filename.to_path_buf());
-        migrations(&source, &pool).await?;
-        Ok(DatabaseFetcher {
-            db: Database { pool },
-            source,
-        })
+        let mut builder = DatabaseBuider::default();
+        builder.add_opts(LucileDbConnectOptions::from_path(filename.as_ref()))?;
+        builder.connect().await?;
+        builder.migrate().await?;
+        let (db, source) = builder.into_parts()?;
+        Ok(DatabaseFetcher { db, source })
     }
+    #[deprecated(note = "use stateful `DatabaseBuilder` api")]
     pub async fn from_env() -> Result<DatabaseFetcher, DatabaseError> {
         let url = db_env()?.ok_or(DatabaseError::NoDatabaseSpecified)?;
-        let pool = from_env_db(&url).await?;
-        let source = DatabaseSource::Env(url);
-        migrations(&source, &pool).await?;
-        Ok(DatabaseFetcher {
-            db: Database { pool },
-            source,
-        })
+        let mut builder = DatabaseBuider::default();
+        builder.add_opts(LucileDbConnectOptions::from_url(&url)?)?;
+        builder.connect().await?;
+        builder.migrate().await?;
+        let (db, source) = builder.into_parts()?;
+        Ok(DatabaseFetcher { db, source })
     }
 }
-
-/*
- *
- * GET ALL SHOWS ASSOCIATED WITH A SEARCH INDEX
- *
-SELECT DISTINCT
-  corpus.id, corpus.title
-FROM corpus
-JOIN chapter
-  ON chapter.corpus_id = corpus.id
-JOIN srtfile
-  ON srtfile.chapter_id = chapter.id
-JOIN search_assoc
-  ON search_assoc.srt_id = srtfile.id
-JOIN search_index
-  ON search_index.id = search_assoc.search_index_id
-WHERE search_index.uuid = "5d0b7314-4136-476a-b91a-4cf0b80bd985"
-GROUP BY corpus.title
-;
-*/
 
 fn metadata_from_chapter(
     title: String,
@@ -164,61 +152,6 @@ fn parse_media_hash(text: &str) -> Result<MediaHash, DatabaseError> {
 fn parse_uuid(text: &str) -> Result<Uuid, DatabaseError> {
     Uuid::from_str(text)
         .map_err(|e| DatabaseError::ConvertFromSqlError(format!("invalid uuid: {:?}", e)))
-}
-
-async fn migrations(src: &DatabaseSource, pool: &Pool<Sqlite>) -> Result<(), DatabaseError> {
-    sqlx::migrate!()
-        .run(pool)
-        .await
-        .map_err(|e| DatabaseError::Migrate(src.clone(), e))?;
-    Ok(())
-}
-
-async fn create_pool(opts: SqliteConnectOptions) -> Result<Pool<Sqlite>, DatabaseError> {
-    Ok(SqlitePoolOptions::new()
-        .max_connections(POOL_MAX_CONN)
-        .acquire_timeout(POOL_TIMEOUT)
-        .connect_with(opts)
-        .await?)
-}
-
-async fn from_env_db(url: &str) -> Result<Pool<Sqlite>, DatabaseError> {
-    log::debug!("connecting to sqlite db at `{}`", url);
-    let opts = SqliteConnectOptions::from_str(url)?
-        .create_if_missing(true)
-        .synchronous(SqliteSynchronous::Normal)
-        .busy_timeout(POOL_TIMEOUT)
-        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
-    create_pool(opts).await
-}
-async fn memory_db() -> Result<Pool<Sqlite>, DatabaseError> {
-    log::debug!("connecting to sqlite db in-memory");
-    let opts = SqliteConnectOptions::from_str("sqlite::memory:")?
-        .create_if_missing(true)
-        .synchronous(SqliteSynchronous::Normal)
-        .busy_timeout(POOL_TIMEOUT)
-        .journal_mode(sqlx::sqlite::SqliteJournalMode::Memory);
-    create_pool(opts).await
-}
-
-async fn connect_db<P: AsRef<path::Path>>(filename: P) -> Result<Pool<Sqlite>, DatabaseError> {
-    log::debug!("connecting to sqlite db at {:?}", filename.as_ref());
-    if let Some(dir) = filename.as_ref().parent() {
-        if let Err(e) = std::fs::create_dir_all(dir) {
-            log::error!(
-                "unable to create directory {:?} for the database: {}",
-                dir,
-                e
-            );
-        }
-    }
-    let opts = SqliteConnectOptions::new()
-        .filename(filename)
-        .create_if_missing(true)
-        .synchronous(SqliteSynchronous::Normal)
-        .busy_timeout(POOL_TIMEOUT)
-        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
-    create_pool(opts).await
 }
 
 #[cfg(test)]

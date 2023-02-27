@@ -48,7 +48,7 @@ impl CleanMediaRootCmd {
             .build()
             .await?;
 
-        let hashfs = HashFS::new(app.media_root()).context("open HashFS")?;
+        let hashfs = HashFS::new(app.config.media_root()).context("open HashFS")?;
         log::trace!("start get all hashes");
         let contents = hashfs
             .all_hashes()
@@ -126,7 +126,7 @@ impl CleanLocalStorage {
             .await?;
 
         let orphans = app.db.get_storage_orphans().await?;
-        let hashfs = HashFS::new(app.media_root()).context("open HashFS")?;
+        let hashfs = HashFS::new(app.config.media_root()).context("open HashFS")?;
         let mut errs = 0;
         for s in &orphans {
             println!("delete {}, {:?}, {:?}", s.hash, s.id, s.path);

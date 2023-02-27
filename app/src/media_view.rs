@@ -16,7 +16,7 @@ pub async fn get_media_view_for_transcode(
     srt_uuid: Uuid,
 ) -> Result<Option<MediaView>, LucileAppError> {
     let views = app.db.get_media_views_for_srt(srt_uuid).await?;
-    let priorities = app.media_view_priority();
+    let priorities = app.config.media_view_priority();
     Ok(select_best_media_view(&priorities, views))
 }
 

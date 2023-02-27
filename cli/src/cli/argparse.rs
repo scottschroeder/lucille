@@ -1,3 +1,5 @@
+use anyhow::Context;
+use app::app::LucileApp;
 use clap::{Parser, ValueEnum};
 
 #[derive(Parser, Debug, Clone)]
@@ -49,15 +51,31 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub async fn build_app(&self) -> Result<app::app::LucileApp, app::LucileAppError> {
-        app::app::LucileBuilder::new()?
-            .config_file(self.config_file.config_file())
+    pub async fn build_app(&self) -> anyhow::Result<app::app::LucileApp> {
+        let config = app::app::ConfigBuilder::new()?
+            .load_environment(true)
+            .config_file(self.config_file.config_file())?
             .ffmpeg_override(self.ffmpeg.ffmpeg())?
             .database_path(self.db.database_path())?
             .index_root(self.storage.index_root())?
             .media_root(self.media_root.media_root())?
-            .build()
+            .build()?;
+
+        let db_opts = config
+            .database_connection_opts()
+            .context("failed to create db opts")?;
+        let mut db_builder = database::DatabaseBuider::default();
+        db_builder
+            .add_opts(db_opts)
+            .context("database configuration")?;
+        db_builder.connect().await.context("connect to db")?;
+        db_builder
+            .migrate()
             .await
+            .context("validate db migrations")?;
+        let (db, _) = db_builder.into_parts()?;
+
+        Ok(LucileApp { db, config })
     }
 }
 

@@ -27,7 +27,7 @@ pub async fn handle_make_gif_request(
         crate::media_view::get_surrounding_media(app, target_media_view.id, start, end).await?;
     settings.cut_selection.segment_start = Some(segment_start);
 
-    let transcoder = FFMpegGifTranscoder::build_cmd(app.ffmpeg(), clip_subs, &settings)
+    let transcoder = FFMpegGifTranscoder::build_cmd(app.config.ffmpeg(), clip_subs, &settings)
         .await
         .map_err(RequestError::GifTranscodeError)?;
     let res = transcoder
