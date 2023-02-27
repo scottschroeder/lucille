@@ -4,12 +4,24 @@ mod lucile;
 
 pub mod egui_logger;
 pub mod error_popup;
+use anyhow::Context;
+pub use error_popup::ErrorPopup;
+
+struct ShellCtx<'a> {
+    error_manager: &'a mut error_popup::ErrorManager,
+}
+
+impl<'a> ErrorPopup for ShellCtx<'a> {
+    fn raise(&mut self, err: anyhow::Error) {
+        self.error_manager.raise(err)
+    }
+}
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
+#[derive(Default)]
 pub struct ShellApp {
-    #[serde(skip)]
     lucile: lucile::LucileShell,
     show_logger: bool,
     logger_ui: egui_logger::LoggerUi,
@@ -23,23 +35,6 @@ pub struct ShellApp {
     // dirs: directories::ProjectDirs,
     // #[serde(skip)]
     // db: Option<database::AppData>,
-}
-
-
-
-impl Default for ShellApp {
-    fn default() -> Self {
-        Self {
-            lucile: lucile::LucileShell::default(),
-            show_logger: false,
-            logger_ui: egui_logger::LoggerUi::default(),
-            error_manager: error_popup::ErrorManager::default(),
-            // search_app_state: SearchAppState::Unknown,
-            // hotkeys: HotKeyManager::default(),
-            // dirs: directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APP).unwrap(),
-            // db: None,
-        }
-    }
 }
 
 impl ShellApp {
@@ -67,6 +62,14 @@ impl eframe::App for ShellApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        let ShellApp {
+            lucile,
+            show_logger: _,
+            logger_ui: _,
+            error_manager,
+        } = self;
+        let mut app_ctx = ShellCtx { error_manager };
+        app_ctx.handle_err(lucile.load().context("unable to launch application"));
         // let Self {
         //     // lucile_manager,
         //     // hotkeys,
@@ -149,8 +152,7 @@ impl eframe::App for ShellApp {
                     }
 
                     if ui.button("Raise Simple Error").clicked() {
-                        self.error_manager
-                            .raise(anyhow::anyhow!("this is an error"))
+                        app_ctx.raise(anyhow::anyhow!("this is an error"))
                     }
 
                     if ui.button("Raise Layered Error").clicked() {
@@ -159,30 +161,32 @@ impl eframe::App for ShellApp {
                         let e = anyhow::Error::from(root)
                             .context("unable to read media")
                             .context("transcoding failed");
-                        self.error_manager.raise(e)
+
+                        app_ctx.raise(e)
                     }
                 });
             });
         });
 
-        egui::SidePanel::right("side_panel").show(ctx, |_ui| {
-            // lucile_manager.update_side_panel(ui);
-        });
+        // egui::SidePanel::right("side_panel").show(ctx, |_ui| {
+        //     // lucile_manager.update_side_panel(ui);
+        // });
 
-        egui::CentralPanel::default().show(ctx, |_ui| {
-            egui::Window::new("Debug Logs")
-                .open(&mut self.show_logger)
-                .show(ctx, |ui| {
-                    // draws the logger ui.
-                    self.logger_ui.ui(ui);
-                    // egui_logger::logger_ui(ui);
-                });
-            self.error_manager.show(ctx);
+        egui::CentralPanel::default().show(ctx, |ui| {
             // app_ctx.hotkeys.check_cleared(ui);
-            // lucile_manager.update_central_panel(ui, &mut app_ctx);
+            lucile.update_central_panel(ctx, ui, &mut app_ctx);
             // if let SearchAppState::App(search_app) = search_app_state {
             //     search_app.update_central_panel(ui, &mut app_ctx);
             // }
         });
+
+        egui::Window::new("Debug Logs")
+            .open(&mut self.show_logger)
+            .show(ctx, |ui| {
+                // draws the logger ui.
+                self.logger_ui.ui(ui);
+                // egui_logger::logger_ui(ui);
+            });
+        self.error_manager.show(ctx);
     }
 }

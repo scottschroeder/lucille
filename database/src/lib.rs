@@ -183,7 +183,7 @@ async fn create_pool(opts: SqliteConnectOptions) -> Result<Pool<Sqlite>, Databas
 }
 
 async fn from_env_db(url: &str) -> Result<Pool<Sqlite>, DatabaseError> {
-    log::info!("connecting to sqlite db at `{}`", url);
+    log::debug!("connecting to sqlite db at `{}`", url);
     let opts = SqliteConnectOptions::from_str(url)?
         .create_if_missing(true)
         .synchronous(SqliteSynchronous::Normal)
@@ -192,7 +192,7 @@ async fn from_env_db(url: &str) -> Result<Pool<Sqlite>, DatabaseError> {
     create_pool(opts).await
 }
 async fn memory_db() -> Result<Pool<Sqlite>, DatabaseError> {
-    log::info!("connecting to sqlite db in-memory");
+    log::debug!("connecting to sqlite db in-memory");
     let opts = SqliteConnectOptions::from_str("sqlite::memory:")?
         .create_if_missing(true)
         .synchronous(SqliteSynchronous::Normal)
@@ -202,7 +202,7 @@ async fn memory_db() -> Result<Pool<Sqlite>, DatabaseError> {
 }
 
 async fn connect_db<P: AsRef<path::Path>>(filename: P) -> Result<Pool<Sqlite>, DatabaseError> {
-    log::info!("connecting to sqlite db at {:?}", filename.as_ref());
+    log::debug!("connecting to sqlite db at {:?}", filename.as_ref());
     if let Some(dir) = filename.as_ref().parent() {
         if let Err(e) = std::fs::create_dir_all(dir) {
             log::error!(

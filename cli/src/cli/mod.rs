@@ -7,6 +7,7 @@ mod debug_utils;
 mod export;
 mod helpers;
 mod media_view;
+mod render;
 mod scan;
 mod search;
 
@@ -54,6 +55,9 @@ enum SubCommand {
     /// Interactive Gif Creation
     Interactive(search::InteractiveOpts),
 
+    /// Render a previously saved request
+    Render(render::RenderRequest),
+
     /// Debugging Utilities
     #[clap(subcommand)]
     Debug(debug_utils::DebugCommand),
@@ -78,6 +82,7 @@ impl CliOpts {
             SubCommand::Debug(cmd) => cmd.run().await,
             SubCommand::MediaView(cmd) => cmd.run().await,
             SubCommand::Clean(cmd) => cmd.run().await,
+            SubCommand::Render(cmd) => cmd.run().await,
             SubCommand::Test(cmd) => do_test(cmd).await,
         }
     }

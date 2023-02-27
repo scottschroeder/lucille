@@ -6,10 +6,13 @@ use app::{
     search_manager::{ClipResult, SearchRequest, SearchResponse, SearchService},
 };
 use egui::RichText;
-use lucile_core::clean_sub::CleanSubs;
+use lucile_core::{clean_sub::CleanSubs, uuid::Uuid};
 
 use self::episode_cache::{EpisodeCache, EpisodeData};
-use super::{super::error::ErrorChainLogLine, AppCtx};
+use super::{super::error::ErrorChainLogLine, gif_creation::GifCreationUi, LucileCtx};
+use crate::gui_app::ErrorPopup;
+mod loader;
+pub(crate) use loader::{load_last_index, SearchAppState};
 
 const DEFAULT_SEARCH_WIDTH: usize = 5;
 const SEARCH_BUFFER_DEPTH: usize = 32;
@@ -22,6 +25,40 @@ mod episode_cache;
 pub struct SearchResults {
     inner: SearchResponse,
     selected: Option<usize>,
+    clip: ClipSelection,
+}
+
+#[derive(Default)]
+struct ClipSelection {
+    clip: Option<(usize, usize)>,
+    open: bool,
+}
+impl ClipSelection {
+    fn update_click(&mut self, idx: usize) {
+        match (self.clip, self.open) {
+            (None, _) => {
+                self.clip = Some((idx, idx));
+                self.open = true;
+            }
+            (Some((s, e)), true) => {
+                if idx > e {
+                    self.clip = Some((s, idx));
+                } else if idx < s {
+                    self.clip = Some((idx, e));
+                } else if idx == s && idx == e {
+                    return;
+                }
+                self.open = false;
+            }
+            (Some(_), false) => self.clip = None,
+        }
+    }
+
+    fn check(&self, row: usize) -> bool {
+        self.clip
+            .map(|(s, e)| row >= s && row <= e)
+            .unwrap_or(false)
+    }
 }
 
 struct Lookback<T> {
@@ -141,15 +178,19 @@ impl SearchResults {
             .show(ui, |ui| {
                 for row in 0..episode.subs.len() {
                     let cs = CleanSubs(&episode.subs[row..row + 1]);
-                    let text = RichText::new(format!("{}", cs));
-                    let text = if row < start_id || row >= end_id {
-                        text.weak()
-                    } else {
-                        text
+                    let in_search = row < start_id || row >= end_id;
+                    let sub_line = SubLine {
+                        idx: row,
+                        text: format!("{}", cs),
+                        in_search,
+                        selected: self.clip.check(row),
                     };
-                    let bttn = ui.button(text);
+                    let resp = sub_line.ui(ui);
+                    if resp.inner {
+                        self.clip.update_click(row);
+                    }
                     if scroll_force && row == start_id {
-                        bttn.scroll_to_me(Some(egui::Align::Center));
+                        resp.response.scroll_to_me(Some(egui::Align::Center));
                     }
                 }
             });
@@ -159,8 +200,46 @@ impl SearchResults {
             ui.columns(2, |columns| {
                 let update = self.update_results_scroller(cache, &mut columns[0]);
                 self.update_results_details(cache, &mut columns[1], update);
-            })
+            });
         });
+    }
+}
+
+#[derive(Debug)]
+struct SubLine {
+    idx: usize,
+    text: String,
+    in_search: bool,
+    selected: bool,
+}
+
+impl SubLine {
+    fn ui(&self, ui: &mut egui::Ui) -> egui::InnerResponse<bool> {
+        let b = ui.button("");
+
+        let mut bui = ui.child_ui(b.rect, egui::Layout::left_to_right(egui::Align::Center));
+        bui.horizontal(|ui| {
+            let text = RichText::new(&self.text);
+            let text = if self.in_search { text.weak() } else { text };
+            let size = egui::Vec2::splat(16.0);
+            let (response, painter) = ui.allocate_painter(size, egui::Sense::hover());
+            let rect = response.rect;
+            let c = rect.center();
+            let r = rect.width() / 2.0 - 1.0;
+            let color = egui::Color32::from_gray(128);
+            let stroke = egui::Stroke::new(1.0, color);
+            if self.selected {
+                painter.circle_filled(c, r, egui::Color32::BLUE);
+            } else {
+                painter.circle_stroke(c, r, stroke);
+            }
+            ui.label(text);
+            let clicked = b.clicked();
+            if clicked {
+                log::debug!("clicked: {:?}", self);
+            }
+            clicked
+        })
     }
 }
 
@@ -173,6 +252,9 @@ pub struct SearchApp {
     pub search_width: usize,
     pub query: SearchQuery,
     pub results: Option<SearchResults>,
+
+    pub show_gif_creator: bool,
+    pub gif_creator: GifCreationUi,
 
     cache: EpisodeCache,
 
@@ -189,21 +271,24 @@ impl SearchApp {
             query: SearchQuery {
                 body: "".to_string(),
             },
+
             cache: EpisodeCache::default(),
             results: None,
             tx,
             rx,
+            show_gif_creator: false,
+            gif_creator: GifCreationUi::default(),
         }
     }
 
-    fn run_query(&self, ui: &mut egui::Ui, ctx: &mut AppCtx<'_>) {
+    fn run_query<Ctx: ErrorPopup + LucileCtx>(&self, ui: &mut egui::Ui, ctx: &mut Ctx) {
         let results_tx = self.tx.clone();
         let service = self.search_service.clone();
         let text = self.query.body.clone();
-        let lucile = ctx.lucile.clone();
+        let lucile = ctx.app().clone();
         let egui_ctx = ui.ctx().clone();
         let cache = self.cache.clone();
-        ctx.rt.spawn(async move {
+        ctx.rt().spawn(async move {
             let request = SearchRequest {
                 query: text.as_str(),
                 window: Some(DEFAULT_SEARCH_WIDTH),
@@ -227,15 +312,58 @@ impl SearchApp {
         }
     }
 
-    pub(crate) fn update_central_panel(&mut self, ui: &mut egui::Ui, ctx: &mut AppCtx<'_>) {
-        ui.heading("Search");
-        if ui.text_edit_singleline(&mut self.query.body).changed() {
-            self.run_query(ui, ctx)
+    pub(crate) fn update_central_panel<Ctx>(&mut self, ui: &mut egui::Ui, app_ctx: &mut Ctx)
+    where
+        Ctx: ErrorPopup + LucileCtx,
+    {
+        ui.vertical(|ui| {
+            ui.heading("Search");
+            if ui.text_edit_singleline(&mut self.query.body).changed() {
+                self.run_query(ui, app_ctx)
+            }
+            self.fetch_latest_result();
+            egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .max_height(ui.available_height() - 30.0)
+                .enable_scrolling(false)
+                .show(ui, |ui| {
+                    if let Some(results) = &mut self.results {
+                        results.update(&self.cache, ui)
+                    }
+                });
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::BOTTOM), |ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let enable_make_gif = self
+                        .results
+                        .as_ref()
+                        .map(|r| r.clip.clip.is_some())
+                        .unwrap_or(false);
+
+                    let create = ui.add_enabled(enable_make_gif, egui::Button::new("Create GIF"));
+                    if create.clicked() {
+                        self.show_gif_creator = true
+                    }
+                });
+            });
+        });
+        if let Some((uuid, range)) = self.get_clip_ids() {
+            self.gif_creator.set_clip(uuid, range);
         }
-        self.fetch_latest_result();
-        if let Some(results) = &mut self.results {
-            results.update(&self.cache, ui)
-        }
+        egui::Window::new("Gif Creation")
+            .open(&mut self.show_gif_creator)
+            .show(ui.ctx(), |ui| {
+                self.gif_creator.ui(ui);
+            });
+    }
+
+    fn get_clip_ids(&self) -> Option<(Uuid, (usize, usize))> {
+        let result = self.results.as_ref()?;
+        let result_idx = result.selected?;
+        let clip_result = result.inner.results.get(result_idx)?;
+        let range = result.clip.clip?;
+        let episode = self.cache.episode(clip_result.srt_id);
+        let uuid = episode.value().uuid;
+        Some((uuid, range))
     }
 }
 
@@ -269,7 +397,12 @@ async fn fill_cache_with_results(
         if !cache.contains(clip.srt_id) {
             let (_, metadata) = app.db.get_episode_by_id(clip.srt_id).await?;
             let subs = app.db.get_all_subs_for_srt(clip.srt_id).await?;
-            let e = EpisodeData { metadata, subs };
+            let uuid = app.db.get_srt_uuid_by_id(clip.srt_id).await?;
+            let e = EpisodeData {
+                uuid,
+                metadata,
+                subs,
+            };
             cache.insert(clip.srt_id, e);
         }
     }
@@ -277,5 +410,6 @@ async fn fill_cache_with_results(
     Ok(SearchResults {
         inner: resp,
         selected: None,
+        clip: ClipSelection::default(),
     })
 }

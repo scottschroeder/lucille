@@ -4,6 +4,32 @@ use egui::RichText;
 
 const ERROR_MANAGER_UNIQUE_ID_HASH: &str = "error_popup_manager";
 
+pub trait ErrorPopup {
+    fn raise(&mut self, err: anyhow::Error);
+    fn handle_err<T>(&mut self, res: anyhow::Result<T>) -> Option<T> {
+        match res {
+            Ok(t) => Some(t),
+            Err(e) => {
+                self.raise(e);
+                None
+            }
+        }
+    }
+
+    // fn popup(&mut self, title: impl Into<String>, text: impl Into<egui::WidgetText>) {
+
+    // }
+}
+
+impl<'a, T> ErrorPopup for &'a mut T
+where
+    T: ErrorPopup,
+{
+    fn raise(&mut self, err: anyhow::Error) {
+        (*self).raise(err)
+    }
+}
+
 pub struct ErrorChainLogLine<'a> {
     inner: &'a anyhow::Error,
 }
@@ -76,6 +102,16 @@ impl ErrorUi {
                     ui.label(rich);
                 }
             });
+
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("Copy to Clipboard").clicked() {
+                    ui.output_mut(|o| {
+                        o.copied_text = format!("{:?}", self.log_display());
+                    });
+                }
+            });
+        });
     }
 }
 
@@ -85,13 +121,15 @@ pub struct ErrorManager {
     id: usize,
 }
 
-impl ErrorManager {
-    pub fn raise(&mut self, err: anyhow::Error) {
+impl ErrorPopup for ErrorManager {
+    fn raise(&mut self, err: anyhow::Error) {
         let id = egui::Id::new((ERROR_MANAGER_UNIQUE_ID_HASH, self.id));
         self.id += 1;
         self.inner.push((true, id, ErrorUi::from(err)));
     }
+}
 
+impl ErrorManager {
     pub fn show(&mut self, ctx: &egui::Context) {
         for (show, id, err_ui) in &mut self.inner {
             egui::Window::new("Error")
@@ -101,6 +139,7 @@ impl ErrorManager {
                     err_ui.ui(ui);
                 });
         }
+
         self.clear_seen();
     }
 

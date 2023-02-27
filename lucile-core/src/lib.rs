@@ -12,6 +12,85 @@ pub mod hash;
 pub mod identifiers;
 pub mod metadata;
 
+pub mod base64 {
+    use std::fmt;
+
+    use base64::Engine as _;
+    use serde::de::DeserializeOwned;
+
+    pub const B64: base64::engine::GeneralPurpose = base64::engine::general_purpose::STANDARD;
+
+    #[derive(Debug, thiserror::Error)]
+    pub enum Base64Error {
+        #[error(transparent)]
+        Base64(#[from] base64::DecodeError),
+        #[error(transparent)]
+        SerdeJson(#[from] serde_json::Error),
+    }
+
+    pub struct B64Bytes<'a>(pub &'a [u8]);
+
+    impl<'a> From<&'a str> for B64Bytes<'a> {
+        fn from(value: &'a str) -> Self {
+            Self(value.as_bytes())
+        }
+    }
+
+    impl<'a> From<&'a [u8]> for B64Bytes<'a> {
+        fn from(value: &'a [u8]) -> Self {
+            Self(value)
+        }
+    }
+
+    pub fn encode_string(bytes: impl AsRef<[u8]>) -> String {
+        B64Bytes(bytes.as_ref()).to_string()
+    }
+
+    pub fn decode(encoded: &str) -> Result<Vec<u8>, Base64Error> {
+        Ok(crate::base64::B64.decode(encoded)?)
+    }
+
+    pub fn deserialize_json<T: DeserializeOwned>(encoded: &str) -> Result<T, Base64Error> {
+        let data = crate::base64::B64.decode(encoded)?;
+        Ok(serde_json::from_slice(&data)?)
+    }
+
+    impl<'a> fmt::Display for B64Bytes<'a> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            let b64_wrapper = base64::display::Base64Display::new(
+                self.0,
+                &base64::engine::general_purpose::STANDARD,
+            );
+
+            write!(f, "{}", b64_wrapper)
+        }
+    }
+
+    impl<'a> fmt::Debug for B64Bytes<'a> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "{}", self)
+        }
+    }
+
+    pub mod serde_base64 {
+        use base64::Engine as _;
+        use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+        use super::B64;
+
+        pub fn serialize<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
+            let base64 = B64.encode(v);
+            String::serialize(&base64, s)
+        }
+
+        pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
+            let base64 = String::deserialize(d)?;
+            B64.decode(base64.as_bytes())
+                .map_err(serde::de::Error::custom)
+        }
+    }
+}
+
 pub mod export {
 
     use std::path::PathBuf;

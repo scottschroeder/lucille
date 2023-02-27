@@ -10,7 +10,7 @@ fn main() {
         "async_io",
         "polling",
         "sqlx::query",
-        "tantivy::directory::mmap_directory",
+        "tantivy::directory",
         "mio::poll",
     ])
     .unwrap();

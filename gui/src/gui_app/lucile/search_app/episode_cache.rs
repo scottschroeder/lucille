@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use lucile_core::{metadata::MediaMetadata, Subtitle};
+use lucile_core::{metadata::MediaMetadata, uuid::Uuid, Subtitle};
 
 pub struct EpisodeData {
+    pub uuid: Uuid,
     pub metadata: MediaMetadata,
     pub subs: Vec<Subtitle>,
 }

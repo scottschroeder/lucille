@@ -5,7 +5,6 @@ use std::{collections::VecDeque, ops::DerefMut, sync::Mutex};
 
 use egui::{Color32, RichText};
 use log::SetLoggerError;
-
 use regex::{Regex, RegexBuilder};
 
 const LEVELS: [log::Level; log::Level::Trace as usize] = [
@@ -272,7 +271,7 @@ impl LoggerUi {
             ui.label(format!("Log size: {}", collector.len()));
             ui.label(format!("Displayed: {}", logs_displayed));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Copy").clicked() {
+                if ui.button("Copy to Clipboard").clicked() {
                     ui.output_mut(|o| {
                         let records = self.record_buf(collector.deref_mut());
                         let text = records
@@ -316,14 +315,12 @@ impl LoggerUi {
                 // Failed to compile
                 false
             }
+        } else if self.search_case_sensitive {
+            string.contains(&self.search_term)
         } else {
-            if self.search_case_sensitive {
-                string.contains(&self.search_term)
-            } else {
-                string
-                    .to_lowercase()
-                    .contains(&self.search_term.to_lowercase())
-            }
+            string
+                .to_lowercase()
+                .contains(&self.search_term.to_lowercase())
         }
     }
 }
