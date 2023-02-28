@@ -7,7 +7,7 @@ use crate::DatabaseError;
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LucileMigrationManager {
     pub(crate) pool: Pool<Sqlite>,
     pub(crate) done: bool,
@@ -61,7 +61,7 @@ async fn get_applied_migrations(pool: &Pool<Sqlite>) -> Result<Vec<i64>, Databas
     Ok(m)
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MigrationRecord {
     pub id: i64,
     pub description: Option<String>,

@@ -8,7 +8,7 @@ use crate::{search_manager::SearchService, LucileAppError};
 
 mod lucile_config;
 
-pub use lucile_config::{ConfigBuilder, ConfigError};
+pub use lucile_config::{ConfigBuilder, ConfigError, LucileConfig};
 
 #[derive(Debug)]
 pub struct LucileBuilder {

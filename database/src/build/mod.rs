@@ -9,6 +9,7 @@ pub use migration::{LucileMigrationManager, MigrationRecord};
 
 use crate::{Database, DatabaseError};
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DatabaseConnectState {
     Init,
     Configured,
@@ -16,11 +17,12 @@ pub enum DatabaseConnectState {
     Ready,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct DatabaseBuider {
     opts: Option<LucileDbConnectOptions>,
     migration: Option<LucileMigrationManager>,
     src: Option<DatabaseSource>,
+    migration_results: Option<Vec<MigrationRecord>>,
 }
 
 impl DatabaseBuider {
@@ -37,6 +39,9 @@ impl DatabaseBuider {
         } else {
             unreachable!("state error in database builder")
         }
+    }
+    pub fn get_migration_results(&self) -> Option<&[MigrationRecord]> {
+        self.migration_results.as_deref()
     }
     pub fn add_opts(&mut self, opts: LucileDbConnectOptions) -> Result<(), DatabaseError> {
         if self.opts.is_some() {
@@ -79,6 +84,7 @@ impl DatabaseBuider {
                 match mgr.get_db_migration_status().await {
                     Ok(hist) => {
                         log::warn!("migration history: {:#?}", hist);
+                        self.migration_results = Some(hist)
                     }
                     Err(e) => {
                         log::error!("could not get migration history: {:?}", e)

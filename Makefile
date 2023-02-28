@@ -47,7 +47,7 @@ sqlx-data.json:
 build-docker: sqlx-data.json
 	docker build . -t rust_cross_compile/windows -f Dockerfile.windows
 
-win-build-docker: build-docker
+win-build-docker: build-docker Dockerfile.windows
 	docker run -v $(MKFILE_DIR):/app -it rust_cross_compile/windows
 
 win-build-local:

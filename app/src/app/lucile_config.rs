@@ -34,7 +34,7 @@ pub enum ConfigError {
     NonUtf8Path(PathBuf),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConfigBuilder {
     config_dir: Utf8PathBuf,
     config_path: Option<Utf8PathBuf>,
@@ -155,7 +155,7 @@ impl ConfigBuilder {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LucileConfig {
     inner: config::Config,
 }

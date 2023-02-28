@@ -11,7 +11,7 @@ use crate::DatabaseError;
 const POOL_TIMEOUT: Duration = Duration::from_secs(30);
 const POOL_MAX_CONN: u32 = 2;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LucileDbConnectOptions {
     inner: SqliteConnectOptions,
     source: DatabaseSource,

@@ -11,7 +11,9 @@ use lucile_core::{
 };
 use sqlx::{Pool, Sqlite};
 
-pub use self::build::{DatabaseBuider, DatabaseSource, LucileDbConnectOptions};
+pub use self::build::{
+    DatabaseBuider, DatabaseConnectState, DatabaseSource, LucileDbConnectOptions, MigrationRecord,
+};
 
 const POOL_TIMEOUT: Duration = Duration::from_secs(30);
 const POOL_MAX_CONN: u32 = 2;
@@ -61,6 +63,11 @@ pub fn db_env() -> Result<Option<String>, DatabaseError> {
             std::env::VarError::NotUnicode(_) => Err(DatabaseError::from(e)),
         },
     }
+}
+
+pub async fn drop_everything_PROBABLY_DONT_USE(url: &str) -> Result<(), DatabaseError> {
+    use sqlx::migrate::MigrateDatabase;
+    Ok(sqlx::Sqlite::drop_database(url).await?)
 }
 
 impl Database {

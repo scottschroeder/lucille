@@ -4,13 +4,17 @@ use anyhow::Context;
 use app::app::LucileApp;
 
 use self::{
+    import_app::ImportApp,
     loader::LoadManager,
+    runtime_loader::LucileConfigLoader,
     search_app::{load_last_index, SearchAppState},
 };
 use super::ErrorPopup;
 
 mod gif_creation;
+mod import_app;
 mod loader;
+mod runtime_loader;
 mod search_app;
 
 pub struct LucileAppCtx<'a, T> {
@@ -50,6 +54,7 @@ pub struct LucileShell {
     state: LucileRuntimeState,
     #[serde(skip)]
     search_app: SearchAppState,
+    import_app: ImportApp,
 }
 
 enum LucileRuntimeState {
@@ -58,12 +63,18 @@ enum LucileRuntimeState {
     },
     Configure {
         rt: tokio::runtime::Runtime,
-        app_loader: LoadManager<LucileApp>,
+        app_loader: runtime_loader::LucileConfigLoader,
     },
     Ready {
         rt: tokio::runtime::Runtime,
         app: Arc<LucileApp>,
     },
+}
+
+impl LucileRuntimeState {
+    fn is_ready(&self) -> bool {
+        matches!(self, LucileRuntimeState::Ready { .. })
+    }
 }
 
 impl LucileRuntimeState {
@@ -102,18 +113,19 @@ impl LucileRuntimeState {
                 if let Some(rt) = rt_opt {
                     self.update(|_| LucileRuntimeState::Configure {
                         rt,
-                        app_loader: LoadManager::Init,
+                        app_loader: LucileConfigLoader::default(),
                     });
                     return Ok(true);
                 }
             }
             LucileRuntimeState::Configure { rt, app_loader } => {
-                let opt_app = app_loader
-                    .aquire_owned(|| {
-                        rt.block_on(async { app::app::LucileBuilder::new()?.build().await })
-                            .context("could not load lucile app")
-                    })
-                    .take()?;
+                let opt_app = app_loader.run_autoload(rt.handle())?;
+                // let opt_app = app_loader
+                //     .aquire_owned(|| {
+                //         rt.block_on(async { app::app::LucileBuilder::new()?.build().await })
+                //             .context("could not load lucile app")
+                //     })
+                //     .take()?;
                 if let Some(app) = opt_app {
                     self.update(|state| LucileRuntimeState::Ready {
                         rt: state.get_rt_or_panic(),
@@ -141,22 +153,33 @@ impl LucileShell {
         self.state.load_all()
     }
 
+    pub fn file_menu(&mut self, ui: &mut egui::Ui) {
+        if !self.state.is_ready() {
+            return;
+        }
+
+        if ui.button("Import").clicked() {
+            self.import_app.open_app();
+            ui.close_menu()
+        }
+    }
+
     pub fn update_central_panel<Ctx: ErrorPopup>(
         &mut self,
         _ctx: &egui::Context,
         ui: &mut egui::Ui,
         appctx: &mut Ctx,
     ) {
+        self.import_app.ui(ui, appctx);
+
         match &mut self.state {
             LucileRuntimeState::Init { rt_loader } => {
                 if ui.button("Try Again?").clicked() {
                     rt_loader.reset();
                 }
             }
-            LucileRuntimeState::Configure { rt: _, app_loader } => {
-                if ui.button("Try Again?").clicked() {
-                    app_loader.reset();
-                }
+            LucileRuntimeState::Configure { rt, app_loader } => {
+                app_loader.ui(ui, rt.handle(), appctx)
             }
             LucileRuntimeState::Ready { rt, app } => {
                 let mut lucile_ctx = LucileAppCtx {

@@ -68,9 +68,7 @@ impl From<anyhow::Error> for ErrorUi {
 
 impl ErrorUi {
     pub fn new(err: anyhow::Error) -> ErrorUi {
-        let eui = ErrorUi { error: err };
-        log::error!("{:?}", eui.log_display());
-        eui
+        ErrorUi { error: err }
     }
 
     pub fn get(&self) -> &anyhow::Error {
@@ -125,7 +123,9 @@ impl ErrorPopup for ErrorManager {
     fn raise(&mut self, err: anyhow::Error) {
         let id = egui::Id::new((ERROR_MANAGER_UNIQUE_ID_HASH, self.id));
         self.id += 1;
-        self.inner.push((true, id, ErrorUi::from(err)));
+        let eui = ErrorUi::from(err);
+        log::error!("{:?}", eui.log_display());
+        self.inner.push((true, id, eui));
     }
 }
 

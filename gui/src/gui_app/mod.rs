@@ -103,17 +103,7 @@ impl eframe::App for ShellApp {
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
-                    // if ui.button("Import").clicked() {
-                    //     if let Some(p) = rfd::FileDialog::new().pick_file() {
-                    //         if let Err(e) = import(&mut app_ctx, p.as_path()) {
-                    //             log::error!("{:?}", ErrorChainLogLine::from(e));
-                    //         } else {
-                    //             *search_app_state = SearchAppState::Unknown;
-                    //         }
-                    //         // selection = Some(LoaderSelection::Path(p));
-                    //     }
-                    //     ui.close_menu()
-                    // }
+                    lucile.file_menu(ui);
                     if ui.button("Quit").clicked() {
                         frame.close();
                     }
@@ -132,6 +122,7 @@ impl eframe::App for ShellApp {
                     // }
                     if ui.button("Debug Logs").clicked() {
                         self.show_logger = !self.show_logger;
+                        ui.close_menu()
                     }
                 });
                 ui.menu_button("Log Message", |ui| {

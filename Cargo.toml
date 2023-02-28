@@ -12,3 +12,8 @@ members = [
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
+
+[profile.dev.build-override]
+opt-level=3
+codegen-units=1
+
