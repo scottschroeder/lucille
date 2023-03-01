@@ -12,6 +12,7 @@ fn main() {
         "sqlx::query",
         "tantivy::directory",
         "mio::poll",
+        "want",
     ])
     .unwrap();
 

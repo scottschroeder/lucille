@@ -89,37 +89,6 @@ impl eframe::App for ShellApp {
                         ui.close_menu()
                     }
                 });
-                ui.menu_button("Log Message", |ui| {
-                    if ui.button("Trace").clicked() {
-                        log::trace!("log message button clicked!");
-                    }
-                    if ui.button("Debug").clicked() {
-                        log::debug!("log message button clicked!");
-                    }
-                    if ui.button("Info").clicked() {
-                        log::info!("log message button clicked!");
-                    }
-                    if ui.button("Warn").clicked() {
-                        log::warn!("log message button clicked!");
-                    }
-                    if ui.button("Error").clicked() {
-                        log::error!("log message button clicked!");
-                    }
-
-                    if ui.button("Raise Simple Error").clicked() {
-                        app_ctx.raise(anyhow::anyhow!("this is an error"))
-                    }
-
-                    if ui.button("Raise Layered Error").clicked() {
-                        let root =
-                            std::io::Error::new(std::io::ErrorKind::Other, "I/O device blocked");
-                        let e = anyhow::Error::from(root)
-                            .context("unable to read media")
-                            .context("transcoding failed");
-
-                        app_ctx.raise(e)
-                    }
-                });
             });
         });
 

@@ -28,7 +28,7 @@ async fn read_bytes_from_path(src: impl AsRef<std::path::Path>) -> anyhow::Resul
     Ok(data)
 }
 
-async fn read_bytes_from_http(src: url::Url) -> anyhow::Result<Vec<u8>> {
+async fn read_bytes_from_http(src: &str) -> anyhow::Result<Vec<u8>> {
     let resp = reqwest::get(src)
         .await
         .context("could not make http request")?;
@@ -42,16 +42,9 @@ async fn read_bytes_from_http(src: url::Url) -> anyhow::Result<Vec<u8>> {
 
 async fn load_object(_app: &LucileApp, src: &str) -> anyhow::Result<ImportObject> {
     let src_url = url::Url::parse(src);
-    let data = match src_url {
-        Ok(u) => match u.scheme() {
-            "http" | "https" => read_bytes_from_http(u).await,
-            "file" => read_bytes_from_path(src).await,
-            s => Err(anyhow::anyhow!(
-                "can not fetch data from url with scheme `{}`",
-                s
-            )),
-        },
-        Err(_) => read_bytes_from_path(src).await,
+    let data = match src_url.as_ref().map(|u| u.scheme()) {
+        Ok("http") | Ok("https") => read_bytes_from_http(src).await,
+        _ => read_bytes_from_path(src).await,
     }
     .with_context(|| format!("unable to get data from `{}`", src))?;
 

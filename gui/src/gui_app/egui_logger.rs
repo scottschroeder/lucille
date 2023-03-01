@@ -156,7 +156,7 @@ pub struct LoggerUi {
 impl Default for LoggerUi {
     fn default() -> Self {
         Self {
-            loglevels: [true, true, true, false, false],
+            loglevels: [true, true, true, true, true],
             search_term: String::new(),
             search_case_sensitive: false,
             regex: None,

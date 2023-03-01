@@ -104,7 +104,7 @@ impl LucileRuntimeState {
             LucileRuntimeState::Init { rt_loader } => {
                 let rt_opt = rt_loader
                     .aquire_owned(|| {
-                        log::info!("starting tokio runtime");
+                        log::trace!("starting tokio runtime");
                         tokio::runtime::Builder::new_multi_thread()
                             .enable_all()
                             .build()
