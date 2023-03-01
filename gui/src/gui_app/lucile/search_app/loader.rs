@@ -2,7 +2,7 @@ use anyhow::Context;
 use app::app::LucileApp;
 
 use super::SearchApp;
-use crate::gui_app::{error::ErrorChainLogLine, lucile::LucileCtx, ErrorPopup};
+use crate::gui_app::{lucile::LucileCtx, ErrorPopup};
 
 #[derive(Default)]
 pub(crate) enum SearchAppState {
@@ -13,6 +13,7 @@ pub(crate) enum SearchAppState {
 }
 
 async fn load_search(lucile: &LucileApp) -> anyhow::Result<Option<SearchApp>> {
+    log::trace!("looking up most recent search indicies");
     let existing_indexes = lucile
         .db
         .get_search_indexes()
@@ -44,7 +45,7 @@ pub(crate) fn load_last_index<Ctx: ErrorPopup + LucileCtx>(ctx: &mut Ctx) -> Sea
             None => SearchAppState::None,
         },
         Err(e) => {
-            log::error!("{:?}", ErrorChainLogLine::from(e));
+            ctx.raise(e);
             SearchAppState::None
         }
     }

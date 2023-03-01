@@ -67,7 +67,7 @@ pub async fn print_details_for_hash(
 
 pub async fn import_corpus_packet(
     app: &LucileApp,
-    packet: CorpusExport,
+    packet: &CorpusExport,
 ) -> Result<CorpusId, LucileAppError> {
     let CorpusExport { title, content } = packet;
 
@@ -95,7 +95,7 @@ pub async fn import_corpus_packet(
         };
         let chapter_id = app
             .db
-            .define_chapter(corpus_id, title, season, episode, hash)
+            .define_chapter(corpus_id, title, season, episode, *hash)
             .await?;
         app.db
             .import_subtitles(chapter_id, subtitle.uuid, &subtitle.subs)

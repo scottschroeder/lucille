@@ -1,14 +1,13 @@
 use anyhow::Context;
 use app::app::LucileApp;
-use lucile_core::{export::CorpusExport, identifiers::CorpusId};
+use lucile_core::export::CorpusExport;
 use tokio::sync::oneshot::Receiver;
 
+use super::LucileCtx;
 use crate::gui_app::{
     oneshot_state::{OneshotManager, OneshotState},
     ErrorPopup,
 };
-
-use super::LucileCtx;
 
 type TxRecv<T> = Receiver<anyhow::Result<T>>;
 
@@ -17,7 +16,7 @@ enum ImportObject {
     CorpusExport(CorpusExport),
 }
 
-async fn load_object(app: &LucileApp, src: &str) -> anyhow::Result<ImportObject> {
+async fn load_object(_app: &LucileApp, src: &str) -> anyhow::Result<ImportObject> {
     let f = tokio::fs::File::open(src)
         .await
         .context("file could not be opened")?;
@@ -38,8 +37,18 @@ async fn import_object(
     obj: &ImportObject,
     update_index: bool,
 ) -> anyhow::Result<()> {
-    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-    anyhow::bail!("not doing import");
+    match obj {
+        ImportObject::CorpusExport(c) => {
+            let cid = app::import_corpus_packet(app, c)
+                .await
+                .context("could not import packet")?;
+            if update_index {
+                app::index_subtitles(app, cid, None)
+                    .await
+                    .context("could not index subtitles")?;
+            }
+        }
+    }
     Ok(())
 }
 
@@ -68,7 +77,8 @@ impl ImportApp {
         std::mem::swap(&mut swp, self);
     }
 
-    pub fn update(&mut self, ctx: &mut (impl LucileCtx + ErrorPopup)) {
+    pub fn update(&mut self, ctx: &mut (impl LucileCtx + ErrorPopup)) -> bool {
+        let mut reset = false;
         self.state_obj_load.send_request(|src, tx| {
             let rt = ctx.rt();
             let app = ctx.app().clone();
@@ -95,10 +105,14 @@ impl ImportApp {
             });
         });
         match self.state_import.get_response() {
-            Some(Ok(())) => self.reset(),
+            Some(Ok(())) => {
+                self.reset();
+                reset = true;
+            }
             Some(Err(e)) => ctx.raise(e),
             None => {}
         }
+        reset
     }
 
     pub fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut impl ErrorPopup) {

@@ -64,7 +64,7 @@ pub(crate) async fn import_corpus(args: &ImportCorpusOpts) -> anyhow::Result<()>
         serde_json::from_reader(f).context("could not deserialize corpus export packet")?
     };
 
-    app::import_corpus_packet(&app, packet).await?;
+    app::import_corpus_packet(&app, &packet).await?;
 
     Ok(())
 }

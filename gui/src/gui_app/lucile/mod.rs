@@ -152,7 +152,10 @@ impl LucileShell {
                 lucile: app,
                 outer: ctx,
             };
-            self.import_app.update(&mut lucile_ctx)
+            let refresh = self.import_app.update(&mut lucile_ctx);
+            if refresh {
+                self.search_app = SearchAppState::Unknown;
+            }
         } else {
             self.state
                 .load_all()
@@ -189,12 +192,19 @@ impl LucileShell {
                     outer: ctx,
                 };
 
-                if let SearchAppState::Unknown = self.search_app {
-                    self.search_app = load_last_index(&mut lucile_ctx);
-                };
-
-                if let SearchAppState::App(search_app) = &mut self.search_app {
-                    search_app.update_central_panel(ui, &mut lucile_ctx)
+                match &mut self.search_app {
+                    SearchAppState::Unknown => {
+                        self.search_app = load_last_index(&mut lucile_ctx);
+                        if matches!(self.search_app, SearchAppState::None) {
+                            self.import_app.open_app()
+                        }
+                    }
+                    SearchAppState::App(search_app) => {
+                        search_app.update_central_panel(ui, &mut lucile_ctx)
+                    }
+                    SearchAppState::None => {
+                        ui.heading("no media available");
+                    }
                 }
             }
         }
