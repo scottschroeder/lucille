@@ -16,15 +16,44 @@ enum ImportObject {
     CorpusExport(CorpusExport),
 }
 
-async fn load_object(_app: &LucileApp, src: &str) -> anyhow::Result<ImportObject> {
-    let f = tokio::fs::File::open(src)
+async fn read_bytes_from_path(src: impl AsRef<std::path::Path>) -> anyhow::Result<Vec<u8>> {
+    let mut data = Vec::new();
+    let f = tokio::fs::File::open(src.as_ref())
         .await
         .context("file could not be opened")?;
     let mut buf = tokio::io::BufReader::new(f);
-    let mut data = Vec::new();
     tokio::io::copy(&mut buf, &mut data)
         .await
         .context("could not read file")?;
+    Ok(data)
+}
+
+async fn read_bytes_from_http(src: url::Url) -> anyhow::Result<Vec<u8>> {
+    let resp = reqwest::get(src)
+        .await
+        .context("could not make http request")?;
+    let resp = resp.error_for_status().context("http request failed")?;
+    let b = resp
+        .bytes()
+        .await
+        .context("error while reading content from http request")?;
+    Ok(b.as_ref().to_vec())
+}
+
+async fn load_object(_app: &LucileApp, src: &str) -> anyhow::Result<ImportObject> {
+    let src_url = url::Url::parse(src);
+    let data = match src_url {
+        Ok(u) => match u.scheme() {
+            "http" | "https" => read_bytes_from_http(u).await,
+            "file" => read_bytes_from_path(src).await,
+            s => Err(anyhow::anyhow!(
+                "can not fetch data from url with scheme `{}`",
+                s
+            )),
+        },
+        Err(_) => read_bytes_from_path(src).await,
+    }
+    .with_context(|| format!("unable to get data from `{}`", src))?;
 
     let packet: CorpusExport =
         serde_json::from_slice(&data).context("could not deserialize import packet")?;
@@ -54,6 +83,7 @@ async fn import_object(
 
 #[derive(serde::Deserialize, serde::Serialize, Default)]
 pub struct ImportApp {
+    #[serde(skip)]
     open: bool,
     #[serde(skip)]
     src: String,
