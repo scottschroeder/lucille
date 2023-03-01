@@ -43,14 +43,6 @@ async fn import_object(
     Ok(())
 }
 
-#[derive(Default)]
-enum LoadState<T> {
-    #[default]
-    Init,
-    Triggered,
-    Waiting(TxRecv<T>),
-}
-
 #[derive(serde::Deserialize, serde::Serialize, Default)]
 pub struct ImportApp {
     open: bool,
@@ -59,7 +51,7 @@ pub struct ImportApp {
     #[serde(skip)]
     object: Option<ImportObject>,
     #[serde(skip)]
-    state_obj_load: LoadState<ImportObject>,
+    state_obj_load: OneshotManager<String, ImportObject>,
     skip_index: bool,
     #[serde(skip)]
     state_import: OneshotManager<ImportObject, ()>,
@@ -77,38 +69,20 @@ impl ImportApp {
     }
 
     pub fn update(&mut self, ctx: &mut (impl LucileCtx + ErrorPopup)) {
-        match &mut self.state_obj_load {
-            LoadState::Init => {}
-            LoadState::Triggered => {
-                let rt = ctx.rt();
-                let (tx, rx) = tokio::sync::oneshot::channel();
-                let src = self.src.clone();
-                let app = ctx.app().clone();
-                rt.spawn(async move {
-                    let res = load_object(&app, &src)
-                        .await
-                        .context("unable to load import");
-                    _ = tx.send(res)
-                });
-                self.state_obj_load = LoadState::Waiting(rx);
-            }
-            LoadState::Waiting(rx) => {
-                let mut close = true;
-                match rx.try_recv() {
-                    Ok(Ok(obj)) => {
-                        self.object = Some(obj);
-                    }
-                    Ok(Err(e)) => ctx.raise(e),
-                    Err(tokio::sync::oneshot::error::TryRecvError::Empty) => close = false,
-                    Err(e) => ctx.raise(
-                        anyhow::Error::from(e)
-                            .context("did not recieve a message from import thread"),
-                    ),
-                };
-                if close {
-                    self.state_obj_load = LoadState::Init;
-                }
-            }
+        self.state_obj_load.send_request(|src, tx| {
+            let rt = ctx.rt();
+            let app = ctx.app().clone();
+            rt.spawn(async move {
+                let res = load_object(&app, &src)
+                    .await
+                    .context("unable to load import");
+                _ = tx.send(res)
+            });
+        });
+        match self.state_obj_load.get_response() {
+            Some(Ok(obj)) => self.object = Some(obj),
+            Some(Err(e)) => ctx.raise(e),
+            None => {}
         }
 
         self.state_import.send_request(|obj, tx| {
@@ -120,7 +94,6 @@ impl ImportApp {
                 _ = tx.send(res)
             });
         });
-
         match self.state_import.get_response() {
             Some(Ok(())) => self.reset(),
             Some(Err(e)) => ctx.raise(e),
@@ -151,13 +124,12 @@ impl ImportApp {
                         });
                 });
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-                    let can_load =
-                        !self.src.is_empty() && matches!(self.state_obj_load, LoadState::Init);
+                    let waiting = self.state_obj_load.state().is_waiting();
                     if ui
-                        .add_enabled(can_load, egui::Button::new("Load"))
+                        .add_enabled(!waiting && !self.src.is_empty(), egui::Button::new("Load"))
                         .clicked()
                     {
-                        self.state_obj_load = LoadState::Triggered;
+                        self.state_obj_load.set_request(self.src.clone())
                     }
                     if ui.button("Choose File").clicked() {
                         if let Some(p) = rfd::FileDialog::new().pick_file() {
@@ -171,7 +143,7 @@ impl ImportApp {
                         }
                     }
 
-                    if matches!(self.state_obj_load, LoadState::Waiting(_)) {
+                    if waiting {
                         ui.add(egui::Spinner::new().size(16.0));
                     }
                 });

@@ -8,12 +8,18 @@ pub enum OneshotManager<I, O> {
     Waiting(Option<Rx<O>>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OneshotState {
     Init,
     Request,
     Wait,
     Complete,
+}
+
+impl OneshotState {
+    pub fn is_waiting(self) -> bool {
+        self == OneshotState::Wait
+    }
 }
 
 impl<I, O> Default for OneshotManager<I, O> {
