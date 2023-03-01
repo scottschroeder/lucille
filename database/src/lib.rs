@@ -67,6 +67,7 @@ pub fn db_env() -> Result<Option<String>, DatabaseError> {
 
 pub async fn drop_everything_PROBABLY_DONT_USE(url: &str) -> Result<(), DatabaseError> {
     use sqlx::migrate::MigrateDatabase;
+    log::warn!("dropping database at {}", url);
     Ok(sqlx::Sqlite::drop_database(url).await?)
 }
 
@@ -85,6 +86,26 @@ impl Database {
     ) -> Result<Vec<build::MigrationRecord>, DatabaseError> {
         build::get_db_migration_status(&self.pool).await
     }
+
+    pub async fn drop_everything(&self) -> Result<(), DatabaseError> {
+        drop_everything(&self.pool).await
+    }
+}
+
+pub(crate) async fn drop_everything(pool: &Pool<Sqlite>) -> Result<(), DatabaseError> {
+    log::warn!("dropping database {:?}", pool);
+    sqlx::query!(
+        r#"
+           PRAGMA writable_schema = 1;
+           delete from sqlite_master where type in ('table', 'index', 'trigger');
+           PRAGMA writable_schema = 0;
+           VACUUM;
+           -- this causes sqlx to OOM PRAGMA INTEGRITY_CHECK
+             "#
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 impl DatabaseFetcher {
@@ -165,7 +186,7 @@ fn parse_uuid(text: &str) -> Result<Uuid, DatabaseError> {
 pub(crate) mod database_test {
     use futures::TryStreamExt;
 
-    use crate::Database;
+    use crate::{build::LucileMigrationManager, Database};
 
     const TABLES: &[&str] = &["_sqlx_migrations", "corpus", "chapter", "srtfile"];
 
@@ -207,5 +228,31 @@ pub(crate) mod database_test {
         for expected in TABLES {
             assert!(seen.contains(&expected.to_string()))
         }
+    }
+
+    #[tokio::test]
+    async fn drop_database() {
+        let db = Database::memory().await.unwrap();
+        db.drop_everything().await.unwrap();
+        {
+            let rows = sqlx::query!(
+                r#"
+                    SELECT 
+                        name
+                    FROM 
+                        sqlite_schema
+                "#
+            )
+            .fetch_all(&db.pool)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|r| r.name)
+            .collect::<Vec<_>>();
+            assert_eq!(rows, vec![])
+        }
+        let pool = db.pool;
+        let mut mgr = LucileMigrationManager::new(pool);
+        mgr.run().await.unwrap();
     }
 }

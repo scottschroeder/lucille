@@ -103,19 +103,19 @@ pub mod export {
         ContentData,
     };
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct CorpusExport {
         pub title: String,
         pub content: Vec<MediaExport>,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct MediaExport {
         pub views: ViewOptions,
         pub data: ContentData,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct ViewOptions {
         pub views: Vec<String>,
     }
@@ -249,14 +249,14 @@ pub mod storage {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContentData {
     pub metadata: metadata::MediaMetadata,
     pub hash: MediaHash,
     pub subtitle: LucileSub,
 }
 
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub struct LucileSub {
     /// For use with local search index
     pub id: i64,

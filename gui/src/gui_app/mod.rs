@@ -4,6 +4,7 @@ mod lucile;
 
 pub mod egui_logger;
 pub mod error_popup;
+pub mod oneshot_state;
 use anyhow::Context;
 pub use error_popup::ErrorPopup;
 
@@ -69,38 +70,12 @@ impl eframe::App for ShellApp {
             error_manager,
         } = self;
         let mut app_ctx = ShellCtx { error_manager };
-        app_ctx.handle_err(lucile.load().context("unable to launch application"));
-        // let Self {
-        //     // lucile_manager,
-        //     // hotkeys,
-        //     // dirs,
-        //     // db,
-        //     search_app_state,
-        //     loaded,
-        // } = self;
 
-        // let LoadedShell { rt, lucile } = match loaded {
-        //     Some(s) => s,
-        //     None => {
-        //         let s = LoadedShell::load()
-        //             .context("failed to initialize GUI")
-        //             .unwrap();
-        //         *loaded = Some(s);
-        //         loaded.as_mut().unwrap()
-        //     }
-        // };
-
-        // let mut app_ctx = AppCtx {
-        //     rt: rt.handle(),
-        //     lucile,
-        // };
-
-        // if let SearchAppState::Unknown = search_app_state {
-        //     *search_app_state = load_last_index(&mut app_ctx);
-        // };
+        if let Err(e) = lucile.update(&mut app_ctx) {
+            app_ctx.raise(e);
+        }
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     lucile.file_menu(ui);
@@ -109,17 +84,6 @@ impl eframe::App for ShellApp {
                     }
                 });
                 ui.menu_button("View", |ui| {
-                    // if ui.button("Import").clicked() {
-                    //     if let Some(p) = rfd::FileDialog::new().pick_file() {
-                    //         if let Err(e) = import(&mut app_ctx, p.as_path()) {
-                    //             log::error!("{:?}", ErrorChainLogLine::from(e));
-                    //         } else {
-                    //             *search_app_state = SearchAppState::Unknown;
-                    //         }
-                    //         // selection = Some(LoaderSelection::Path(p));
-                    //     }
-                    //     ui.close_menu()
-                    // }
                     if ui.button("Debug Logs").clicked() {
                         self.show_logger = !self.show_logger;
                         ui.close_menu()
@@ -164,19 +128,13 @@ impl eframe::App for ShellApp {
         // });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // app_ctx.hotkeys.check_cleared(ui);
-            lucile.update_central_panel(ctx, ui, &mut app_ctx);
-            // if let SearchAppState::App(search_app) = search_app_state {
-            //     search_app.update_central_panel(ui, &mut app_ctx);
-            // }
+            lucile.update_central_panel(&mut app_ctx, ui);
         });
 
         egui::Window::new("Debug Logs")
             .open(&mut self.show_logger)
             .show(ctx, |ui| {
-                // draws the logger ui.
                 self.logger_ui.ui(ui);
-                // egui_logger::logger_ui(ui);
             });
         self.error_manager.show(ctx);
     }

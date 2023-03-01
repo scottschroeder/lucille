@@ -11,6 +11,9 @@ BUILD_DIR := ./build
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 
+RUST_SRC := $(shell find . -name \*.rs -print)
+DATABASE_SRC := $(shell find database/src -name \*.rs -print)
+
 #.DEFAULT: config
 .PHONY: build clean build-docker win-build-local win-build-docker fmt fix test cov
 
@@ -41,13 +44,13 @@ cov:
 schema.sql: scripts/dump_schema.sh database/migrations/*
 	./scripts/dump_schema.sh > schema.sql
 
-sqlx-data.json:
+sqlx-data.json: $(DATABASE_SRC)
 	cargo sqlx prepare --merged
 
-build-docker: sqlx-data.json
+build-docker:
 	docker build . -t rust_cross_compile/windows -f Dockerfile.windows
 
-win-build-docker: build-docker Dockerfile.windows
+win-build-docker: build-docker Dockerfile.windows sqlx-data.json
 	docker run -v $(MKFILE_DIR):/app -it rust_cross_compile/windows
 
 win-build-local:

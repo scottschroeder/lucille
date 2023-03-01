@@ -14,7 +14,7 @@ const POOL_MAX_CONN: u32 = 2;
 #[derive(Debug, Clone)]
 pub struct LucileDbConnectOptions {
     inner: SqliteConnectOptions,
-    source: DatabaseSource,
+    pub source: DatabaseSource,
 }
 
 impl LucileDbConnectOptions {

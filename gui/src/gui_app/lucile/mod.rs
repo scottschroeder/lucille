@@ -24,7 +24,9 @@ pub struct LucileAppCtx<'a, T> {
 }
 
 pub trait LucileCtx {
+    /// Access to the tokio runtime
     fn rt(&self) -> &tokio::runtime::Handle;
+    /// Access to the lucile configuration object
     fn app(&self) -> &Arc<LucileApp>;
 }
 
@@ -120,12 +122,6 @@ impl LucileRuntimeState {
             }
             LucileRuntimeState::Configure { rt, app_loader } => {
                 let opt_app = app_loader.run_autoload(rt.handle())?;
-                // let opt_app = app_loader
-                //     .aquire_owned(|| {
-                //         rt.block_on(async { app::app::LucileBuilder::new()?.build().await })
-                //             .context("could not load lucile app")
-                //     })
-                //     .take()?;
                 if let Some(app) = opt_app {
                     self.update(|state| LucileRuntimeState::Ready {
                         rt: state.get_rt_or_panic(),
@@ -149,8 +145,20 @@ impl Default for LucileRuntimeState {
 }
 
 impl LucileShell {
-    pub fn load(&mut self) -> anyhow::Result<()> {
-        self.state.load_all()
+    pub fn update(&mut self, ctx: &mut impl ErrorPopup) -> anyhow::Result<()> {
+        if let LucileRuntimeState::Ready { rt, app } = &mut self.state {
+            let mut lucile_ctx = LucileAppCtx {
+                rt: rt.handle(),
+                lucile: app,
+                outer: ctx,
+            };
+            self.import_app.update(&mut lucile_ctx)
+        } else {
+            self.state
+                .load_all()
+                .context("unable to launch application")?;
+        }
+        Ok(())
     }
 
     pub fn file_menu(&mut self, ui: &mut egui::Ui) {
@@ -164,13 +172,8 @@ impl LucileShell {
         }
     }
 
-    pub fn update_central_panel<Ctx: ErrorPopup>(
-        &mut self,
-        _ctx: &egui::Context,
-        ui: &mut egui::Ui,
-        appctx: &mut Ctx,
-    ) {
-        self.import_app.ui(ui, appctx);
+    pub fn update_central_panel<Ctx: ErrorPopup>(&mut self, ctx: &mut Ctx, ui: &mut egui::Ui) {
+        self.import_app.ui(ui, ctx);
 
         match &mut self.state {
             LucileRuntimeState::Init { rt_loader } => {
@@ -178,14 +181,12 @@ impl LucileShell {
                     rt_loader.reset();
                 }
             }
-            LucileRuntimeState::Configure { rt, app_loader } => {
-                app_loader.ui(ui, rt.handle(), appctx)
-            }
+            LucileRuntimeState::Configure { rt, app_loader } => app_loader.ui(ui, rt.handle(), ctx),
             LucileRuntimeState::Ready { rt, app } => {
                 let mut lucile_ctx = LucileAppCtx {
                     rt: rt.handle(),
                     lucile: app,
-                    outer: appctx,
+                    outer: ctx,
                 };
 
                 if let SearchAppState::Unknown = self.search_app {

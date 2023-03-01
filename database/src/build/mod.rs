@@ -7,7 +7,7 @@ pub use connect::LucileDbConnectOptions;
 pub(crate) use migration::get_db_migration_status;
 pub use migration::{LucileMigrationManager, MigrationRecord};
 
-use crate::{Database, DatabaseError};
+use crate::{drop_everything_PROBABLY_DONT_USE, Database, DatabaseError};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DatabaseConnectState {
@@ -95,6 +95,19 @@ impl DatabaseBuider {
         }
     }
 
+    /// Will completely destroy any data.
+    pub async fn drop_database(&mut self) -> Result<(), DatabaseError> {
+        if let Some(pool) = self.migration.as_ref().map(|m| &m.pool) {
+            super::drop_everything(pool)
+                .await
+                .map(|_| self.migration = None)
+        } else if let Some(opts) = &self.opts {
+            drop_everything_PROBABLY_DONT_USE(&opts.source.to_url()).await
+        } else {
+            Err(DatabaseError::NoDatabaseSpecified)
+        }
+    }
+
     pub fn into_parts(self) -> Result<(Database, DatabaseSource), DatabaseError> {
         let mgr = self
             .migration
@@ -117,4 +130,13 @@ pub enum DatabaseSource {
     Memory,
     Url(String),
     Path(PathBuf),
+}
+impl DatabaseSource {
+    fn to_url(&self) -> String {
+        match self {
+            DatabaseSource::Memory => "sqlite::memory:".to_owned(),
+            DatabaseSource::Url(u) => u.clone(),
+            DatabaseSource::Path(p) => format!("sqlite:{}", p.display()),
+        }
+    }
 }

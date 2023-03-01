@@ -166,7 +166,7 @@ impl LucileConfigLoader {
         &mut self,
         ui: &mut egui::Ui,
         db_path: &str,
-        _rt: &tokio::runtime::Handle,
+        rt: &tokio::runtime::Handle,
         ctx: &mut impl ErrorPopup,
     ) {
         egui::Window::new("Confirm Delete Database").show(ui.ctx(), |ui| {
@@ -187,16 +187,10 @@ impl LucileConfigLoader {
                     }
                     if ui.button("Delete").clicked() {
                         self.delete_db = false;
-                        // let url = format!("sqlite:{}", db_path);
-                        // let res = std::fs::File::create(db_path);
-                        let res = std::fs::rename(db_path, format!("{}.bak", db_path));
-                        // let res = rt.block_on(async {
-                        //     database::drop_everything_PROBABLY_DONT_USE(&url).await
-                        // });
+                        let res = rt.block_on(async { self.db.drop_database().await });
                         match res {
                             Ok(_) => {
                                 self.manual_loading = false;
-                                self.db = database::DatabaseBuider::default();
                             }
                             Err(e) => ctx.raise(e.into()),
                         }
@@ -238,8 +232,6 @@ fn migration_ui(migrations: &[database::MigrationRecord], ui: &mut egui::Ui) {
             });
         });
 }
-
-fn migrate_record_ui(_r: &database::MigrationRecord, _ui: &mut egui::Ui) {}
 
 struct SimpleMsgAndRetryUi<'a> {
     header: &'a str,
