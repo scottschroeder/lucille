@@ -20,7 +20,7 @@ impl RenderRequest {
     pub(crate) async fn run(&self) -> anyhow::Result<()> {
         let app = self.cfg.build_app().await?;
 
-        let gif_request: MakeGifRequest = lucile_core::base64::deserialize_json(&self.request)?;
+        let gif_request: MakeGifRequest = lucille_core::base64::deserialize_json(&self.request)?;
 
         let mut res = app::transcode::handle_make_gif_request(&app, &gif_request).await?;
         let mut output = res.output();

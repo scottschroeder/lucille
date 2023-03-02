@@ -1,6 +1,6 @@
 use std::{path::PathBuf, str::FromStr};
 
-use lucile_core::{hash::HashIo, metadata::MediaHash};
+use lucille_core::{hash::HashIo, metadata::MediaHash};
 use tokio::io::{AsyncBufRead, AsyncRead};
 
 const TMP_DIR: &str = ".tmp";
@@ -139,7 +139,7 @@ fn sync_all_hashes(root: &std::path::Path) -> Result<Vec<(PathBuf, MediaHash)>, 
 mod test {
     use std::{collections::HashMap, io::Read, str::FromStr};
 
-    use lucile_core::hash::Sha2Hash;
+    use lucille_core::hash::Sha2Hash;
     use tokio::io::AsyncReadExt;
 
     use super::*;

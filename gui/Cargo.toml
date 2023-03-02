@@ -1,6 +1,6 @@
 [package]
 name = "gui"
-default-run = "lucile_gui"
+default-run = "lucille_gui"
 version = "0.2.0"
 authors = ["Scott Schroeder <scottschroeder@sent.com>"]
 edition = "2021"
@@ -9,7 +9,7 @@ rust-version = "1.60"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "lucile_gui"
+name = "lucille_gui"
 path = "src/main.rs"
 
 [lib]
@@ -36,7 +36,7 @@ camino = "1.1.3"
 
 tokio = { version = "1.20.0" }
 
-lucile-core = { path = "../lucile-core"} 
+lucille-core = { path = "../lucille-core"} 
 app = { path = "../app"} 
 database = { path = "../database"} 
 

@@ -2,7 +2,7 @@
 resolver = "2"
 
 members = [
-  "lucile-core",
+  "lucille-core",
   "database",
   "search",
   "app",

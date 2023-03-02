@@ -253,11 +253,11 @@ pub mod storage {
 pub struct ContentData {
     pub metadata: metadata::MediaMetadata,
     pub hash: MediaHash,
-    pub subtitle: LucileSub,
+    pub subtitle: LucilleSub,
 }
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
-pub struct LucileSub {
+pub struct LucilleSub {
     /// For use with local search index
     pub id: i64,
     /// A globally unique Id transferrable between instances
@@ -265,9 +265,9 @@ pub struct LucileSub {
     /// The actual subtitle data
     pub subs: Vec<Subtitle>,
 }
-impl Debug for LucileSub {
+impl Debug for LucilleSub {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LucileSub")
+        f.debug_struct("LucilleSub")
             .field("id", &self.uuid)
             .field("uuid", &self.uuid)
             .field("subtitle", &self.subs.len())

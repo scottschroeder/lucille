@@ -3,7 +3,7 @@ use std::{str::FromStr, time::Duration};
 use anyhow::Context;
 use app::prepare::MediaProcessor;
 use clap::Parser;
-use lucile_core::metadata::MediaHash;
+use lucille_core::metadata::MediaHash;
 
 use super::argparse::{AppConfig, DatabaseConfig};
 use crate::cli::helpers;
@@ -106,7 +106,7 @@ pub(crate) async fn decrypt_media_file(args: &DecryptMediaFile) -> anyhow::Resul
         .key
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("must provide key"))?;
-    let key_data = lucile_core::encryption_config::KeyData::from_str(key)?;
+    let key_data = lucille_core::encryption_config::KeyData::from_str(key)?;
     let mut plain_reader = app::encryption::decryptor(&key_data, &mut f).await?;
 
     let mut of = tokio::fs::File::create(args.output.as_path()).await?;

@@ -1,6 +1,6 @@
 use std::{io, path::PathBuf, time::Duration};
 
-use lucile_core::Subtitle;
+use lucille_core::Subtitle;
 use tokio::io::{AsyncRead, AsyncWriteExt};
 
 use super::{

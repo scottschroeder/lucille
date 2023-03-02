@@ -1,14 +1,14 @@
 use std::time::Duration;
 
 use database::Database;
-use lucile_core::{
+use lucille_core::{
     identifiers::{ChapterId, CorpusId},
     metadata::MediaHash,
     Corpus,
 };
 
 use super::{ScannedMedia, ScannedSubtitles};
-use crate::LucileAppError;
+use crate::LucilleAppError;
 
 const ORIGINAL_MEDIA_VIEW: &str = "original";
 
@@ -16,7 +16,7 @@ pub async fn add_content_to_corpus(
     db: &Database,
     corpus: Option<&Corpus>,
     content: Vec<ScannedMedia>,
-) -> Result<(), LucileAppError> {
+) -> Result<(), LucilleAppError> {
     let corpus = corpus.expect("guess content name todo");
 
     let corpus_id = if let Some(id) = corpus.id {
@@ -35,15 +35,15 @@ pub(crate) async fn add_scanned_media_to_db(
     db: &Database,
     corpus_id: CorpusId,
     media: &ScannedMedia,
-) -> Result<ChapterId, LucileAppError> {
+) -> Result<ChapterId, LucilleAppError> {
     log::trace!("insert media into db: {:?}", media);
     let (title, season, episode) = match &media.metadata {
-        lucile_core::metadata::MediaMetadata::Episode(e) => (
+        lucille_core::metadata::MediaMetadata::Episode(e) => (
             e.title.as_str(),
             Some(e.season as i64),
             Some(e.episode as i64),
         ),
-        lucile_core::metadata::MediaMetadata::Unknown(u) => (u.as_str(), None, None),
+        lucille_core::metadata::MediaMetadata::Unknown(u) => (u.as_str(), None, None),
     };
     let chapter_id = db
         .define_chapter(corpus_id, title, season, episode, media.hash)
@@ -72,7 +72,7 @@ async fn check_if_hash_is_chapter_original(
     db: &Database,
     chapter_id: ChapterId,
     hash: MediaHash,
-) -> Result<bool, LucileAppError> {
+) -> Result<bool, LucilleAppError> {
     match db.get_chapter_by_hash(hash).await? {
         Some(ch) => {
             if ch.id != chapter_id {
@@ -99,23 +99,23 @@ async fn check_if_hash_is_chapter_original(
 
 #[cfg(test)]
 mod tests {
-    use lucile_core::{
+    use lucille_core::{
         metadata::{EpisodeMetadata, MediaHash},
         test_util::generate_subtitle,
     };
 
     use super::*;
-    use crate::app::tests::lucile_test_app;
+    use crate::app::tests::lucille_test_app;
 
     #[tokio::test]
     async fn add_media_to_db() {
-        let tapp = lucile_test_app().await;
+        let tapp = lucille_test_app().await;
         let corpus = tapp.app.db.add_corpus("show name").await.unwrap();
 
         let fname = std::path::PathBuf::from("/path/to/file");
         let subs = generate_subtitle(&["line1"]);
         let hash = MediaHash::from_bytes(b"data");
-        let metadata = lucile_core::metadata::MediaMetadata::Episode(EpisodeMetadata {
+        let metadata = lucille_core::metadata::MediaMetadata::Episode(EpisodeMetadata {
             season: 3,
             episode: 12,
             title: "ep title".to_owned(),
@@ -175,13 +175,13 @@ mod tests {
 
     #[tokio::test]
     async fn add_same_media_twice() {
-        let tapp = lucile_test_app().await;
+        let tapp = lucille_test_app().await;
         let corpus = tapp.app.db.add_corpus("show name").await.unwrap();
 
         let fname = std::path::PathBuf::from("/path/to/file");
         let subs = generate_subtitle(&["line1"]);
         let hash = MediaHash::from_bytes(b"data");
-        let metadata = lucile_core::metadata::MediaMetadata::Episode(EpisodeMetadata {
+        let metadata = lucille_core::metadata::MediaMetadata::Episode(EpisodeMetadata {
             season: 3,
             episode: 12,
             title: "ep title".to_owned(),
@@ -217,14 +217,14 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn add_same_chapter_new_content() {
-        let tapp = lucile_test_app().await;
+        let tapp = lucille_test_app().await;
         let corpus = tapp.app.db.add_corpus("show name").await.unwrap();
 
         let fname = std::path::PathBuf::from("/path/to/file");
         let subs = generate_subtitle(&["line1"]);
         let hash = MediaHash::from_bytes(b"data");
         let hash2 = MediaHash::from_bytes(b"data2");
-        let metadata = lucile_core::metadata::MediaMetadata::Episode(EpisodeMetadata {
+        let metadata = lucille_core::metadata::MediaMetadata::Episode(EpisodeMetadata {
             season: 3,
             episode: 12,
             title: "ep title".to_owned(),

@@ -1,4 +1,4 @@
-use lucile_core::{
+use lucille_core::{
     identifiers::{ChapterId, CorpusId, MediaViewId},
     media_segment::MediaView,
     uuid::Uuid,
@@ -228,7 +228,7 @@ mod test {
 
     use std::time::Duration;
 
-    use lucile_core::{identifiers::MediaViewId, metadata::MediaHash};
+    use lucille_core::{identifiers::MediaViewId, metadata::MediaHash};
 
     use super::*;
     use crate::database_test::assert_err_is_constraint;

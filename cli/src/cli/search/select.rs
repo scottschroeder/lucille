@@ -2,16 +2,16 @@ use std::{collections::HashMap, ops::Range};
 
 use anyhow::{Context, Result};
 use app::{
-    app::LucileApp,
+    app::LucilleApp,
     search_manager::{ClipResult, SearchResponse},
 };
-use lucile_core::{clean_sub::CleanSubs, metadata::MediaMetadata, Subtitle};
+use lucille_core::{clean_sub::CleanSubs, metadata::MediaMetadata, Subtitle};
 use tokio::io::AsyncBufReadExt;
 
 const HIST: [&str; 6] = ["     ", "    *", "   **", "  ***", " ****", "*****"];
 
 pub async fn ask_user_for_clip<'a>(
-    app: &LucileApp,
+    app: &LucilleApp,
     response: &'a SearchResponse,
 ) -> Result<(&'a ClipResult, Range<usize>)> {
     let mut content = HashMap::new();

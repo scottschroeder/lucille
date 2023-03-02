@@ -1,5 +1,5 @@
 use aes_gcm::{self, aead::Aead, Aes128Gcm, KeyInit};
-use lucile_core::encryption_config::{KeyData, SimpleKeyNonce as MessageMeta};
+use lucille_core::encryption_config::{KeyData, SimpleKeyNonce as MessageMeta};
 use rand::Rng;
 
 use super::EncryptionError;

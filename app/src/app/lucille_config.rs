@@ -5,11 +5,11 @@ use database::DatabaseError;
 
 const QUALIFIER: &str = "io";
 const ORGANIZATION: &str = "vauntware";
-const APP: &str = "lucile";
-const APP_CAPS: &str = "LUCILE";
+const APP: &str = "lucille";
+const APP_CAPS: &str = "LUCILLE";
 
 const DATABASE_KEY: &str = "db";
-const DEFAULT_DB_NAME: &str = "lucile.db";
+const DEFAULT_DB_NAME: &str = "lucille.db";
 
 const INDEX_ROOT_KEY: &str = "index_root";
 const INDEX_DIR: &str = "index";
@@ -20,7 +20,7 @@ const MEDIA_DIR: &str = "media";
 const FFMPEG_CMD_KEY: &str = "ffmpeg";
 const MEDIA_VIEW_KEY: &str = "media_view_priority";
 
-const DEFAULT_CONFIG_FILE: &str = "lucile.toml";
+const DEFAULT_CONFIG_FILE: &str = "lucille.toml";
 
 type ExtConfigBuilder = config::ConfigBuilder<config::builder::DefaultState>;
 
@@ -61,14 +61,14 @@ fn new_config_builder(data_dir: &Utf8Path) -> ExtConfigBuilder {
 
 impl ConfigBuilder {
     #[cfg(test)]
-    pub fn new_test_config(root: &Path) -> Result<LucileConfig, ConfigError> {
+    pub fn new_test_config(root: &Path) -> Result<LucilleConfig, ConfigError> {
         let root = camino_path(root)?;
         let data_dir = root.join("app_data_dir");
         let config = new_config_builder(&data_dir)
             .set_override(FFMPEG_CMD_KEY, "no_ffmpeg_in_tests")
             .unwrap()
             .build()?;
-        Ok(LucileConfig { inner: config })
+        Ok(LucilleConfig { inner: config })
     }
 
     pub fn new() -> Result<Self, ConfigError> {
@@ -126,7 +126,7 @@ impl ConfigBuilder {
         self.set_path_override(FFMPEG_CMD_KEY, ffmpeg)
     }
 
-    pub fn build(mut self) -> Result<LucileConfig, ConfigError> {
+    pub fn build(mut self) -> Result<LucilleConfig, ConfigError> {
         let cfg_file = self
             .config_path
             .unwrap_or_else(|| self.config_dir.join(DEFAULT_CONFIG_FILE));
@@ -147,20 +147,20 @@ impl ConfigBuilder {
                 .add_source(config::Environment::with_prefix(APP_CAPS))
         }
 
-        let lucile_cfg = LucileConfig {
+        let lucille_cfg = LucilleConfig {
             inner: self.config_builder.build().map_err(ConfigError::from)?,
         };
-        log::trace!("{:#?}", lucile_cfg);
-        Ok(lucile_cfg)
+        log::trace!("{:#?}", lucille_cfg);
+        Ok(lucille_cfg)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct LucileConfig {
+pub struct LucilleConfig {
     inner: config::Config,
 }
 
-impl LucileConfig {
+impl LucilleConfig {
     fn get_path(&self, key: &str) -> PathBuf {
         PathBuf::from(self.inner.get_string(key).unwrap())
     }
@@ -173,12 +173,12 @@ impl LucileConfig {
     }
     pub fn database_connection_opts(
         &self,
-    ) -> Result<database::LucileDbConnectOptions, DatabaseError> {
+    ) -> Result<database::LucilleDbConnectOptions, DatabaseError> {
         let url = self.database_path();
         if url.starts_with("sqlite:") {
-            database::LucileDbConnectOptions::from_url(&url)
+            database::LucilleDbConnectOptions::from_url(&url)
         } else {
-            Ok(database::LucileDbConnectOptions::from_path(&url))
+            Ok(database::LucilleDbConnectOptions::from_path(&url))
         }
     }
     pub fn index_root(&self) -> PathBuf {

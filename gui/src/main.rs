@@ -18,7 +18,7 @@ fn main() {
 
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
-        "Lucile",
+        "Lucille",
         native_options,
         Box::new(|cc| Box::new(gui::ShellApp::new(cc))),
     );

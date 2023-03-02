@@ -1,8 +1,8 @@
 use anyhow::Context;
-use app::app::LucileApp;
+use app::app::LucilleApp;
 
 use super::SearchApp;
-use crate::gui_app::{lucile::LucileCtx, ErrorPopup};
+use crate::gui_app::{lucille::LucilleCtx, ErrorPopup};
 
 #[derive(Default)]
 pub(crate) enum SearchAppState {
@@ -12,16 +12,16 @@ pub(crate) enum SearchAppState {
     App(SearchApp),
 }
 
-async fn load_search(lucile: &LucileApp) -> anyhow::Result<Option<SearchApp>> {
+async fn load_search(lucille: &LucilleApp) -> anyhow::Result<Option<SearchApp>> {
     log::trace!("looking up most recent search indicies");
-    let existing_indexes = lucile
+    let existing_indexes = lucille
         .db
         .get_search_indexes()
         .await
         .context("could not load previous search index list")?;
 
     for id in existing_indexes.iter().rev() {
-        let s = match lucile.search_service(*id) {
+        let s = match lucille.search_service(*id) {
             Ok(s) => s,
             Err(e) => {
                 log::warn!("unable to load search service {}: {}", id, e);
@@ -33,11 +33,11 @@ async fn load_search(lucile: &LucileApp) -> anyhow::Result<Option<SearchApp>> {
     Ok(None)
 }
 
-pub(crate) fn load_last_index<Ctx: ErrorPopup + LucileCtx>(ctx: &mut Ctx) -> SearchAppState {
-    let lucile = ctx.app().clone();
+pub(crate) fn load_last_index<Ctx: ErrorPopup + LucilleCtx>(ctx: &mut Ctx) -> SearchAppState {
+    let lucille = ctx.app().clone();
     match ctx
         .rt()
-        .block_on(async { load_search(&lucile).await })
+        .block_on(async { load_search(&lucille).await })
         .context("unable to run import/index in background thread")
     {
         Ok(o) => match o {

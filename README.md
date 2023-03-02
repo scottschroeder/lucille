@@ -1,8 +1,8 @@
-# lucile
+# lucille
 
 Create GIFs from your favorite shows & movies.
 
-Lucile scans media, extracts subtitles, and creates a searchable index. You can search through the subtitles to find the moment you want to immortalize, and Lucile can generate a GIF!
+Lucille scans media, extracts subtitles, and creates a searchable index. You can search through the subtitles to find the moment you want to immortalize, and Lucille can generate a GIF!
 
 ## Status
 

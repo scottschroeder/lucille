@@ -3,7 +3,7 @@ use std::{
     path::Path,
 };
 
-use lucile_core::uuid::Uuid;
+use lucille_core::uuid::Uuid;
 use tantivy::{collector::TopDocs, doc, query::QueryParser, schema::*, Index};
 
 use self::srt_loader::IndexableEpisode;

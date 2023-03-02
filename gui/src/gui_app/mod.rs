@@ -1,6 +1,6 @@
 pub mod error;
 
-mod lucile;
+mod lucille;
 
 pub mod egui_logger;
 pub mod error_popup;
@@ -23,7 +23,7 @@ impl<'a> ErrorPopup for ShellCtx<'a> {
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 #[derive(Default)]
 pub struct ShellApp {
-    lucile: lucile::LucileShell,
+    lucille: lucille::LucilleShell,
     show_logger: bool,
     logger_ui: egui_logger::LoggerUi,
     #[serde(skip)]
@@ -64,21 +64,21 @@ impl eframe::App for ShellApp {
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let ShellApp {
-            lucile,
+            lucille,
             show_logger: _,
             logger_ui: _,
             error_manager,
         } = self;
         let mut app_ctx = ShellCtx { error_manager };
 
-        if let Err(e) = lucile.update(&mut app_ctx) {
+        if let Err(e) = lucille.update(&mut app_ctx) {
             app_ctx.raise(e);
         }
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
-                    lucile.file_menu(ui);
+                    lucille.file_menu(ui);
                     if ui.button("Quit").clicked() {
                         frame.close();
                     }
@@ -93,11 +93,11 @@ impl eframe::App for ShellApp {
         });
 
         // egui::SidePanel::right("side_panel").show(ctx, |_ui| {
-        //     // lucile_manager.update_side_panel(ui);
+        //     // lucille_manager.update_side_panel(ui);
         // });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            lucile.update_central_panel(&mut app_ctx, ui);
+            lucille.update_central_panel(&mut app_ctx, ui);
         });
 
         egui::Window::new("Debug Logs")

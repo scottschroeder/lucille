@@ -1,6 +1,6 @@
 use anyhow::Context;
 use clap::Parser;
-use lucile_core::export::CorpusExport;
+use lucille_core::export::CorpusExport;
 
 use super::argparse::DatabaseConfig;
 use crate::cli::helpers;

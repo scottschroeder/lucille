@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use futures::TryStreamExt;
-use lucile_core::uuid::Uuid;
+use lucille_core::uuid::Uuid;
 use sqlx::{QueryBuilder, Sqlite};
 
 use crate::{parse_uuid, Database, DatabaseError};

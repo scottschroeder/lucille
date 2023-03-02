@@ -5,7 +5,7 @@ CARGO_OPTS =
 
 VERSION=$(shell grep -Em1 "^version" Cargo.toml | sed -r 's/.*"(.*)".*/\1/')
 RUSTC_VERSION=$(shell rustc -V)
-NAME := lucile
+NAME := lucille
 BUILD_DIR := ./build
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))

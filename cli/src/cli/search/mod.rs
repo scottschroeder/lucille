@@ -2,12 +2,12 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use app::{
-    app::LucileApp,
+    app::LucilleApp,
     search_manager::{SearchRequest, SearchResponse},
     transcode::{MakeGifRequest, SubSegment},
 };
 use clap::Parser;
-use lucile_core::{clean_sub::CleanSubs, uuid::Uuid};
+use lucille_core::{clean_sub::CleanSubs, uuid::Uuid};
 
 mod select;
 
@@ -50,7 +50,7 @@ pub struct InteractiveOpts {
 
 impl InteractiveOpts {
     pub(crate) async fn run(&self) -> anyhow::Result<()> {
-        let app = app::app::LucileBuilder::new()?
+        let app = app::app::LucilleBuilder::new()?
             .database_path(self.db.database_path())?
             .index_root(self.storage.index_root())?
             .build()
@@ -80,7 +80,7 @@ impl InteractiveOpts {
 }
 
 async fn setup_search(
-    app: &LucileApp,
+    app: &LucilleApp,
     index: Option<&str>,
     query: &str,
 ) -> anyhow::Result<SearchResponse> {
@@ -116,7 +116,7 @@ async fn setup_search(
 const HIST: [&str; 6] = ["     ", "    *", "   **", "  ***", " ****", "*****"];
 impl SearchCommand {
     pub(crate) async fn run(&self) -> anyhow::Result<()> {
-        let app = app::app::LucileBuilder::new()?
+        let app = app::app::LucilleBuilder::new()?
             .database_path(self.db.database_path())?
             .index_root(self.storage.index_root())?
             .build()

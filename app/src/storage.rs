@@ -1,10 +1,10 @@
 use std::{collections::HashMap, ffi::OsStr};
 
 use database::{Database, DatabaseError};
-use lucile_core::{identifiers::MediaViewId, metadata::MediaHash};
+use lucille_core::{identifiers::MediaViewId, metadata::MediaHash};
 use serde::{Deserialize, Serialize};
 
-use crate::{hashfs::compute_hash, LucileAppError};
+use crate::{hashfs::compute_hash, LucilleAppError};
 
 #[derive(Debug, Serialize, Deserialize)]
 enum MediaViewDescriptor {
@@ -50,20 +50,20 @@ impl<'a> MediaLookup<'a> {
 //     db: &Database,
 //     chapter_id: ChapterId,
 //     description: &str,
-// ) -> Result<MediaViewId, LucileAppError> {
+// ) -> Result<MediaViewId, LucilleAppError> {
 //     db.get_media_view_options(chapter_id)
 //         .await?
 //         .into_iter()
 //         .find(|o| o.1 == description)
 //         .map(|o| o.0)
-//         .ok_or(LucileAppError::MissingVideoSource)
+//         .ok_or(LucilleAppError::MissingVideoSource)
 // }
 
 // async fn pick_media_view_with_preferences(
 //     db: &Database,
 //     chapter_id: ChapterId,
 //     preferences: &MediaViewPreferences,
-// ) -> Result<Option<MediaViewId>, LucileAppError> {
+// ) -> Result<Option<MediaViewId>, LucilleAppError> {
 //     let options = db.get_media_view_options(chapter_id).await?;
 
 //     let mut media_checker = MediaLookup::new(db);
@@ -144,7 +144,7 @@ pub async fn check_local_file(
     db: &Database,
     hash: MediaHash,
     strategy: FileCheckStrategy,
-) -> Result<Option<(std::path::PathBuf, FileCheckOutcome)>, LucileAppError> {
+) -> Result<Option<(std::path::PathBuf, FileCheckOutcome)>, LucilleAppError> {
     let file_meta = match db.get_storage_by_hash(hash).await? {
         Some(f) => f,
         None => return Ok(None),
@@ -188,7 +188,7 @@ mod test {
     use tokio::io::AsyncWriteExt;
 
     use super::*;
-    use crate::app::tests::lucile_test_app;
+    use crate::app::tests::lucille_test_app;
 
     struct TestCase {
         name_is_hash: bool,
@@ -218,7 +218,7 @@ mod test {
             expected,
         } = test_case;
 
-        let tapp = lucile_test_app().await;
+        let tapp = lucille_test_app().await;
         let dir = tempfile::TempDir::new().unwrap();
 
         let expected_hash = MediaHash::from_bytes(b"data_expected");

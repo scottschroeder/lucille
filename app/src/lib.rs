@@ -1,5 +1,5 @@
 #![allow(clippy::uninlined_format_args)]
-use lucile_core::{
+use lucille_core::{
     export::{CorpusExport, MediaExport, ViewOptions},
     identifiers::CorpusId,
     metadata::MediaHash,
@@ -7,7 +7,7 @@ use lucile_core::{
     ContentData,
 };
 
-use self::app::LucileApp;
+use self::app::LucilleApp;
 
 pub mod app;
 pub mod encryption;
@@ -24,7 +24,7 @@ pub mod transcode;
 pub const DEFAULT_INDEX_WINDOW_SIZE: usize = 5;
 
 #[derive(Debug, thiserror::Error)]
-pub enum LucileAppError {
+pub enum LucilleAppError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
@@ -42,9 +42,9 @@ pub enum LucileAppError {
 }
 
 pub async fn print_details_for_hash(
-    app: &LucileApp,
+    app: &LucilleApp,
     hash: MediaHash,
-) -> Result<(), LucileAppError> {
+) -> Result<(), LucilleAppError> {
     // Lookup chapter with hash
     if let Some(chapter) = app.db.get_chapter_by_hash(hash).await? {
         let corpus = app.db.get_corpus(chapter.corpus_id).await?;
@@ -66,9 +66,9 @@ pub async fn print_details_for_hash(
 }
 
 pub async fn import_corpus_packet(
-    app: &LucileApp,
+    app: &LucilleApp,
     packet: &CorpusExport,
-) -> Result<CorpusId, LucileAppError> {
+) -> Result<CorpusId, LucilleAppError> {
     let CorpusExport { title, content } = packet;
 
     let corpus = app.db.get_or_add_corpus(title).await?;
@@ -86,12 +86,12 @@ pub async fn import_corpus_packet(
         } = chapter;
 
         let (title, season, episode) = match &metadata {
-            lucile_core::metadata::MediaMetadata::Episode(e) => (
+            lucille_core::metadata::MediaMetadata::Episode(e) => (
                 e.title.as_str(),
                 Some(e.season as i64),
                 Some(e.episode as i64),
             ),
-            lucile_core::metadata::MediaMetadata::Unknown(u) => (u.as_str(), None, None),
+            lucille_core::metadata::MediaMetadata::Unknown(u) => (u.as_str(), None, None),
         };
         let chapter_id = app
             .db
@@ -109,9 +109,9 @@ pub async fn import_corpus_packet(
 }
 
 pub async fn export_corpus_packet(
-    app: &LucileApp,
+    app: &LucilleApp,
     corpus_id: CorpusId,
-) -> Result<CorpusExport, LucileAppError> {
+) -> Result<CorpusExport, LucilleAppError> {
     let title = app.db.get_corpus(corpus_id).await?.title;
     let (_, content) = app.db.get_all_subs_for_corpus(corpus_id).await?;
     //
@@ -138,10 +138,10 @@ pub async fn export_corpus_packet(
 }
 
 pub async fn index_subtitles(
-    app: &LucileApp,
+    app: &LucilleApp,
     corpus_id: CorpusId,
     max_window: Option<usize>,
-) -> Result<search::SearchIndex, LucileAppError> {
+) -> Result<search::SearchIndex, LucilleAppError> {
     log::info!("performing index for {}", corpus_id);
 
     let (srts, all_subs) = app.db.get_all_subs_for_corpus(corpus_id).await?;

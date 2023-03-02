@@ -1,24 +1,24 @@
 use std::path::Path;
 
 use database::Database;
-use lucile_core::uuid::Uuid;
+use lucille_core::uuid::Uuid;
 use search::SearchIndex;
 
-use crate::{search_manager::SearchService, LucileAppError};
+use crate::{search_manager::SearchService, LucilleAppError};
 
-mod lucile_config;
+mod lucille_config;
 
-pub use lucile_config::{ConfigBuilder, ConfigError, LucileConfig};
+pub use lucille_config::{ConfigBuilder, ConfigError, LucilleConfig};
 
 #[derive(Debug)]
-pub struct LucileBuilder {
-    pub config: lucile_config::ConfigBuilder,
+pub struct LucilleBuilder {
+    pub config: lucille_config::ConfigBuilder,
 }
 
-impl LucileBuilder {
+impl LucilleBuilder {
     pub fn new() -> Result<Self, ConfigError> {
-        Ok(LucileBuilder {
-            config: lucile_config::ConfigBuilder::new()?.load_environment(true),
+        Ok(LucilleBuilder {
+            config: lucille_config::ConfigBuilder::new()?.load_environment(true),
         })
     }
 
@@ -30,10 +30,10 @@ impl LucileBuilder {
     fn update(
         self,
         f: impl FnOnce(
-            lucile_config::ConfigBuilder,
-        ) -> Result<lucile_config::ConfigBuilder, ConfigError>,
+            lucille_config::ConfigBuilder,
+        ) -> Result<lucille_config::ConfigBuilder, ConfigError>,
     ) -> Result<Self, ConfigError> {
-        let LucileBuilder {
+        let LucilleBuilder {
             config: config_builder,
         } = self;
         let config_builder = f(config_builder)?;
@@ -62,7 +62,7 @@ impl LucileBuilder {
         self.update(|c| c.ffmpeg_override(ffmpeg))
     }
 
-    pub async fn build(self) -> Result<LucileApp, LucileAppError> {
+    pub async fn build(self) -> Result<LucilleApp, LucilleAppError> {
         let Self {
             config: config_builder,
         } = self;
@@ -75,20 +75,20 @@ impl LucileBuilder {
         db_builder.migrate().await?;
         let (db, _) = db_builder.into_parts()?;
 
-        let app = LucileApp { db, config };
+        let app = LucilleApp { db, config };
         log::trace!("{:#?}", app);
         Ok(app)
     }
 }
 
 #[derive(Debug)]
-pub struct LucileApp {
+pub struct LucilleApp {
     pub db: Database,
-    pub config: lucile_config::LucileConfig,
+    pub config: lucille_config::LucilleConfig,
 }
 
-impl LucileApp {
-    pub fn search_service(&self, index_uuid: Uuid) -> Result<SearchService, LucileAppError> {
+impl LucilleApp {
+    pub fn search_service(&self, index_uuid: Uuid) -> Result<SearchService, LucilleAppError> {
         let index_dir = self.config.index_root().join(index_uuid.to_string());
         log::debug!("loading search index from: {:?}", index_dir.as_path());
         let index = SearchIndex::open_in_dir(index_uuid, index_dir)?;
@@ -98,16 +98,16 @@ impl LucileApp {
 
 #[cfg(test)]
 pub mod tests {
-    use lucile_config::ConfigBuilder;
+    use lucille_config::ConfigBuilder;
 
     use super::*;
 
-    pub struct LucileTestApp {
-        pub app: LucileApp,
+    pub struct LucilleTestApp {
+        pub app: LucilleApp,
         pub dir: tempfile::TempDir,
     }
 
-    pub async fn lucile_test_app() -> LucileTestApp {
+    pub async fn lucille_test_app() -> LucilleTestApp {
         let dir = tempfile::TempDir::new().expect("unable to create tmpdir");
         let db = Database::memory()
             .await
@@ -116,10 +116,10 @@ pub mod tests {
         let test_config =
             ConfigBuilder::new_test_config(dir.path()).expect("could not create test config");
 
-        let app = LucileApp {
+        let app = LucilleApp {
             db,
             config: test_config,
         };
-        LucileTestApp { app, dir }
+        LucilleTestApp { app, dir }
     }
 }

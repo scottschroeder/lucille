@@ -3,7 +3,7 @@ use tokio::io::AsyncReadExt;
 pub(crate) mod easyaes;
 
 pub use easyaes::unscramble;
-use lucile_core::encryption_config::KeyData;
+use lucille_core::encryption_config::KeyData;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EncryptionError {

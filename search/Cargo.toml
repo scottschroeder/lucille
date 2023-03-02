@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lucile-core = {path = "../lucile-core"}
+lucille-core = {path = "../lucille-core"}
 
 log = "0.4"
 tantivy = "0.16"

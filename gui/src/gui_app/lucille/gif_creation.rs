@@ -1,6 +1,6 @@
 use app::transcode::MakeGifRequest;
 use egui::{Color32, RichText};
-use lucile_core::uuid::Uuid;
+use lucille_core::uuid::Uuid;
 
 use crate::gui_app::error_popup::ErrorChainLogLine;
 
@@ -114,7 +114,7 @@ impl GifCreationUi {
                 }
             },
             DataFormat::Base64 => match serde_json::to_string(req) {
-                Ok(s) => Some(lucile_core::base64::B64Bytes::from(s.as_str()).to_string()),
+                Ok(s) => Some(lucille_core::base64::B64Bytes::from(s.as_str()).to_string()),
                 Err(e) => {
                     let e = anyhow::Error::from(e)
                         .context("unable to serialize json")

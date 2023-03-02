@@ -1,4 +1,4 @@
-use lucile_core::{ContentData, Subtitle};
+use lucille_core::{ContentData, Subtitle};
 
 pub fn generate_multi_window(
     size: usize,

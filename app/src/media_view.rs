@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use database::Database;
-use lucile_core::{
+use lucille_core::{
     export::ChapterExport,
     identifiers::{CorpusId, MediaViewId},
     media_segment::{MediaSegment, MediaView},
@@ -9,12 +9,12 @@ use lucile_core::{
 };
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use crate::{app::LucileApp, LucileAppError};
+use crate::{app::LucilleApp, LucilleAppError};
 
 pub async fn get_media_view_for_transcode(
-    app: &LucileApp,
+    app: &LucilleApp,
     srt_uuid: Uuid,
-) -> Result<Option<MediaView>, LucileAppError> {
+) -> Result<Option<MediaView>, LucilleAppError> {
     let views = app.db.get_media_views_for_srt(srt_uuid).await?;
     let priorities = app.config.media_view_priority();
     Ok(select_best_media_view(&priorities, views))
@@ -36,7 +36,7 @@ pub async fn get_media_view_in_corpus(
     db: &Database,
     corpus_id: CorpusId,
     view_name: &str,
-) -> Result<Vec<(ChapterExport, Option<MediaView>)>, LucileAppError> {
+) -> Result<Vec<(ChapterExport, Option<MediaView>)>, LucilleAppError> {
     let all_chapters = db.get_active_chapters_for_corpus(corpus_id).await?;
     let mut results = Vec::with_capacity(all_chapters.len());
 
@@ -53,11 +53,11 @@ pub async fn get_media_view_in_corpus(
 }
 
 pub async fn get_surrounding_media(
-    app: &LucileApp,
+    app: &LucilleApp,
     media_view_id: MediaViewId,
     start: Duration,
     end: Duration,
-) -> Result<(Duration, Box<dyn AsyncRead + Unpin + Send>), LucileAppError> {
+) -> Result<(Duration, Box<dyn AsyncRead + Unpin + Send>), LucilleAppError> {
     // find segments that match our window
     let segments = app.db.get_media_segment_by_view(media_view_id).await?;
     let target_segments = cut_relevant_segments(&segments, start, end);
@@ -97,15 +97,15 @@ fn cut_relevant_segments(
 
 #[cfg(test)]
 mod test {
-    use lucile_core::MediaHash;
+    use lucille_core::MediaHash;
 
     use super::*;
 
     fn prepare_segments() -> Vec<MediaSegment> {
         (0..6)
             .map(|idx| MediaSegment {
-                id: lucile_core::identifiers::MediaSegmentId::new(idx + 1),
-                media_view_id: lucile_core::identifiers::MediaViewId::new(1),
+                id: lucille_core::identifiers::MediaSegmentId::new(idx + 1),
+                media_view_id: lucille_core::identifiers::MediaViewId::new(1),
                 hash: MediaHash::from_bytes(format!("data_{}", idx).as_bytes()),
                 start: Duration::from_secs_f32(idx as f32 * 10.0),
                 key: None,

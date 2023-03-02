@@ -4,7 +4,7 @@ use anyhow::Context;
 use app::hashfs::HashFS;
 use clap::Parser;
 use database::Database;
-use lucile_core::metadata::MediaHash;
+use lucille_core::metadata::MediaHash;
 
 use super::argparse::MediaStorage;
 use crate::cli::argparse::DatabaseConfig;
@@ -42,7 +42,7 @@ pub struct CleanMediaRootCmd {
 
 impl CleanMediaRootCmd {
     async fn run(&self) -> anyhow::Result<()> {
-        let app = app::app::LucileBuilder::new()?
+        let app = app::app::LucilleBuilder::new()?
             .database_path(self.db.database_path())?
             .media_root(self.media_root.media_root())?
             .build()
@@ -119,7 +119,7 @@ pub struct CleanLocalStorage {
 
 impl CleanLocalStorage {
     async fn run(&self) -> anyhow::Result<()> {
-        let app = app::app::LucileBuilder::new()?
+        let app = app::app::LucilleBuilder::new()?
             .database_path(self.db.database_path())?
             .media_root(self.media_root.media_root())?
             .build()
@@ -148,7 +148,7 @@ impl CleanLocalStorage {
     }
 }
 
-async fn clean_file(hashfs: &HashFS, s: &lucile_core::export::MediaStorage) -> anyhow::Result<()> {
+async fn clean_file(hashfs: &HashFS, s: &lucille_core::export::MediaStorage) -> anyhow::Result<()> {
     if hashfs.remove(s.hash).await.is_err() {
         if let Err(e) = tokio::fs::remove_file(&s.path).await {
             if tokio::fs::metadata(&s.path).await.is_ok() {

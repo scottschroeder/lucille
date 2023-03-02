@@ -1,14 +1,14 @@
 use super::{MakeGifRequest, RequestError};
 use crate::{
-    app::LucileApp,
+    app::LucilleApp,
     ffmpeg::gif::{FFMpegCmdAsyncResult, FFMpegGifTranscoder, GifSettings},
-    LucileAppError,
+    LucilleAppError,
 };
 
 pub async fn handle_make_gif_request(
-    app: &LucileApp,
+    app: &LucilleApp,
     request: &MakeGifRequest,
-) -> Result<FFMpegCmdAsyncResult, LucileAppError> {
+) -> Result<FFMpegCmdAsyncResult, LucilleAppError> {
     if request.segments.len() != 1 {
         return Err(RequestError::Invalid("gifs must be exactly `1` segment".to_string()).into());
     }

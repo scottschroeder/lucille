@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use app::app::LucileApp;
+use app::app::LucilleApp;
 
 use self::{
     import_app::ImportApp,
     loader::LoadManager,
-    runtime_loader::LucileConfigLoader,
+    runtime_loader::LucilleConfigLoader,
     search_app::{load_last_index, SearchAppState},
 };
 use super::ErrorPopup;
@@ -17,73 +17,73 @@ mod loader;
 mod runtime_loader;
 mod search_app;
 
-pub struct LucileAppCtx<'a, T> {
+pub struct LucilleAppCtx<'a, T> {
     pub(crate) rt: &'a tokio::runtime::Handle,
-    pub(crate) lucile: &'a std::sync::Arc<LucileApp>,
+    pub(crate) lucille: &'a std::sync::Arc<LucilleApp>,
     outer: T,
 }
 
-pub trait LucileCtx {
+pub trait LucilleCtx {
     /// Access to the tokio runtime
     fn rt(&self) -> &tokio::runtime::Handle;
-    /// Access to the lucile configuration object
-    fn app(&self) -> &Arc<LucileApp>;
+    /// Access to the lucille configuration object
+    fn app(&self) -> &Arc<LucilleApp>;
 }
 
-impl<'a, T> LucileCtx for LucileAppCtx<'a, T> {
+impl<'a, T> LucilleCtx for LucilleAppCtx<'a, T> {
     fn rt(&self) -> &tokio::runtime::Handle {
         self.rt
     }
 
-    fn app(&self) -> &Arc<LucileApp> {
-        self.lucile
+    fn app(&self) -> &Arc<LucilleApp> {
+        self.lucille
     }
 }
 
-impl<'a, T: ErrorPopup> ErrorPopup for LucileAppCtx<'a, T> {
+impl<'a, T: ErrorPopup> ErrorPopup for LucilleAppCtx<'a, T> {
     fn raise(&mut self, err: anyhow::Error) {
         self.outer.raise(err)
     }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default)]
-pub struct LucileShell {
+pub struct LucilleShell {
     // #[serde(skip)]
-    // app: Option<Arc<LucileApp>>,
+    // app: Option<Arc<LucilleApp>>,
     // #[serde(skip)]
     // pub(crate) rt: LoadManager<tokio::runtime::Runtime>,
     #[serde(skip)]
-    state: LucileRuntimeState,
+    state: LucilleRuntimeState,
     #[serde(skip)]
     search_app: SearchAppState,
     import_app: ImportApp,
 }
 
-enum LucileRuntimeState {
+enum LucilleRuntimeState {
     Init {
         rt_loader: LoadManager<tokio::runtime::Runtime>,
     },
     Configure {
         rt: tokio::runtime::Runtime,
-        app_loader: runtime_loader::LucileConfigLoader,
+        app_loader: runtime_loader::LucilleConfigLoader,
     },
     Ready {
         rt: tokio::runtime::Runtime,
-        app: Arc<LucileApp>,
+        app: Arc<LucilleApp>,
     },
 }
 
-impl LucileRuntimeState {
+impl LucilleRuntimeState {
     fn is_ready(&self) -> bool {
-        matches!(self, LucileRuntimeState::Ready { .. })
+        matches!(self, LucilleRuntimeState::Ready { .. })
     }
 }
 
-impl LucileRuntimeState {
+impl LucilleRuntimeState {
     fn get_rt_or_panic(self) -> tokio::runtime::Runtime {
         match self {
-            LucileRuntimeState::Configure { rt, .. } => rt,
-            LucileRuntimeState::Ready { rt, .. } => rt,
+            LucilleRuntimeState::Configure { rt, .. } => rt,
+            LucilleRuntimeState::Ready { rt, .. } => rt,
             _ => panic!("no runtime"),
         }
     }
@@ -101,7 +101,7 @@ impl LucileRuntimeState {
 
     fn load(&mut self) -> anyhow::Result<bool> {
         match self {
-            LucileRuntimeState::Init { rt_loader } => {
+            LucilleRuntimeState::Init { rt_loader } => {
                 let rt_opt = rt_loader
                     .aquire_owned(|| {
                         log::trace!("starting tokio runtime");
@@ -113,46 +113,46 @@ impl LucileRuntimeState {
                     .take()?;
 
                 if let Some(rt) = rt_opt {
-                    self.update(|_| LucileRuntimeState::Configure {
+                    self.update(|_| LucilleRuntimeState::Configure {
                         rt,
-                        app_loader: LucileConfigLoader::default(),
+                        app_loader: LucilleConfigLoader::default(),
                     });
                     return Ok(true);
                 }
             }
-            LucileRuntimeState::Configure { rt, app_loader } => {
+            LucilleRuntimeState::Configure { rt, app_loader } => {
                 let opt_app = app_loader.run_autoload(rt.handle())?;
                 if let Some(app) = opt_app {
-                    self.update(|state| LucileRuntimeState::Ready {
+                    self.update(|state| LucilleRuntimeState::Ready {
                         rt: state.get_rt_or_panic(),
                         app: Arc::new(app),
                     });
                     return Ok(true);
                 }
             }
-            LucileRuntimeState::Ready { .. } => {}
+            LucilleRuntimeState::Ready { .. } => {}
         }
         Ok(false)
     }
 }
 
-impl Default for LucileRuntimeState {
+impl Default for LucilleRuntimeState {
     fn default() -> Self {
-        LucileRuntimeState::Init {
+        LucilleRuntimeState::Init {
             rt_loader: LoadManager::Init,
         }
     }
 }
 
-impl LucileShell {
+impl LucilleShell {
     pub fn update(&mut self, ctx: &mut impl ErrorPopup) -> anyhow::Result<()> {
-        if let LucileRuntimeState::Ready { rt, app } = &mut self.state {
-            let mut lucile_ctx = LucileAppCtx {
+        if let LucilleRuntimeState::Ready { rt, app } = &mut self.state {
+            let mut lucille_ctx = LucilleAppCtx {
                 rt: rt.handle(),
-                lucile: app,
+                lucille: app,
                 outer: ctx,
             };
-            let refresh = self.import_app.update(&mut lucile_ctx);
+            let refresh = self.import_app.update(&mut lucille_ctx);
             if refresh {
                 self.search_app = SearchAppState::Unknown;
             }
@@ -179,28 +179,28 @@ impl LucileShell {
         self.import_app.ui(ui, ctx);
 
         match &mut self.state {
-            LucileRuntimeState::Init { rt_loader } => {
+            LucilleRuntimeState::Init { rt_loader } => {
                 if ui.button("Try Again?").clicked() {
                     rt_loader.reset();
                 }
             }
-            LucileRuntimeState::Configure { rt, app_loader } => app_loader.ui(ui, rt.handle(), ctx),
-            LucileRuntimeState::Ready { rt, app } => {
-                let mut lucile_ctx = LucileAppCtx {
+            LucilleRuntimeState::Configure { rt, app_loader } => app_loader.ui(ui, rt.handle(), ctx),
+            LucilleRuntimeState::Ready { rt, app } => {
+                let mut lucille_ctx = LucilleAppCtx {
                     rt: rt.handle(),
-                    lucile: app,
+                    lucille: app,
                     outer: ctx,
                 };
 
                 match &mut self.search_app {
                     SearchAppState::Unknown => {
-                        self.search_app = load_last_index(&mut lucile_ctx);
+                        self.search_app = load_last_index(&mut lucille_ctx);
                         if matches!(self.search_app, SearchAppState::None) {
                             self.import_app.open_app()
                         }
                     }
                     SearchAppState::App(search_app) => {
-                        search_app.update_central_panel(ui, &mut lucile_ctx)
+                        search_app.update_central_panel(ui, &mut lucille_ctx)
                     }
                     SearchAppState::None => {
                         ui.heading("no media available");

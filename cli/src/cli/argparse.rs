@@ -1,5 +1,5 @@
 use anyhow::Context;
-use app::app::LucileApp;
+use app::app::LucilleApp;
 use clap::{Parser, ValueEnum};
 
 #[derive(Parser, Debug, Clone)]
@@ -51,7 +51,7 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub async fn build_app(&self) -> anyhow::Result<app::app::LucileApp> {
+    pub async fn build_app(&self) -> anyhow::Result<app::app::LucilleApp> {
         let config = app::app::ConfigBuilder::new()?
             .load_environment(true)
             .config_file(self.config_file.config_file())?
@@ -75,7 +75,7 @@ impl AppConfig {
             .context("validate db migrations")?;
         let (db, _) = db_builder.into_parts()?;
 
-        Ok(LucileApp { db, config })
+        Ok(LucilleApp { db, config })
     }
 }
 

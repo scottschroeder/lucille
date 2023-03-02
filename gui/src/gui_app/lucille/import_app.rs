@@ -1,9 +1,9 @@
 use anyhow::Context;
-use app::app::LucileApp;
-use lucile_core::export::CorpusExport;
+use app::app::LucilleApp;
+use lucille_core::export::CorpusExport;
 use tokio::sync::oneshot::Receiver;
 
-use super::LucileCtx;
+use super::LucilleCtx;
 use crate::gui_app::{
     oneshot_state::{OneshotManager, OneshotState},
     ErrorPopup,
@@ -40,7 +40,7 @@ async fn read_bytes_from_http(src: &str) -> anyhow::Result<Vec<u8>> {
     Ok(b.as_ref().to_vec())
 }
 
-async fn load_object(_app: &LucileApp, src: &str) -> anyhow::Result<ImportObject> {
+async fn load_object(_app: &LucilleApp, src: &str) -> anyhow::Result<ImportObject> {
     let src_url = url::Url::parse(src);
     let data = match src_url.as_ref().map(|u| u.scheme()) {
         Ok("http") | Ok("https") => read_bytes_from_http(src).await,
@@ -55,7 +55,7 @@ async fn load_object(_app: &LucileApp, src: &str) -> anyhow::Result<ImportObject
 }
 
 async fn import_object(
-    app: &LucileApp,
+    app: &LucilleApp,
     obj: &ImportObject,
     update_index: bool,
 ) -> anyhow::Result<()> {
@@ -100,7 +100,7 @@ impl ImportApp {
         std::mem::swap(&mut swp, self);
     }
 
-    pub fn update(&mut self, ctx: &mut (impl LucileCtx + ErrorPopup)) -> bool {
+    pub fn update(&mut self, ctx: &mut (impl LucilleCtx + ErrorPopup)) -> bool {
         let mut reset = false;
         self.state_obj_load.send_request(|src, tx| {
             let rt = ctx.rt();

@@ -2,14 +2,14 @@ use std::fmt::Write;
 
 use anyhow::Context;
 use app::{
-    app::LucileApp,
+    app::LucilleApp,
     search_manager::{ClipResult, SearchRequest, SearchResponse, SearchService},
 };
 use egui::RichText;
-use lucile_core::{clean_sub::CleanSubs, uuid::Uuid};
+use lucille_core::{clean_sub::CleanSubs, uuid::Uuid};
 
 use self::episode_cache::{EpisodeCache, EpisodeData};
-use super::{super::error::ErrorChainLogLine, gif_creation::GifCreationUi, LucileCtx};
+use super::{super::error::ErrorChainLogLine, gif_creation::GifCreationUi, LucilleCtx};
 use crate::gui_app::ErrorPopup;
 mod loader;
 pub(crate) use loader::{load_last_index, SearchAppState};
@@ -281,11 +281,11 @@ impl SearchApp {
         }
     }
 
-    fn run_query<Ctx: ErrorPopup + LucileCtx>(&self, ui: &mut egui::Ui, ctx: &mut Ctx) {
+    fn run_query<Ctx: ErrorPopup + LucilleCtx>(&self, ui: &mut egui::Ui, ctx: &mut Ctx) {
         let results_tx = self.tx.clone();
         let service = self.search_service.clone();
         let text = self.query.body.clone();
-        let lucile = ctx.app().clone();
+        let lucille = ctx.app().clone();
         let egui_ctx = ui.ctx().clone();
         let cache = self.cache.clone();
         ctx.rt().spawn(async move {
@@ -294,7 +294,7 @@ impl SearchApp {
                 window: Some(DEFAULT_SEARCH_WIDTH),
                 max_responses: Some(100),
             };
-            if let Err(e) = search_and_rank(&lucile, &service, &cache, request, results_tx).await {
+            if let Err(e) = search_and_rank(&lucille, &service, &cache, request, results_tx).await {
                 log::error!("{:?}", ErrorChainLogLine::from(e))
             } else {
                 egui_ctx.request_repaint();
@@ -314,7 +314,7 @@ impl SearchApp {
 
     pub(crate) fn update_central_panel<Ctx>(&mut self, ui: &mut egui::Ui, app_ctx: &mut Ctx)
     where
-        Ctx: ErrorPopup + LucileCtx,
+        Ctx: ErrorPopup + LucilleCtx,
     {
         ui.vertical(|ui| {
             ui.heading("Search");
@@ -368,7 +368,7 @@ impl SearchApp {
 }
 
 async fn search_and_rank<'a>(
-    app: &LucileApp,
+    app: &LucilleApp,
     search: &SearchService,
     cache: &EpisodeCache,
     req: SearchRequest<'a>,
@@ -389,7 +389,7 @@ async fn search_and_rank<'a>(
 }
 
 async fn fill_cache_with_results(
-    app: &LucileApp,
+    app: &LucilleApp,
     resp: SearchResponse,
     cache: &EpisodeCache,
 ) -> anyhow::Result<SearchResults> {

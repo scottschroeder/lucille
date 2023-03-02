@@ -12,14 +12,14 @@ const POOL_TIMEOUT: Duration = Duration::from_secs(30);
 const POOL_MAX_CONN: u32 = 2;
 
 #[derive(Debug, Clone)]
-pub struct LucileDbConnectOptions {
+pub struct LucilleDbConnectOptions {
     inner: SqliteConnectOptions,
     pub source: DatabaseSource,
 }
 
-impl LucileDbConnectOptions {
-    pub fn memory() -> LucileDbConnectOptions {
-        let mut builder = LucileDbConnectOptions {
+impl LucilleDbConnectOptions {
+    pub fn memory() -> LucilleDbConnectOptions {
+        let mut builder = LucilleDbConnectOptions {
             inner: SqliteConnectOptions::from_str("sqlite::memory:")
                 .expect("failed to create in memory sqlite database"),
             source: DatabaseSource::Memory,
@@ -29,11 +29,11 @@ impl LucileDbConnectOptions {
         builder
     }
 
-    pub fn from_url(url: &str) -> Result<LucileDbConnectOptions, DatabaseError> {
+    pub fn from_url(url: &str) -> Result<LucilleDbConnectOptions, DatabaseError> {
         if url == "sqlite::memory:" || url == "sqlite://:memory:" {
-            Ok(LucileDbConnectOptions::memory())
+            Ok(LucilleDbConnectOptions::memory())
         } else {
-            Ok(LucileDbConnectOptions {
+            Ok(LucilleDbConnectOptions {
                 inner: SqliteConnectOptions::from_str(url)?,
                 source: DatabaseSource::Url(url.to_owned()),
             }
@@ -41,9 +41,9 @@ impl LucileDbConnectOptions {
         }
     }
 
-    pub fn from_path(filename: impl Into<PathBuf>) -> LucileDbConnectOptions {
+    pub fn from_path(filename: impl Into<PathBuf>) -> LucilleDbConnectOptions {
         let p: PathBuf = filename.into();
-        LucileDbConnectOptions {
+        LucilleDbConnectOptions {
             inner: SqliteConnectOptions::new().filename(p.as_path()),
             source: DatabaseSource::Path(p),
         }
@@ -62,29 +62,29 @@ impl LucileDbConnectOptions {
         ))
     }
 }
-impl LucileDbConnectOptions {
-    pub fn create_if_missing(mut self, create: bool) -> LucileDbConnectOptions {
+impl LucilleDbConnectOptions {
+    pub fn create_if_missing(mut self, create: bool) -> LucilleDbConnectOptions {
         self.update(|opt| opt.create_if_missing(create));
         self
     }
 }
 
-impl LucileDbConnectOptions {
+impl LucilleDbConnectOptions {
     fn update(&mut self, f: impl FnOnce(SqliteConnectOptions) -> SqliteConnectOptions) {
-        let mut swp = LucileDbConnectOptions {
+        let mut swp = LucilleDbConnectOptions {
             inner: SqliteConnectOptions::new(),
             source: DatabaseSource::Memory,
         };
         std::mem::swap(&mut swp, self);
-        let LucileDbConnectOptions { inner, source } = swp;
-        let mut ret = LucileDbConnectOptions {
+        let LucilleDbConnectOptions { inner, source } = swp;
+        let mut ret = LucilleDbConnectOptions {
             inner: f(inner),
             source,
         };
         std::mem::swap(&mut ret, self);
     }
 
-    fn apply_common(mut self) -> LucileDbConnectOptions {
+    fn apply_common(mut self) -> LucilleDbConnectOptions {
         self.update(|opt| {
             opt.synchronous(sqlx::sqlite::SqliteSynchronous::Normal)
                 .create_if_missing(true)
@@ -101,7 +101,7 @@ mod test {
 
     #[tokio::test]
     async fn create_in_memory_db() {
-        let (_pool, src) = LucileDbConnectOptions::memory()
+        let (_pool, src) = LucilleDbConnectOptions::memory()
             .create_pool()
             .await
             .unwrap();
@@ -110,7 +110,7 @@ mod test {
 
     #[tokio::test]
     async fn create_in_memory_db_from_url() {
-        let (_pool, src) = LucileDbConnectOptions::from_url("sqlite::memory:")
+        let (_pool, src) = LucilleDbConnectOptions::from_url("sqlite::memory:")
             .unwrap()
             .create_pool()
             .await
@@ -122,7 +122,7 @@ mod test {
     async fn create_file_db() {
         let root = tempfile::tempdir().unwrap();
         let db_path = root.path().join("test.db");
-        let (_pool, src) = LucileDbConnectOptions::from_path(&db_path)
+        let (_pool, src) = LucilleDbConnectOptions::from_path(&db_path)
             .create_pool()
             .await
             .unwrap();
@@ -133,7 +133,7 @@ mod test {
     async fn fail_to_create_db_with_create_false() {
         let root = tempfile::tempdir().unwrap();
         let db_path = root.path().join("test.db");
-        let res = LucileDbConnectOptions::from_path(&db_path)
+        let res = LucilleDbConnectOptions::from_path(&db_path)
             .create_if_missing(false)
             .create_pool()
             .await;
@@ -145,12 +145,12 @@ mod test {
         let root = tempfile::tempdir().unwrap();
         let db_path = root.path().join("test.db");
         {
-            LucileDbConnectOptions::from_path(&db_path)
+            LucilleDbConnectOptions::from_path(&db_path)
                 .create_pool()
                 .await
                 .unwrap();
         }
-        LucileDbConnectOptions::from_path(&db_path)
+        LucilleDbConnectOptions::from_path(&db_path)
             .create_if_missing(false)
             .create_pool()
             .await

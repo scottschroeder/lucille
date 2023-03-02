@@ -1,5 +1,5 @@
 [package]
-name = "lucile"
+name = "lucille"
 version = "0.2.0"
 authors = ["Scott Schroeder <scottschroeder@sent.com>"]
 edition = "2018"
@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 database = {path = "../database"}
-lucile-core = {path = "../lucile-core"}
+lucille-core = {path = "../lucille-core"}
 app = {path = "../app"}
 
 clap = {version = "4.1", features = ["derive", "cargo"]}

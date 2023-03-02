@@ -1,4 +1,4 @@
-use lucile_core::{
+use lucille_core::{
     export::ChapterExport,
     identifiers::{ChapterId, CorpusId},
     metadata::MediaHash,
@@ -176,7 +176,7 @@ impl Database {
 #[cfg(test)]
 mod test {
 
-    use lucile_core::{identifiers::ChapterId, metadata::MediaHash};
+    use lucille_core::{identifiers::ChapterId, metadata::MediaHash};
 
     use super::*;
     use crate::database_test::assert_err_is_constraint;

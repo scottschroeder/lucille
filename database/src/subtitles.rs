@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
 use futures::TryStreamExt;
-use lucile_core::{
+use lucille_core::{
     identifiers::{ChapterId, CorpusId},
     metadata::{MediaHash, MediaMetadata},
     uuid::Uuid,
-    ContentData, LucileSub, Subtitle,
+    ContentData, LucilleSub, Subtitle,
 };
 
 use crate::{metadata_from_chapter, parse_media_hash, parse_uuid, Database, DatabaseError};
@@ -143,7 +143,7 @@ impl Database {
         while let Some(row) = rows.try_next().await.unwrap() {
             let subtitle = deserialize_subtitle(&row.data)?;
             let uuid = parse_uuid(&row.uuid)?;
-            let lucile_sub = LucileSub {
+            let lucille_sub = LucilleSub {
                 id: row.id,
                 uuid,
                 subs: subtitle,
@@ -152,7 +152,7 @@ impl Database {
                 results.push(ContentData {
                     metadata,
                     hash,
-                    subtitle: lucile_sub,
+                    subtitle: lucille_sub,
                 });
                 collected_srts.insert(row.id);
             } else {
@@ -215,7 +215,7 @@ impl Database {
     pub async fn lookup_latest_sub_for_chapter(
         &self,
         chapter_id: ChapterId,
-    ) -> Result<Option<LucileSub>, DatabaseError> {
+    ) -> Result<Option<LucilleSub>, DatabaseError> {
         let ch_id = chapter_id.get();
         let opt_row = sqlx::query!(
             r#"
@@ -236,7 +236,7 @@ impl Database {
         if let Some(record) = opt_row {
             let subs = deserialize_subtitle(&record.data)?;
             let global_id = parse_uuid(&record.uuid)?;
-            Ok(Some(LucileSub {
+            Ok(Some(LucilleSub {
                 id: record.id,
                 uuid: global_id,
                 subs,
@@ -291,7 +291,7 @@ impl Database {
 
 #[cfg(test)]
 mod test {
-    use lucile_core::{metadata::MediaHash, Subtitle};
+    use lucille_core::{metadata::MediaHash, Subtitle};
 
     use super::*;
 

@@ -1,5 +1,5 @@
 use anyhow::Context;
-use app::app::LucileApp;
+use app::app::LucilleApp;
 use database::DatabaseConnectState;
 use egui::RichText;
 
@@ -10,19 +10,19 @@ enum ConfigState {
     #[default]
     Init,
     Builder(app::app::ConfigBuilder),
-    Configured(app::app::LucileConfig),
+    Configured(app::app::LucilleConfig),
 }
 
 #[derive(Default)]
-pub struct LucileConfigLoader {
+pub struct LucilleConfigLoader {
     manual_loading: bool,
     config: ConfigState,
     db: database::DatabaseBuider,
     delete_db: bool,
 }
 
-impl LucileConfigLoader {
-    fn advance_state(&mut self, rt: &tokio::runtime::Handle) -> anyhow::Result<Option<LucileApp>> {
+impl LucilleConfigLoader {
+    fn advance_state(&mut self, rt: &tokio::runtime::Handle) -> anyhow::Result<Option<LucilleApp>> {
         match &mut self.config {
             ConfigState::Init => {
                 self.config = ConfigState::Builder(
@@ -36,7 +36,7 @@ impl LucileConfigLoader {
             ConfigState::Configured(c) => match self.db.current_state() {
                 DatabaseConnectState::Init => {
                     let db_path = c.database_path();
-                    let opts = database::LucileDbConnectOptions::from_path(db_path);
+                    let opts = database::LucilleDbConnectOptions::from_path(db_path);
                     self.db.add_opts(opts)?;
                 }
                 DatabaseConnectState::Configured => {
@@ -47,7 +47,7 @@ impl LucileConfigLoader {
                 }
                 DatabaseConnectState::Ready => {
                     let (db, _) = self.db.clone().into_parts()?;
-                    return Ok(Some(LucileApp {
+                    return Ok(Some(LucilleApp {
                         config: c.clone(),
                         db,
                     }));
@@ -57,11 +57,11 @@ impl LucileConfigLoader {
         Ok(None)
     }
 
-    fn get_app(&self) -> Option<LucileApp> {
+    fn get_app(&self) -> Option<LucilleApp> {
         if let ConfigState::Configured(ref config) = self.config {
             if self.db.current_state() == DatabaseConnectState::Ready {
                 if let Ok((db, _)) = self.db.clone().into_parts() {
-                    return Some(LucileApp {
+                    return Some(LucilleApp {
                         config: config.clone(),
                         db,
                     });
@@ -74,14 +74,14 @@ impl LucileConfigLoader {
     pub fn run_autoload(
         &mut self,
         rt: &tokio::runtime::Handle,
-    ) -> anyhow::Result<Option<LucileApp>> {
+    ) -> anyhow::Result<Option<LucilleApp>> {
         while !self.manual_loading && self.db.current_state() != DatabaseConnectState::Ready {
             match self.advance_state(rt) {
                 Ok(Some(x)) => return Ok(Some(x)),
                 Ok(None) => {}
                 Err(e) => {
                     self.manual_loading = true;
-                    return Err(e).context("failure loading LucileApp");
+                    return Err(e).context("failure loading LucilleApp");
                 }
             }
         }
@@ -116,7 +116,7 @@ impl LucileConfigLoader {
             }
             ConfigState::Configured(c) => {
                 let db_path = c.database_path();
-                let opts = database::LucileDbConnectOptions::from_path(&db_path);
+                let opts = database::LucilleDbConnectOptions::from_path(&db_path);
                 match self.db.current_state() {
                     DatabaseConnectState::Init => {
                         SimpleMsgAndRetryUi {

@@ -3,9 +3,9 @@ use std::path::PathBuf;
 mod connect;
 mod migration;
 
-pub use connect::LucileDbConnectOptions;
+pub use connect::LucilleDbConnectOptions;
 pub(crate) use migration::get_db_migration_status;
-pub use migration::{LucileMigrationManager, MigrationRecord};
+pub use migration::{LucilleMigrationManager, MigrationRecord};
 
 use crate::{drop_everything_PROBABLY_DONT_USE, Database, DatabaseError};
 
@@ -19,8 +19,8 @@ pub enum DatabaseConnectState {
 
 #[derive(Debug, Clone, Default)]
 pub struct DatabaseBuider {
-    opts: Option<LucileDbConnectOptions>,
-    migration: Option<LucileMigrationManager>,
+    opts: Option<LucilleDbConnectOptions>,
+    migration: Option<LucilleMigrationManager>,
     src: Option<DatabaseSource>,
     migration_results: Option<Vec<MigrationRecord>>,
 }
@@ -43,7 +43,7 @@ impl DatabaseBuider {
     pub fn get_migration_results(&self) -> Option<&[MigrationRecord]> {
         self.migration_results.as_deref()
     }
-    pub fn add_opts(&mut self, opts: LucileDbConnectOptions) -> Result<(), DatabaseError> {
+    pub fn add_opts(&mut self, opts: LucilleDbConnectOptions) -> Result<(), DatabaseError> {
         if self.opts.is_some() {
             return Err(DatabaseError::ConnectStateError(
                 "database builder already has options",
@@ -62,7 +62,7 @@ impl DatabaseBuider {
             DatabaseError::ConnectStateError("database builder does not have opts")
         })?;
         let (pool, src) = opts.create_pool().await?;
-        self.migration = Some(LucileMigrationManager::new(pool));
+        self.migration = Some(LucilleMigrationManager::new(pool));
         self.src = Some(src);
         Ok(())
     }

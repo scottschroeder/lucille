@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use lucile_core::{
+use lucille_core::{
     encryption_config::KeyData,
     identifiers::{CorpusId, MediaSegmentId, MediaViewId},
     media_segment::MediaSegment,
@@ -177,7 +177,7 @@ impl Database {
 mod test {
     use std::time::Duration;
 
-    use lucile_core::{encryption_config::SimpleKeyNonce, metadata::MediaHash};
+    use lucille_core::{encryption_config::SimpleKeyNonce, metadata::MediaHash};
 
     use super::*;
     use crate::database_test::assert_err_is_constraint;

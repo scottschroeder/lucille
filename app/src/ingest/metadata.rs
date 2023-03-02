@@ -1,6 +1,6 @@
 use std::path;
 
-use lucile_core::metadata::{EpisodeMetadata, MediaMetadata};
+use lucille_core::metadata::{EpisodeMetadata, MediaMetadata};
 
 use super::{ScannedData, ScannedMedia};
 

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use lucile_core::{export::MediaStorage, identifiers::StorageId, metadata::MediaHash};
+use lucille_core::{export::MediaStorage, identifiers::StorageId, metadata::MediaHash};
 
 use crate::{parse_media_hash, Database, DatabaseError};
 
@@ -147,7 +147,7 @@ impl Database {
 #[cfg(test)]
 mod test {
 
-    use lucile_core::metadata::MediaHash;
+    use lucille_core::metadata::MediaHash;
 
     use super::*;
     use crate::database_test::assert_err_is_constraint;

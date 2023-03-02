@@ -1,5 +1,5 @@
 use database::Database;
-use lucile_core::{
+use lucille_core::{
     metadata::{MediaHash, MediaMetadata},
     Corpus,
 };
@@ -62,7 +62,7 @@ pub struct ScannedMedia {
     pub metadata: MediaMetadata,
 }
 
-impl LucileApp {
+impl LucilleApp {
     pub fn media_scanner(&self, trust_hashes: bool) -> MediaProcessor {
         MediaProcessor {
             db: self.db.clone(),
@@ -80,14 +80,14 @@ pub struct MediaProcessor {
 pub use insert::add_content_to_corpus;
 pub use scan::scan_media_paths;
 
-use crate::{app::LucileApp, LucileAppError};
+use crate::{app::LucilleApp, LucilleAppError};
 
 impl MediaProcessor {
     pub async fn ingest<P: AsRef<std::path::Path>>(
         &self,
         root: P,
         corpus: Option<&Corpus>,
-    ) -> Result<(), LucileAppError> {
+    ) -> Result<(), LucilleAppError> {
         let content = self.scan_and_process(root).await?;
 
         add_content_to_corpus(&self.db, corpus, content).await
@@ -136,10 +136,10 @@ impl MediaProcessor {
 mod tests {
     use std::{collections::HashMap, io::Write, path::PathBuf};
 
-    use lucile_core::test_util::generate_subtitle;
+    use lucille_core::test_util::generate_subtitle;
 
     use super::*;
-    use crate::app::tests::lucile_test_app;
+    use crate::app::tests::lucille_test_app;
 
     struct TestMedia {
         root: tempfile::TempDir,
@@ -183,7 +183,7 @@ mod tests {
                     path: video_path.clone(),
                     subs: ScannedSubtitles::Subtitles(srt_data),
                     hash,
-                    metadata: MediaMetadata::Episode(lucile_core::metadata::EpisodeMetadata {
+                    metadata: MediaMetadata::Episode(lucille_core::metadata::EpisodeMetadata {
                         season: s,
                         episode: e,
                         title: ep_title,
@@ -212,7 +212,7 @@ mod tests {
 
     #[tokio::test]
     async fn scan_and_extract_media() {
-        let test_app = lucile_test_app().await;
+        let test_app = lucille_test_app().await;
         let test_media = create_simple_show_structure();
 
         let media = test_app
@@ -230,7 +230,7 @@ mod tests {
 
     #[tokio::test]
     async fn scan_and_extract_with_wrong_hash_in_db() {
-        let test_app = lucile_test_app().await;
+        let test_app = lucille_test_app().await;
         let test_media = create_simple_show_structure();
 
         let (path, _) = test_media.media.iter().next().expect("no media");
@@ -260,7 +260,7 @@ mod tests {
 
     #[tokio::test]
     async fn scan_and_extract_with_wrong_hash_in_db_with_trust() {
-        let test_app = lucile_test_app().await;
+        let test_app = lucille_test_app().await;
         let test_media = create_simple_show_structure();
 
         let (path, _) = test_media.media.iter().next().expect("no media");

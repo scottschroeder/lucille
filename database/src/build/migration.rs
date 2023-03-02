@@ -8,14 +8,14 @@ use crate::DatabaseError;
 static MIGRATOR: Migrator = sqlx::migrate!();
 
 #[derive(Debug, Clone)]
-pub struct LucileMigrationManager {
+pub struct LucilleMigrationManager {
     pub(crate) pool: Pool<Sqlite>,
     pub(crate) done: bool,
 }
 
-impl LucileMigrationManager {
-    pub fn new(pool: Pool<Sqlite>) -> LucileMigrationManager {
-        LucileMigrationManager { pool, done: false }
+impl LucilleMigrationManager {
+    pub fn new(pool: Pool<Sqlite>) -> LucilleMigrationManager {
+        LucilleMigrationManager { pool, done: false }
     }
 
     pub async fn run(&mut self) -> Result<(), DatabaseError> {
@@ -127,7 +127,7 @@ fn compare_ids(a: Option<i64>, b: Option<i64>) -> std::cmp::Ordering {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::build::connect::LucileDbConnectOptions;
+    use crate::build::connect::LucilleDbConnectOptions;
 
     /// These tests rely on the current migration sql files
     /// which can change. It should be sufficient to test using just
@@ -146,13 +146,13 @@ mod test {
             .collect()
     }
 
-    async fn empty_migration_manager() -> LucileMigrationManager {
-        let (pool, _) = LucileDbConnectOptions::memory()
+    async fn empty_migration_manager() -> LucilleMigrationManager {
+        let (pool, _) = LucilleDbConnectOptions::memory()
             .create_pool()
             .await
             .unwrap();
 
-        LucileMigrationManager::new(pool)
+        LucilleMigrationManager::new(pool)
     }
 
     #[test]

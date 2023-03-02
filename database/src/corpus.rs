@@ -1,5 +1,5 @@
 use futures::TryStreamExt;
-use lucile_core::{identifiers::CorpusId, Corpus};
+use lucille_core::{identifiers::CorpusId, Corpus};
 
 use crate::{Database, DatabaseError};
 

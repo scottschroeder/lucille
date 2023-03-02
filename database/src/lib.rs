@@ -5,14 +5,14 @@ use std::{
     time::Duration,
 };
 
-use lucile_core::{
+use lucille_core::{
     metadata::{EpisodeMetadata, MediaHash, MediaMetadata},
     uuid::Uuid,
 };
 use sqlx::{Pool, Sqlite};
 
 pub use self::build::{
-    DatabaseBuider, DatabaseConnectState, DatabaseSource, LucileDbConnectOptions, MigrationRecord,
+    DatabaseBuider, DatabaseConnectState, DatabaseSource, LucilleDbConnectOptions, MigrationRecord,
 };
 
 const POOL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -74,7 +74,7 @@ pub async fn drop_everything_PROBABLY_DONT_USE(url: &str) -> Result<(), Database
 impl Database {
     pub async fn memory() -> Result<Database, DatabaseError> {
         let mut builder = DatabaseBuider::default();
-        builder.add_opts(LucileDbConnectOptions::memory())?;
+        builder.add_opts(LucilleDbConnectOptions::memory())?;
         builder.connect().await?;
         builder.migrate().await?;
         let (db, _) = builder.into_parts()?;
@@ -112,7 +112,7 @@ impl DatabaseFetcher {
     #[deprecated(note = "use stateful `DatabaseBuilder` api")]
     pub async fn memory() -> Result<DatabaseFetcher, DatabaseError> {
         let mut builder = DatabaseBuider::default();
-        builder.add_opts(LucileDbConnectOptions::memory())?;
+        builder.add_opts(LucilleDbConnectOptions::memory())?;
         builder.connect().await?;
         builder.migrate().await?;
         let (db, source) = builder.into_parts()?;
@@ -122,9 +122,9 @@ impl DatabaseFetcher {
     pub async fn from_url_or_file(url: String) -> Result<DatabaseFetcher, DatabaseError> {
         let mut builder = DatabaseBuider::default();
         let opts = if url.starts_with("sqlite:") {
-            LucileDbConnectOptions::from_url(&url)?
+            LucilleDbConnectOptions::from_url(&url)?
         } else {
-            LucileDbConnectOptions::from_path(&url)
+            LucilleDbConnectOptions::from_path(&url)
         };
         builder.add_opts(opts)?;
         builder.connect().await?;
@@ -138,7 +138,7 @@ impl DatabaseFetcher {
         filename: P,
     ) -> Result<DatabaseFetcher, DatabaseError> {
         let mut builder = DatabaseBuider::default();
-        builder.add_opts(LucileDbConnectOptions::from_path(filename.as_ref()))?;
+        builder.add_opts(LucilleDbConnectOptions::from_path(filename.as_ref()))?;
         builder.connect().await?;
         builder.migrate().await?;
         let (db, source) = builder.into_parts()?;
@@ -148,7 +148,7 @@ impl DatabaseFetcher {
     pub async fn from_env() -> Result<DatabaseFetcher, DatabaseError> {
         let url = db_env()?.ok_or(DatabaseError::NoDatabaseSpecified)?;
         let mut builder = DatabaseBuider::default();
-        builder.add_opts(LucileDbConnectOptions::from_url(&url)?)?;
+        builder.add_opts(LucilleDbConnectOptions::from_url(&url)?)?;
         builder.connect().await?;
         builder.migrate().await?;
         let (db, source) = builder.into_parts()?;
@@ -186,7 +186,7 @@ fn parse_uuid(text: &str) -> Result<Uuid, DatabaseError> {
 pub(crate) mod database_test {
     use futures::TryStreamExt;
 
-    use crate::{build::LucileMigrationManager, Database};
+    use crate::{build::LucilleMigrationManager, Database};
 
     const TABLES: &[&str] = &["_sqlx_migrations", "corpus", "chapter", "srtfile"];
 
@@ -252,7 +252,7 @@ pub(crate) mod database_test {
             assert_eq!(rows, vec![])
         }
         let pool = db.pool;
-        let mut mgr = LucileMigrationManager::new(pool);
+        let mut mgr = LucilleMigrationManager::new(pool);
         mgr.run().await.unwrap();
     }
 }
