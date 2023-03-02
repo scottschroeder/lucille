@@ -184,7 +184,9 @@ impl LucilleShell {
                     rt_loader.reset();
                 }
             }
-            LucilleRuntimeState::Configure { rt, app_loader } => app_loader.ui(ui, rt.handle(), ctx),
+            LucilleRuntimeState::Configure { rt, app_loader } => {
+                app_loader.ui(ui, rt.handle(), ctx)
+            }
             LucilleRuntimeState::Ready { rt, app } => {
                 let mut lucille_ctx = LucilleAppCtx {
                     rt: rt.handle(),

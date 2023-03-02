@@ -5,7 +5,7 @@ mod lucille;
 pub mod egui_logger;
 pub mod error_popup;
 pub mod oneshot_state;
-use anyhow::Context;
+
 pub use error_popup::ErrorPopup;
 
 struct ShellCtx<'a> {
