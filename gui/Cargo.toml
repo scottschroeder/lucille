@@ -1,6 +1,5 @@
 [package]
 name = "gui"
-default-run = "lucille_gui"
 version = "0.2.0"
 authors = ["Scott Schroeder <scottschroeder@sent.com>"]
 edition = "2021"
