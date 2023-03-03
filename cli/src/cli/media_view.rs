@@ -8,7 +8,7 @@ use anyhow::Context;
 use app::{
     app::LucilleBuilder,
     prepare::{MediaProcessor, MediaSplittingStrategy},
-    storage::FileCheckStrategy,
+    storage::verify::FileCheckStrategy,
 };
 use clap::{Parser, ValueEnum};
 use database::Database;
@@ -425,7 +425,7 @@ async fn check_storage_exists(
     strategy: FileCheckStrategy,
 ) -> anyhow::Result<PathBuf> {
     log::debug!("verify storage for chapter: {:?}", chapter);
-    let (path, outcome) = app::storage::check_local_file(db, chapter.hash, strategy)
+    let (path, outcome) = app::storage::verify::check_local_file(db, chapter.hash, strategy)
         .await?
         .ok_or_else(|| anyhow::anyhow!("hash not found in database"))?;
 

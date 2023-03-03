@@ -21,13 +21,15 @@ pub enum ArgFileCheckStrategy {
 }
 
 impl ArgFileCheckStrategy {
-    pub(crate) fn to_app(&self) -> app::storage::FileCheckStrategy {
+    pub(crate) fn to_app(&self) -> app::storage::verify::FileCheckStrategy {
         match self {
-            ArgFileCheckStrategy::VerifyAll => app::storage::FileCheckStrategy::VerifyAll,
+            ArgFileCheckStrategy::VerifyAll => app::storage::verify::FileCheckStrategy::VerifyAll,
             ArgFileCheckStrategy::TrustNameIsHash => {
-                app::storage::FileCheckStrategy::TrustNameIsHash
+                app::storage::verify::FileCheckStrategy::TrustNameIsHash
             }
-            ArgFileCheckStrategy::CheckExists => app::storage::FileCheckStrategy::CheckExists,
+            ArgFileCheckStrategy::CheckExists => {
+                app::storage::verify::FileCheckStrategy::CheckExists
+            }
         }
     }
 }
