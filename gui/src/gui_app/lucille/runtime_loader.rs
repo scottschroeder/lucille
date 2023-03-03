@@ -23,6 +23,10 @@ pub struct LucilleConfigLoader {
 }
 
 impl LucilleConfigLoader {
+    fn reset(&mut self) {
+        self.config = ConfigState::default();
+        self.db = database::DatabaseBuider::default();
+    }
     fn advance_state(&mut self, rt: &tokio::runtime::Handle) -> anyhow::Result<Option<LucilleApp>> {
         match &mut self.config {
             ConfigState::Init => {
@@ -35,9 +39,10 @@ impl LucilleConfigLoader {
                     ConfigState::Configured(b.clone().build().context("could not create Config")?)
             }
             ConfigState::Configured(c) => {
-                let hashfs = HashFS::new(c.media_root()).with_context(|| {
+                std::fs::create_dir_all(c.media_root()).with_context(|| {
                     format!("could not create media root: {:?}", c.media_root())
                 })?;
+                let hashfs = HashFS::new(c.media_root()).context("could not open media root")?;
                 self.config = ConfigState::Paths(hashfs, c.clone());
             }
             ConfigState::Paths(h, c) => match self.db.current_state() {
@@ -61,26 +66,11 @@ impl LucilleConfigLoader {
         Ok(None)
     }
 
-    fn get_app(&self) -> Option<LucilleApp> {
-        if let ConfigState::Paths(ref hashfs, ref config) = self.config {
-            if self.db.current_state() == DatabaseConnectState::Ready {
-                if let Ok((db, _)) = self.db.clone().into_parts() {
-                    return Some(LucilleApp::new_with_hashfs(
-                        db,
-                        config.clone(),
-                        hashfs.clone(),
-                    ));
-                }
-            }
-        }
-        None
-    }
-
     pub fn run_autoload(
         &mut self,
         rt: &tokio::runtime::Handle,
     ) -> anyhow::Result<Option<LucilleApp>> {
-        while !self.manual_loading && self.db.current_state() != DatabaseConnectState::Ready {
+        while !self.manual_loading || self.db.current_state() == DatabaseConnectState::Ready {
             match self.advance_state(rt) {
                 Ok(Some(x)) => return Ok(Some(x)),
                 Ok(None) => {}
@@ -90,7 +80,7 @@ impl LucilleConfigLoader {
                 }
             }
         }
-        Ok(self.get_app())
+        Ok(None)
     }
 
     pub fn ui(
@@ -127,8 +117,7 @@ impl LucilleConfigLoader {
                 }
                 .ui(ui, &mut self.manual_loading);
                 if !self.manual_loading {
-                    // By retry, we should reload the config, in case the user changed it
-                    self.config = ConfigState::Init;
+                    self.reset();
                 }
             }
             ConfigState::Paths(_, c) => {
