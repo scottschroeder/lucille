@@ -52,6 +52,14 @@ impl LucilleDbConnectOptions {
 
     pub async fn create_pool(&self) -> Result<(Pool<Sqlite>, DatabaseSource), DatabaseError> {
         log::debug!("connecting to sqlite database: {:?}", self.source);
+        if let DatabaseSource::Path(p) = &self.source {
+            if let Some(parent) = p.parent() {
+                tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                    log::error!("could not create directory for {:?}", p);
+                    DatabaseError::Sqlx(sqlx::Error::Io(e))
+                })?;
+            }
+        }
         Ok((
             SqlitePoolOptions::new()
                 .max_connections(POOL_MAX_CONN)
