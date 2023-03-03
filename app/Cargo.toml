@@ -34,3 +34,4 @@ base64 = "0.21.0"
 
 [features]
 ffmpeg-debug = []
+aws-sdk = []

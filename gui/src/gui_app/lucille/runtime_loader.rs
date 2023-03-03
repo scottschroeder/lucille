@@ -1,5 +1,5 @@
 use anyhow::Context;
-use app::app::LucilleApp;
+use app::{app::LucilleApp, hashfs::HashFS};
 use database::DatabaseConnectState;
 use egui::RichText;
 
@@ -11,6 +11,7 @@ enum ConfigState {
     Init,
     Builder(app::app::ConfigBuilder),
     Configured(app::app::LucilleConfig),
+    Paths(HashFS, app::app::LucilleConfig),
 }
 
 #[derive(Default)]
@@ -33,7 +34,13 @@ impl LucilleConfigLoader {
                 self.config =
                     ConfigState::Configured(b.clone().build().context("could not create Config")?)
             }
-            ConfigState::Configured(c) => match self.db.current_state() {
+            ConfigState::Configured(c) => {
+                let hashfs = HashFS::new(c.media_root()).with_context(|| {
+                    format!("could not create media root: {:?}", c.media_root())
+                })?;
+                self.config = ConfigState::Paths(hashfs, c.clone());
+            }
+            ConfigState::Paths(h, c) => match self.db.current_state() {
                 DatabaseConnectState::Init => {
                     let db_path = c.database_path();
                     let opts = database::LucilleDbConnectOptions::from_path(db_path);
@@ -47,10 +54,7 @@ impl LucilleConfigLoader {
                 }
                 DatabaseConnectState::Ready => {
                     let (db, _) = self.db.clone().into_parts()?;
-                    return Ok(Some(LucilleApp {
-                        config: c.clone(),
-                        db,
-                    }));
+                    return Ok(Some(LucilleApp::new_with_hashfs(db, c.clone(), h.clone())));
                 }
             },
         }
@@ -58,13 +62,14 @@ impl LucilleConfigLoader {
     }
 
     fn get_app(&self) -> Option<LucilleApp> {
-        if let ConfigState::Configured(ref config) = self.config {
+        if let ConfigState::Paths(ref hashfs, ref config) = self.config {
             if self.db.current_state() == DatabaseConnectState::Ready {
                 if let Ok((db, _)) = self.db.clone().into_parts() {
-                    return Some(LucilleApp {
-                        config: config.clone(),
+                    return Some(LucilleApp::new_with_hashfs(
                         db,
-                    });
+                        config.clone(),
+                        hashfs.clone(),
+                    ));
                 }
             }
         }
@@ -115,6 +120,18 @@ impl LucilleConfigLoader {
                 .ui(ui, &mut self.manual_loading);
             }
             ConfigState::Configured(c) => {
+                SimpleMsgAndRetryUi {
+                    header: "Error creating required paths",
+                    body: &format!("{:#?}", c),
+                    err: None,
+                }
+                .ui(ui, &mut self.manual_loading);
+                if !self.manual_loading {
+                    // By retry, we should reload the config, in case the user changed it
+                    self.config = ConfigState::Init;
+                }
+            }
+            ConfigState::Paths(_, c) => {
                 let db_path = c.database_path();
                 let opts = database::LucilleDbConnectOptions::from_path(&db_path);
                 match self.db.current_state() {

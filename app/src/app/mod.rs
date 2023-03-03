@@ -4,7 +4,10 @@ use database::Database;
 use lucille_core::uuid::Uuid;
 use search::SearchIndex;
 
-use crate::{search_manager::SearchService, LucilleAppError};
+use crate::{
+    hashfs::HashFS, search_manager::SearchService, storage::backend::CascadingMediaBackend,
+    LucilleAppError,
+};
 
 mod lucille_config;
 
@@ -75,7 +78,7 @@ impl LucilleBuilder {
         db_builder.migrate().await?;
         let (db, _) = db_builder.into_parts()?;
 
-        let app = LucilleApp { db, config };
+        let app = LucilleApp::new(db, config)?;
         log::trace!("{:#?}", app);
         Ok(app)
     }
@@ -85,9 +88,31 @@ impl LucilleBuilder {
 pub struct LucilleApp {
     pub db: Database,
     pub config: lucille_config::LucilleConfig,
+    pub(crate) storage: CascadingMediaBackend,
 }
 
 impl LucilleApp {
+    pub fn new(
+        db: Database,
+        config: lucille_config::LucilleConfig,
+    ) -> Result<Self, LucilleAppError> {
+        let hashfs = HashFS::new(config.media_root())?;
+        Ok(Self::new_with_hashfs(db, config, hashfs))
+    }
+    pub fn new_with_hashfs(
+        db: Database,
+        config: lucille_config::LucilleConfig,
+        hashfs: HashFS,
+    ) -> Self {
+        let mut storage = CascadingMediaBackend::default();
+        storage.push_back(crate::storage::backend::DbStorageBackend::new(db.clone()));
+        storage.push_back(crate::storage::backend::MediaRootBackend::new(hashfs));
+        LucilleApp {
+            db,
+            config,
+            storage,
+        }
+    }
     pub fn search_service(&self, index_uuid: Uuid) -> Result<SearchService, LucilleAppError> {
         let index_dir = self.config.index_root().join(index_uuid.to_string());
         log::debug!("loading search index from: {:?}", index_dir.as_path());
@@ -119,6 +144,7 @@ pub mod tests {
         let app = LucilleApp {
             db,
             config: test_config,
+            storage: CascadingMediaBackend::default(),
         };
         LucilleTestApp { app, dir }
     }

@@ -138,9 +138,9 @@ impl ConfigBuilder {
         }
 
         if self.load_environment {
-            if let Ok(db) = std::env::var(database::DATABASE_ENV_VAR) {
-                self.config_builder = self.config_builder.set_default(DATABASE_KEY, db)?
-            };
+            // if let Ok(db) = std::env::var(database::DATABASE_ENV_VAR) {
+            //     self.config_builder = self.config_builder.set_default(DATABASE_KEY, db)?
+            // };
 
             self.config_builder = self
                 .config_builder

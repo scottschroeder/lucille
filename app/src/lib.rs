@@ -14,7 +14,6 @@ pub mod encryption;
 pub mod ffmpeg;
 pub mod hashfs;
 pub mod ingest;
-pub mod media_backend;
 pub mod media_view;
 pub mod prepare;
 pub mod search_manager;

@@ -66,7 +66,7 @@ pub async fn get_surrounding_media(
     let start = target_segments.first().map(|s| s.start).unwrap_or_default();
     for t in target_segments {
         log::trace!("getting media for {:?}", t);
-        let rdr = crate::media_backend::get_reader_for_segment(app, t).await?;
+        let rdr = crate::storage::backend::get_reader_for_segment(app, t).await?;
         chain = Box::new(chain.chain(rdr));
     }
     Ok((start, chain))

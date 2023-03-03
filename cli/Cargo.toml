@@ -30,5 +30,7 @@ tokio = { version = "1.20.0", features = ["macros", "io-std"]}
 
 
 [features]
-# Defines a feature named `webp` that does not enable any other features.
 ffmpeg-debug = []
+aws-sdk = [
+  "app/aws-sdk"
+]

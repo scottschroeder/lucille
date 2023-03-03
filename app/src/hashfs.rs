@@ -5,9 +5,16 @@ use tokio::io::{AsyncBufRead, AsyncRead};
 
 const TMP_DIR: &str = ".tmp";
 
+#[derive(Clone)]
 pub struct HashFS {
     root: PathBuf,
     tmp: PathBuf,
+}
+
+impl std::fmt::Debug for HashFS {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HashFS").field("root", &self.root).finish()
+    }
 }
 
 fn hash_path(hash: MediaHash) -> (String, String) {
@@ -55,18 +62,18 @@ impl HashFS {
         let (_, hash) = hashed_file.into_inner();
         let hash = MediaHash::new(hash);
 
-        let (dname, fname) = self.get_path(hash);
+        let (dname, fname) = self.get_path_parts(hash);
         tokio::fs::create_dir_all(&dname).await?;
         let fpath = dname.join(fname);
         tokio::fs::rename(tmp_path.to_path_buf(), &fpath).await?;
         Ok((fpath, hash))
     }
-    pub fn get_path(&self, hash: MediaHash) -> (PathBuf, String) {
+    fn get_path_parts(&self, hash: MediaHash) -> (PathBuf, String) {
         let (dir_name, file_name) = hash_path(hash);
         (self.root.join(dir_name), file_name)
     }
     pub fn get_file_path(&self, hash: MediaHash) -> PathBuf {
-        let (d, f) = self.get_path(hash);
+        let (d, f) = self.get_path_parts(hash);
         d.join(f)
     }
 

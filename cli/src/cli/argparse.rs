@@ -77,7 +77,7 @@ impl AppConfig {
             .context("validate db migrations")?;
         let (db, _) = db_builder.into_parts()?;
 
-        Ok(LucilleApp { db, config })
+        Ok(LucilleApp::new(db, config)?)
     }
 }
 
