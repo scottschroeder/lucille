@@ -32,6 +32,9 @@ rand = "0.8.5"
 aes-gcm = {version= "0.10.1", features = ["stream", "std"]}
 base64 = "0.21.0"
 
+aws-config = {version= "0.54", optional = true}
+aws-sdk-s3 = {version= "0.24", optional = true}
+
 [features]
 ffmpeg-debug = []
-aws-sdk = []
+aws-sdk = ["aws-config", "aws-sdk-s3"]

@@ -20,6 +20,7 @@ pub fn setup_logger(level: u8) {
         "sqlx::query",
         "tantivy::directory::mmap_directory",
         "mio::poll",
+        "hyper::proto::h1",
     ];
 
     let log_level = match level {

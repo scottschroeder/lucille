@@ -30,6 +30,7 @@ tokio = { version = "1.20.0", features = ["macros", "io-std"]}
 
 
 [features]
+default = ["aws-sdk"]
 ffmpeg-debug = []
 aws-sdk = [
   "app/aws-sdk"

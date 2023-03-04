@@ -76,8 +76,9 @@ impl AppConfig {
             .await
             .context("validate db migrations")?;
         let (db, _) = db_builder.into_parts()?;
-
-        Ok(LucilleApp::new(db, config)?)
+        let mut app = LucilleApp::new(db, config)?;
+        app.add_s3_backend().await;
+        Ok(app)
     }
 }
 

@@ -78,7 +78,11 @@ impl LucilleBuilder {
         db_builder.migrate().await?;
         let (db, _) = db_builder.into_parts()?;
 
-        let app = LucilleApp::new(db, config)?;
+        let mut app = LucilleApp::new(db, config)?;
+
+        #[cfg(feature = "aws-sdk")]
+        app.add_s3_backend().await;
+
         log::trace!("{:#?}", app);
         Ok(app)
     }
@@ -107,12 +111,22 @@ impl LucilleApp {
         let mut storage = CascadingMediaBackend::default();
         storage.push_back(crate::storage::backend::DbStorageBackend::new(db.clone()));
         storage.push_back(crate::storage::backend::MediaRootBackend::new(hashfs));
+
         LucilleApp {
             db,
             config,
             storage,
         }
     }
+    #[cfg(feature = "aws-sdk")]
+    pub async fn add_s3_backend(&mut self) {
+        if let Some(bucket) = self.config.media_s3_bucket() {
+            let cfg = aws_config::from_env().load().await;
+            let backend = crate::storage::backend::S3MediaBackend::new(&cfg, bucket);
+            self.storage.push_back(backend);
+        }
+    }
+
     pub fn search_service(&self, index_uuid: Uuid) -> Result<SearchService, LucilleAppError> {
         let index_dir = self.config.index_root().join(index_uuid.to_string());
         log::debug!("loading search index from: {:?}", index_dir.as_path());

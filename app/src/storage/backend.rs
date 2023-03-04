@@ -4,6 +4,9 @@ use tokio::io::AsyncRead;
 pub(crate) use self::{db_storage::DbStorageBackend, local_media_root::MediaRootBackend};
 use crate::{app::LucilleApp, LucilleAppError};
 
+#[cfg(feature = "aws-sdk")]
+pub(crate) use self::s3_media_root::S3MediaBackend;
+
 /// Turn media hashes into contents we can consume
 
 pub(crate) struct MediaReader {
@@ -156,8 +159,46 @@ mod s3_media_root {
     use super::{BackendCacheControl, StorageBackend};
     use crate::LucilleAppError;
 
+    use aws_config::meta::region::RegionProviderChain;
+    use aws_sdk_s3::{
+        error::GetObjectError, output::GetObjectOutput, types::SdkError, Client, Error, Region,
+        PKG_VERSION,
+    };
+
     #[derive(Debug)]
-    pub(crate) struct S3MediaBackend {}
+    pub(crate) struct S3MediaBackend {
+        client: aws_sdk_s3::Client,
+        media_bucket: String,
+    }
+
+    impl S3MediaBackend {
+        pub(crate) fn new(cfg: &aws_config::SdkConfig, bucket: impl Into<String>) -> Self {
+            let s3_config = aws_sdk_s3::config::Config::new(&cfg);
+            let client = aws_sdk_s3::Client::from_conf(s3_config);
+            Self {
+                client,
+                media_bucket: bucket.into(),
+            }
+        }
+        async fn get_s3_from_hash(
+            &self,
+            hash: MediaHash,
+        ) -> Result<Option<Box<dyn AsyncRead + Unpin + Send>>, LucilleAppError> {
+            let obj = download_object(&self.client, &self.media_bucket, &hash.to_string())
+                .await
+                .map_err(map_s3_err)?;
+            Ok(Some(Box::new(obj.body.into_async_read())))
+        }
+    }
+
+    fn map_s3_err(e: SdkError<GetObjectError>) -> LucilleAppError {
+        let s_e = e.into_service_error();
+        if let aws_sdk_s3::error::GetObjectErrorKind::NoSuchKey(_) = s_e.kind {
+        } else {
+            log::warn!("s3 error: {}", s_e);
+        }
+        LucilleAppError::MissingVideoSource
+    }
 
     #[async_trait::async_trait]
     impl StorageBackend for S3MediaBackend {
@@ -165,7 +206,7 @@ mod s3_media_root {
             &self,
             hash: MediaHash,
         ) -> Result<Option<Box<dyn AsyncRead + Unpin + Send>>, LucilleAppError> {
-            return Err(LucilleAppError::MissingVideoSource);
+            self.get_s3_from_hash(hash).await
         }
         fn cache_control(&self) -> BackendCacheControl {
             BackendCacheControl::Remote
@@ -173,6 +214,19 @@ mod s3_media_root {
         fn name(&self) -> &'static str {
             "S3"
         }
+    }
+
+    async fn download_object(
+        client: &Client,
+        bucket_name: &str,
+        key: &str,
+    ) -> Result<GetObjectOutput, SdkError<GetObjectError>> {
+        client
+            .get_object()
+            .bucket(bucket_name)
+            .key(key)
+            .send()
+            .await
     }
 }
 

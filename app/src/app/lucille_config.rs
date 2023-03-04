@@ -17,6 +17,8 @@ const INDEX_DIR: &str = "index";
 const MEDIA_ROOT_KEY: &str = "media_root";
 const MEDIA_DIR: &str = "media";
 
+const MEDIA_S3_BUCKET_KEY: &str = "media_s3_bucket";
+
 const FFMPEG_CMD_KEY: &str = "ffmpeg";
 const MEDIA_VIEW_KEY: &str = "media_view_priority";
 
@@ -186,6 +188,9 @@ impl LucilleConfig {
     }
     pub fn media_root(&self) -> PathBuf {
         self.get_path(MEDIA_ROOT_KEY)
+    }
+    pub fn media_s3_bucket(&self) -> Option<String> {
+        self.inner.get_string(MEDIA_S3_BUCKET_KEY).ok()
     }
     pub fn ffmpeg(&self) -> crate::ffmpeg::FFMpegBinary {
         match self.inner.get::<Option<String>>(FFMPEG_CMD_KEY) {
