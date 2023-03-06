@@ -1,11 +1,10 @@
 use lucille_core::{media_segment::MediaSegment, MediaHash};
 use tokio::io::AsyncRead;
 
-pub(crate) use self::{db_storage::DbStorageBackend, local_media_root::MediaRootBackend};
-use crate::{app::LucilleApp, LucilleAppError};
-
 #[cfg(feature = "aws-sdk")]
 pub(crate) use self::s3_media_root::S3MediaBackend;
+pub(crate) use self::{db_storage::DbStorageBackend, local_media_root::MediaRootBackend};
+use crate::{app::LucilleApp, LucilleAppError};
 
 /// Turn media hashes into contents we can consume
 
@@ -153,17 +152,12 @@ mod local_media_root {
 
 #[cfg(feature = "aws-sdk")]
 mod s3_media_root {
+    use aws_sdk_s3::{error::GetObjectError, output::GetObjectOutput, types::SdkError, Client};
     use lucille_core::MediaHash;
     use tokio::io::AsyncRead;
 
     use super::{BackendCacheControl, StorageBackend};
     use crate::LucilleAppError;
-
-    use aws_config::meta::region::RegionProviderChain;
-    use aws_sdk_s3::{
-        error::GetObjectError, output::GetObjectOutput, types::SdkError, Client, Error, Region,
-        PKG_VERSION,
-    };
 
     #[derive(Debug)]
     pub(crate) struct S3MediaBackend {
@@ -173,7 +167,7 @@ mod s3_media_root {
 
     impl S3MediaBackend {
         pub(crate) fn new(cfg: &aws_config::SdkConfig, bucket: impl Into<String>) -> Self {
-            let s3_config = aws_sdk_s3::config::Config::new(&cfg);
+            let s3_config = aws_sdk_s3::config::Config::new(cfg);
             let client = aws_sdk_s3::Client::from_conf(s3_config);
             Self {
                 client,

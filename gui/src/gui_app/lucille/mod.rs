@@ -4,6 +4,7 @@ use anyhow::Context;
 use app::app::LucilleApp;
 
 use self::{
+    gif_creation::GifCreationUi,
     import_app::ImportApp,
     loader::LoadManager,
     runtime_loader::LucilleConfigLoader,
@@ -57,6 +58,7 @@ pub struct LucilleShell {
     #[serde(skip)]
     search_app: SearchAppState,
     import_app: ImportApp,
+    gif_app: GifCreationUi,
 }
 
 enum LucilleRuntimeState {
@@ -202,7 +204,7 @@ impl LucilleShell {
                         }
                     }
                     SearchAppState::App(search_app) => {
-                        search_app.update_central_panel(ui, &mut lucille_ctx)
+                        search_app.update_central_panel(ui, &mut lucille_ctx, &mut self.gif_app)
                     }
                     SearchAppState::None => {
                         ui.heading("no media available");

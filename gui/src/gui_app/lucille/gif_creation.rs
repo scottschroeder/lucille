@@ -1,15 +1,17 @@
+use anyhow::Context;
 use app::transcode::MakeGifRequest;
 use egui::{Color32, RichText};
 use lucille_core::uuid::Uuid;
 
-use crate::gui_app::error_popup::ErrorChainLogLine;
+use super::LucilleCtx;
+use crate::gui_app::{error_popup::ErrorChainLogLine, oneshot_state::OneshotManager, ErrorPopup};
 
 pub enum ClipSource {
     None,
     Search { uuid: Uuid, range: (usize, usize) },
 }
 
-#[derive(Default, Clone, Copy, PartialEq)]
+#[derive(Default, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
 enum DataFormat {
     Debug,
     Json,
@@ -29,10 +31,25 @@ impl DataFormat {
     }
 }
 
-#[derive(Default)]
+#[derive(serde::Deserialize, serde::Serialize, Default)]
 pub struct GifCreationUi {
-    transcode_request: Option<MakeGifRequest>,
+    render_url: String,
     format: DataFormat,
+    #[serde(skip)]
+    transcode_request: Option<MakeGifRequest>,
+    #[serde(skip)]
+    gif_request: OneshotManager<MakeGifRequest, String>,
+    #[serde(skip)]
+    gif_url: Option<String>,
+}
+
+async fn send_gif_request(req: reqwest::RequestBuilder) -> anyhow::Result<String> {
+    let resp = req.send().await.context("request failed")?;
+    let t = resp
+        .text()
+        .await
+        .context("failure reading response bytes")?;
+    Ok(t)
 }
 
 impl GifCreationUi {
@@ -43,6 +60,26 @@ impl GifCreationUi {
                 sub_range: range.0..range.1,
             }],
         })
+    }
+    pub fn update(&mut self, ctx: &mut (impl LucilleCtx + ErrorPopup)) {
+        self.gif_request.send_request(|req, tx| {
+            let rt = ctx.rt();
+            let http_client = reqwest::Client::new();
+            let body = serde_json::to_vec(&req).unwrap();
+            let r = http_client
+                .post(&self.render_url)
+                .header("content-type", "application/json")
+                .body(body);
+            rt.spawn(async move {
+                let res = send_gif_request(r).await;
+                _ = tx.send(res)
+            });
+        });
+        match self.gif_request.get_response() {
+            Some(Ok(obj)) => self.gif_url = Some(obj),
+            Some(Err(e)) => ctx.raise(e),
+            None => {}
+        }
     }
     pub fn ui(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
@@ -74,7 +111,14 @@ impl GifCreationUi {
             .max_height(ui.available_height() - 30.0)
             .stick_to_bottom(false)
             .enable_scrolling(false)
-            .show(ui, |_ui| {});
+            .show(ui, |ui| {
+                ui.text_edit_singleline(&mut self.render_url);
+                if let Some(url) = &self.gif_url {
+                    if ui.link(url).clicked() {
+                        ui.output_mut(|o| o.copied_text = url.clone());
+                    }
+                }
+            });
 
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -82,8 +126,19 @@ impl GifCreationUi {
                     ui.add_enabled(string_req.is_some(), egui::Button::new("Copy to Clipboard"));
                 if copy_button.clicked() {
                     ui.output_mut(|o| {
-                        o.copied_text = string_req.unwrap();
+                        o.copied_text = string_req.clone().unwrap();
                     });
+                }
+                let send_button = ui.add_enabled(
+                    self.transcode_request.is_some() && !self.render_url.is_empty(),
+                    egui::Button::new("Send Request"),
+                );
+                if send_button.clicked() {
+                    self.gif_request
+                        .set_request(self.transcode_request.clone().unwrap())
+                }
+                if self.gif_request.state().is_waiting() {
+                    ui.add(egui::Spinner::new().size(16.0));
                 }
             });
         });

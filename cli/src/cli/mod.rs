@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::Parser;
 
 pub mod argparse;
@@ -96,5 +97,27 @@ pub struct TestCommand {
 
 async fn do_test(_args: &TestCommand) -> anyhow::Result<()> {
     // let _app = args.cfg.build_app().await?;
+    let config = app::app::ConfigBuilder::new()?
+        .load_environment(true)
+        .build()?;
+
+    let db_opts = config
+        .database_connection_opts()
+        .context("failed to create db opts")?
+        .immutable();
+
+    let mut db_builder = database::DatabaseBuider::default();
+    db_builder
+        .add_opts(db_opts)
+        .context("database configuration")?;
+    db_builder.connect().await.context("connect to db")?;
+    db_builder
+        .migrate()
+        .await
+        .context("validate db migrations")?;
+    let (db, _) = db_builder.into_parts()?;
+    let hashfs = app::hashfs::HashFS::new(config.media_root())?;
+    let mut app = app::app::LucilleApp::new_with_hashfs(db, config, hashfs);
+    app.add_s3_backend().await;
     Ok(())
 }

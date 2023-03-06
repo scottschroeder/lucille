@@ -78,7 +78,8 @@ impl LucilleBuilder {
         db_builder.migrate().await?;
         let (db, _) = db_builder.into_parts()?;
 
-        let mut app = LucilleApp::new(db, config)?;
+        let hashfs = HashFS::new(config.media_root())?;
+        let mut app = LucilleApp::new_with_hashfs(db, config, hashfs);
 
         #[cfg(feature = "aws-sdk")]
         app.add_s3_backend().await;
@@ -96,12 +97,13 @@ pub struct LucilleApp {
 }
 
 impl LucilleApp {
-    pub fn new(
-        db: Database,
-        config: lucille_config::LucilleConfig,
-    ) -> Result<Self, LucilleAppError> {
-        let hashfs = HashFS::new(config.media_root())?;
-        Ok(Self::new_with_hashfs(db, config, hashfs))
+    pub fn new(db: Database, config: lucille_config::LucilleConfig) -> Self {
+        let storage = CascadingMediaBackend::default();
+        LucilleApp {
+            db,
+            config,
+            storage,
+        }
     }
     pub fn new_with_hashfs(
         db: Database,
@@ -117,6 +119,10 @@ impl LucilleApp {
             config,
             storage,
         }
+    }
+    pub async fn add_hashfs(&mut self, hashfs: HashFS) {
+        self.storage
+            .push_back(crate::storage::backend::MediaRootBackend::new(hashfs))
     }
     #[cfg(feature = "aws-sdk")]
     pub async fn add_s3_backend(&mut self) {

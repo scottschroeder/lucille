@@ -1,0 +1,11 @@
+FROM public.ecr.aws/lambda/provided:al2
+ARG RUST_VERSION=1.67.1
+RUN yum install -y jq openssl-devel gcc zip
+RUN set -o pipefail && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | CARGO_HOME=/cargo RUSTUP_HOME=/rustup sh -s -- -y --profile minimal --default-toolchain $RUST_VERSION
+COPY scripts/lambda-build.sh /usr/local/bin/build.sh
+
+RUN chmod -R 777 /cargo
+VOLUME ["/code"]
+WORKDIR /code
+ENTRYPOINT ["/usr/local/bin/build.sh"]

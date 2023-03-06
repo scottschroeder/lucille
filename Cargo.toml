@@ -8,6 +8,7 @@ members = [
   "app",
   "cli",
   "gui",
+  "lambdas",
 ]
 
 # Config for 'cargo dist'

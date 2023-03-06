@@ -13,9 +13,11 @@ MKFILE_DIR := $(dir $(MKFILE_PATH))
 MIGRATIONS := $(shell find database/migrations -type f -print)
 RUST_SRC := $(shell find . -name \*.rs -print)
 DATABASE_SRC := $(shell find database/src -name \*.rs -print)
+USER_ID := $(shell id -u)
+GROUP_ID := $(shell id -g)
 
 #.DEFAULT: config
-.PHONY: build clean build-docker win-build-local win-build-docker fmt fix test cov dist-manifest
+.PHONY: build clean build-docker build-lambda-docker win-build-local win-build-docker fmt fix test cov dist-manifest
 
 fmt:
 	cargo +nightly fmt
@@ -56,8 +58,16 @@ sqlx-data.json: $(DATABASE_SRC) sqlx-init
 build-docker:
 	docker build . -t rust_cross_compile/windows -f Dockerfile.windows
 
+build-lambda-docker:
+	docker build . -t rust_lambda_build -f Dockerfile.lambda
+
+build-lambda: build-lambda-docker 
+	# docker run --rm -u "$(USER_ID)":"$(GROUP_ID)" -v $(MKFILE_DIR):/code -v${HOME}/.cargo:/cargo rust_lambda_build
+	# docker run --rm -u "$(USER_ID)":"$(GROUP_ID)" -v $(MKFILE_DIR):/code rust_lambda_build
+	docker run --rm -u "$(USER_ID)":"$(GROUP_ID)" -v $(MKFILE_DIR):/code -v ${HOME}/.cargo/registry:/cargo/registry -v ${HOME}/.cargo/git:/cargo/git -e BIN=render rust_lambda_build
+
 win-build-docker: build-docker Dockerfile.windows sqlx-data.json
-	docker run -v $(MKFILE_DIR):/app -it rust_cross_compile/windows
+	docker run --rm -u "$(USER_ID)":"$(GROUP_ID)" -v $(MKFILE_DIR):/app -v ${HOME}/.cargo/registry:/usr/local/cargo/registry -v ${HOME}/.cargo/git:/usr/local/cargo/git -it rust_cross_compile/windows
 
 win-build-local:
 	cargo build --release --target x86_64-pc-windows-gnu

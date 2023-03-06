@@ -75,6 +75,11 @@ impl LucilleDbConnectOptions {
         self.update(|opt| opt.create_if_missing(create));
         self
     }
+    pub fn immutable(mut self) -> LucilleDbConnectOptions {
+        self.update(|opt| opt.create_if_missing(false));
+        self.update(|opt| opt.immutable(true));
+        self
+    }
 }
 
 impl LucilleDbConnectOptions {

@@ -1,5 +1,4 @@
 use anyhow::Context;
-use app::app::LucilleApp;
 use clap::{Parser, ValueEnum};
 
 #[derive(Parser, Debug, Clone)]
@@ -76,7 +75,8 @@ impl AppConfig {
             .await
             .context("validate db migrations")?;
         let (db, _) = db_builder.into_parts()?;
-        let mut app = LucilleApp::new(db, config)?;
+        let hashfs = app::hashfs::HashFS::new(config.media_root())?;
+        let mut app = app::app::LucilleApp::new_with_hashfs(db, config, hashfs);
         app.add_s3_backend().await;
         Ok(app)
     }

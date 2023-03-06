@@ -254,7 +254,6 @@ pub struct SearchApp {
     pub results: Option<SearchResults>,
 
     pub show_gif_creator: bool,
-    pub gif_creator: GifCreationUi,
 
     cache: EpisodeCache,
 
@@ -277,7 +276,6 @@ impl SearchApp {
             tx,
             rx,
             show_gif_creator: false,
-            gif_creator: GifCreationUi::default(),
         }
     }
 
@@ -312,8 +310,12 @@ impl SearchApp {
         }
     }
 
-    pub(crate) fn update_central_panel<Ctx>(&mut self, ui: &mut egui::Ui, app_ctx: &mut Ctx)
-    where
+    pub(crate) fn update_central_panel<Ctx>(
+        &mut self,
+        ui: &mut egui::Ui,
+        app_ctx: &mut Ctx,
+        gif: &mut GifCreationUi,
+    ) where
         Ctx: ErrorPopup + LucilleCtx,
     {
         ui.vertical(|ui| {
@@ -346,13 +348,14 @@ impl SearchApp {
                 });
             });
         });
+        gif.update(app_ctx);
         if let Some((uuid, range)) = self.get_clip_ids() {
-            self.gif_creator.set_clip(uuid, range);
+            gif.set_clip(uuid, range);
         }
         egui::Window::new("Gif Creation")
             .open(&mut self.show_gif_creator)
             .show(ui.ctx(), |ui| {
-                self.gif_creator.ui(ui);
+                gif.ui(ui);
             });
     }
 
