@@ -45,21 +45,25 @@ pub async fn print_details_for_hash(
     hash: MediaHash,
 ) -> Result<(), LucilleAppError> {
     // Lookup chapter with hash
-    if let Some(chapter) = app.db.get_chapter_by_hash(hash).await? {
-        let corpus = app.db.get_corpus(chapter.corpus_id).await?;
-        println!("{}: {:#?}", corpus.title, chapter);
-    }
+    let mut chapter = app.db.get_chapter_by_hash(hash).await?;
 
     // Lookup segments with hash
     let segment = app.db.get_media_segment_by_hash(hash).await?;
     if let Some(s) = segment {
         let media_view = app.db.get_media_view(s.media_view_id).await?;
         println!("found view {:#?}\nsegment: {:#?}", media_view, s);
+        if chapter.is_none() {
+            chapter = Some(app.db.get_chapter_by_id(media_view.chapter_id).await?);
+        }
     }
 
     // Lookup storage with hash
     if let Some(storage) = app.db.get_storage_by_hash(hash).await? {
         println!("found media storage {:#?}", storage);
+    }
+    if let Some(chapter) = &chapter {
+        let corpus = app.db.get_corpus(chapter.corpus_id).await?;
+        println!("{}: {:#?}", corpus.title, chapter);
     }
     Ok(())
 }
