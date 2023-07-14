@@ -25,7 +25,8 @@ impl RenderRequest {
         let mut res = app::transcode::handle_make_gif_request(&app, &gif_request).await?;
         let mut output = res.output();
         let mut out_gif = tokio::fs::File::create(&self.output).await?;
-        tokio::io::copy(&mut output, &mut out_gif).await?;
+        let bytes = tokio::io::copy(&mut output, &mut out_gif).await?;
+        log::debug!("GIF is size: {}", bytes);
         res.wait().await?;
         Ok(())
     }

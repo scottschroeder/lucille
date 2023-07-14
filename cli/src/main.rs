@@ -21,6 +21,8 @@ pub fn setup_logger(level: u8) {
         "tantivy::directory::mmap_directory",
         "mio::poll",
         "hyper::proto::h1",
+        "tracing::span",
+        "rustls::client",
     ];
 
     let log_level = match level {

@@ -218,7 +218,7 @@ impl FFMpegGifTranscoder {
         {
             let mut media_file = tokio::fs::File::create(&self.media_path).await?;
             let bytes = tokio::io::copy(&mut input, &mut media_file).await?;
-            log::debug!("copy input to {:?} ({} bytes)", self.media_path, bytes);
+            log::info!("copy input to {:?} ({} bytes)", self.media_path, bytes);
         }
         // tokio::time::sleep(Duration::from_secs(10)).await;
         let begin = std::time::Instant::now();
