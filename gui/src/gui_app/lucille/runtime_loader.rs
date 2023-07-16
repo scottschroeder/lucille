@@ -31,7 +31,8 @@ impl LucilleConfigLoader {
         match &mut self.config {
             ConfigState::Init => {
                 self.config = ConfigState::Builder(
-                    app::app::ConfigBuilder::new().context("could not create new ConfigBuilder")?,
+                    app::app::ConfigBuilder::new_with_user_dirs()
+                        .context("could not create new ConfigBuilder")?,
                 );
             }
             ConfigState::Builder(b) => {
@@ -90,7 +91,7 @@ impl LucilleConfigLoader {
         ctx: &mut impl ErrorPopup,
     ) {
         match &mut self.config {
-            ConfigState::Init => match app::app::ConfigBuilder::new() {
+            ConfigState::Init => match app::app::ConfigBuilder::new_with_user_dirs() {
                 Ok(c) => log::error!("ui should not be stuck in config init: {:?}", c),
                 Err(e) => {
                     SimpleMsgAndRetryUi {

@@ -57,7 +57,7 @@ pub struct ListMediaViews {
 
 impl ListMediaViews {
     async fn run(&self) -> anyhow::Result<()> {
-        let app = LucilleBuilder::new()?
+        let app = LucilleBuilder::new_with_user_dirs()?
             .database_path(self.db.database_path())?
             .build()
             .await?;
@@ -129,7 +129,7 @@ pub struct ShowMediaView {
 
 impl ShowMediaView {
     async fn run(&self) -> anyhow::Result<()> {
-        let app = LucilleBuilder::new()?
+        let app = LucilleBuilder::new_with_user_dirs()?
             .database_path(self.db.database_path())?
             .build()
             .await?;
@@ -262,7 +262,7 @@ impl PrepareEncryption {
 
 impl CreateMediaView {
     pub(crate) async fn run(&self) -> anyhow::Result<()> {
-        let app = app::app::LucilleBuilder::new()?
+        let app = app::app::LucilleBuilder::new_with_user_dirs()?
             .ffmpeg_override(self.ffmpeg.ffmpeg())?
             .database_path(self.db.database_path())?
             .media_root(self.media_root.media_root())?
@@ -480,7 +480,7 @@ async fn do_split_on_chapter<'a>(
 
 impl RenameMediaView {
     async fn run(&self) -> anyhow::Result<()> {
-        let app = LucilleBuilder::new()?
+        let app = LucilleBuilder::new_with_user_dirs()?
             .database_path(self.db.database_path())?
             .build()
             .await?;
@@ -499,7 +499,7 @@ impl RenameMediaView {
 }
 impl DeleteMediaView {
     async fn run(&self) -> anyhow::Result<()> {
-        let app = LucilleBuilder::new()?
+        let app = LucilleBuilder::new_with_user_dirs()?
             .database_path(self.db.database_path())?
             .build()
             .await?;

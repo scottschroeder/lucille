@@ -106,7 +106,7 @@ pub(crate) mod common {
     use anyhow::Context;
 
     pub(crate) async fn build_app() -> anyhow::Result<app::app::LucilleApp> {
-        let config = app::app::ConfigBuilder::new()?
+        let config = app::app::ConfigBuilder::new_with_user_dirs()?
             .load_environment(true)
             .build()?;
 

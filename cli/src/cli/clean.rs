@@ -42,7 +42,7 @@ pub struct CleanMediaRootCmd {
 
 impl CleanMediaRootCmd {
     async fn run(&self) -> anyhow::Result<()> {
-        let app = app::app::LucilleBuilder::new()?
+        let app = app::app::LucilleBuilder::new_with_user_dirs()?
             .database_path(self.db.database_path())?
             .media_root(self.media_root.media_root())?
             .build()
@@ -119,7 +119,7 @@ pub struct CleanLocalStorage {
 
 impl CleanLocalStorage {
     async fn run(&self) -> anyhow::Result<()> {
-        let app = app::app::LucilleBuilder::new()?
+        let app = app::app::LucilleBuilder::new_with_user_dirs()?
             .database_path(self.db.database_path())?
             .media_root(self.media_root.media_root())?
             .build()

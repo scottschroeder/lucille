@@ -19,9 +19,15 @@ pub struct LucilleBuilder {
 }
 
 impl LucilleBuilder {
-    pub fn new() -> Result<Self, ConfigError> {
+    pub fn new_with_user_dirs() -> Result<Self, ConfigError> {
         Ok(LucilleBuilder {
-            config: lucille_config::ConfigBuilder::new()?.load_environment(true),
+            config: lucille_config::ConfigBuilder::new_with_user_dirs()?.load_environment(true),
+        })
+    }
+
+    pub fn new_with_root(root: &Path) -> Result<Self, ConfigError> {
+        Ok(LucilleBuilder {
+            config: lucille_config::ConfigBuilder::new_with_root(root)?.load_environment(true),
         })
     }
 

@@ -50,7 +50,7 @@ pub struct InteractiveOpts {
 
 impl InteractiveOpts {
     pub(crate) async fn run(&self) -> anyhow::Result<()> {
-        let app = app::app::LucilleBuilder::new()?
+        let app = app::app::LucilleBuilder::new_with_user_dirs()?
             .database_path(self.db.database_path())?
             .index_root(self.storage.index_root())?
             .build()
@@ -116,7 +116,7 @@ async fn setup_search(
 const HIST: [&str; 6] = ["     ", "    *", "   **", "  ***", " ****", "*****"];
 impl SearchCommand {
     pub(crate) async fn run(&self) -> anyhow::Result<()> {
-        let app = app::app::LucilleBuilder::new()?
+        let app = app::app::LucilleBuilder::new_with_user_dirs()?
             .database_path(self.db.database_path())?
             .index_root(self.storage.index_root())?
             .build()

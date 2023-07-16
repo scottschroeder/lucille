@@ -74,12 +74,27 @@ impl ConfigBuilder {
         Ok(LucilleConfig { inner: config })
     }
 
-    pub fn new() -> Result<Self, ConfigError> {
+    pub fn new_with_user_dirs() -> Result<Self, ConfigError> {
         let dirs = directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APP)
             .ok_or(ConfigError::NoUserHome)?;
         let data_dir = camino_path(dirs.data_dir())?;
         let config_dir = camino_path(dirs.config_dir())?.to_path_buf();
         let config_builder = new_config_builder(data_dir);
+        let builder = Self {
+            load_environment: false,
+            config_path: None,
+            config_dir,
+            config_builder,
+        };
+
+        Ok(builder)
+    }
+
+    pub fn new_with_root(root: &Path) -> Result<Self, ConfigError> {
+        let root = camino_path(root)?;
+        let data_dir = root.join("app_data_dir");
+        let config_dir = root.join("app_config_dir");
+        let config_builder = new_config_builder(&data_dir);
         let builder = Self {
             load_environment: false,
             config_path: None,

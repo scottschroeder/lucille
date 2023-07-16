@@ -97,7 +97,7 @@ pub struct TestCommand {
 
 async fn do_test(_args: &TestCommand) -> anyhow::Result<()> {
     // let _app = args.cfg.build_app().await?;
-    let config = app::app::ConfigBuilder::new()?
+    let config = app::app::ConfigBuilder::new_with_user_dirs()?
         .load_environment(true)
         .build()?;
 

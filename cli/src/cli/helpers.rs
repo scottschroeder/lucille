@@ -7,7 +7,7 @@ pub async fn get_app(
     db_args: Option<&argparse::DatabaseConfig>,
     storage_args: Option<&argparse::StorageConfig>,
 ) -> anyhow::Result<LucilleApp> {
-    Ok(app::app::LucilleBuilder::new()?
+    Ok(app::app::LucilleBuilder::new_with_user_dirs()?
         .index_root(storage_args.and_then(|a| a.index_root()))?
         .database_path(db_args.and_then(|a| a.database_path()))?
         .build()

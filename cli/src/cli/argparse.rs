@@ -53,7 +53,7 @@ pub struct AppConfig {
 
 impl AppConfig {
     pub async fn build_app(&self) -> anyhow::Result<app::app::LucilleApp> {
-        let config = app::app::ConfigBuilder::new()?
+        let config = app::app::ConfigBuilder::new_with_user_dirs()?
             .load_environment(true)
             .config_file(self.config_file.config_file())?
             .ffmpeg_override(self.ffmpeg.ffmpeg())?
