@@ -1,3 +1,4 @@
+use anyhow::Context;
 use std::path::{Path, PathBuf};
 
 use camino::{Utf8Path, Utf8PathBuf};
@@ -45,8 +46,9 @@ pub struct ConfigBuilder {
     config_builder: ExtConfigBuilder,
 }
 
-fn camino_path(std_path: &Path) -> Result<&Utf8Path, ConfigError> {
-    Utf8Path::from_path(std_path).ok_or_else(|| ConfigError::NonUtf8Path(std_path.to_path_buf()))
+fn camino_path(std_path: &Path) -> anyhow::Result<&Utf8Path> {
+    Utf8Path::from_path(std_path)
+        .ok_or_else(|| anyhow::anyhow!("non utf8: {:?}", std_path.to_path_buf()))
 }
 
 fn new_config_builder(data_dir: &Utf8Path) -> ExtConfigBuilder {
@@ -64,7 +66,7 @@ fn new_config_builder(data_dir: &Utf8Path) -> ExtConfigBuilder {
 
 impl ConfigBuilder {
     #[cfg(test)]
-    pub fn new_test_config(root: &Path) -> Result<LucilleConfig, ConfigError> {
+    pub fn new_test_config(root: &Path) -> anyhow::Result<LucilleConfig> {
         let root = camino_path(root)?;
         let data_dir = root.join("app_data_dir");
         let config = new_config_builder(&data_dir)
@@ -74,7 +76,7 @@ impl ConfigBuilder {
         Ok(LucilleConfig { inner: config })
     }
 
-    pub fn new_with_user_dirs() -> Result<Self, ConfigError> {
+    pub fn new_with_user_dirs() -> anyhow::Result<Self> {
         let dirs = directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APP)
             .ok_or(ConfigError::NoUserHome)?;
         let data_dir = camino_path(dirs.data_dir())?;
@@ -90,7 +92,7 @@ impl ConfigBuilder {
         Ok(builder)
     }
 
-    pub fn new_with_root(root: &Path) -> Result<Self, ConfigError> {
+    pub fn new_with_root(root: &Path) -> anyhow::Result<Self> {
         let root = camino_path(root)?;
         let data_dir = root.join("app_data_dir");
         let config_dir = root.join("app_config_dir");
@@ -111,7 +113,7 @@ impl ConfigBuilder {
         self
     }
 
-    fn set_path_override(mut self, key: &str, path: Option<&Path>) -> Result<Self, ConfigError> {
+    fn set_path_override(mut self, key: &str, path: Option<&Path>) -> anyhow::Result<Self> {
         let path_override = path.map(camino_path).transpose()?;
         let str_override = path_override.as_ref().map(|c| c.as_str());
         self.config_builder = self
@@ -121,30 +123,30 @@ impl ConfigBuilder {
         Ok(self)
     }
 
-    pub fn config_file(mut self, config_file: Option<&Path>) -> Result<Self, ConfigError> {
+    pub fn config_file(mut self, config_file: Option<&Path>) -> anyhow::Result<Self> {
         self.config_path = config_file
             .map(|p| camino_path(p).map(|p| p.to_path_buf()))
             .transpose()?;
         Ok(self)
     }
 
-    pub fn index_root(self, index_root: Option<&Path>) -> Result<Self, ConfigError> {
+    pub fn index_root(self, index_root: Option<&Path>) -> anyhow::Result<Self> {
         self.set_path_override(INDEX_ROOT_KEY, index_root)
     }
 
-    pub fn database_path(self, database_path: Option<&Path>) -> Result<Self, ConfigError> {
+    pub fn database_path(self, database_path: Option<&Path>) -> anyhow::Result<Self> {
         self.set_path_override(DATABASE_KEY, database_path)
     }
 
-    pub fn media_root(self, media_root: Option<&Path>) -> Result<Self, ConfigError> {
+    pub fn media_root(self, media_root: Option<&Path>) -> anyhow::Result<Self> {
         self.set_path_override(MEDIA_ROOT_KEY, media_root)
     }
 
-    pub fn ffmpeg_override(self, ffmpeg: Option<&Path>) -> Result<Self, ConfigError> {
+    pub fn ffmpeg_override(self, ffmpeg: Option<&Path>) -> anyhow::Result<Self> {
         self.set_path_override(FFMPEG_CMD_KEY, ffmpeg)
     }
 
-    pub fn build(mut self) -> Result<LucilleConfig, ConfigError> {
+    pub fn build(mut self) -> anyhow::Result<LucilleConfig> {
         let cfg_file = self
             .config_path
             .unwrap_or_else(|| self.config_dir.join(DEFAULT_CONFIG_FILE));
@@ -189,12 +191,11 @@ impl LucilleConfig {
     pub fn database_path(&self) -> String {
         self.inner.get_string(DATABASE_KEY).unwrap()
     }
-    pub fn database_connection_opts(
-        &self,
-    ) -> Result<database::LucilleDbConnectOptions, DatabaseError> {
+    pub fn database_connection_opts(&self) -> anyhow::Result<database::LucilleDbConnectOptions> {
         let url = self.database_path();
         if url.starts_with("sqlite:") {
             database::LucilleDbConnectOptions::from_url(&url)
+                .with_context(|| format!("could not use sqlite url: {:?}", url))
         } else {
             Ok(database::LucilleDbConnectOptions::from_path(&url))
         }

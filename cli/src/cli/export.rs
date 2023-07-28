@@ -55,7 +55,9 @@ pub struct ExportCorpusOpts {
 }
 
 pub(crate) async fn import_corpus(args: &ImportCorpusOpts) -> anyhow::Result<()> {
-    let app = helpers::get_app(Some(&args.db), None).await?;
+    let app = helpers::get_app(Some(&args.db), None)
+        .await
+        .context("could not load app object")?;
     log::trace!("using app: {:?}", app);
 
     let packet: CorpusExport = {
@@ -64,7 +66,9 @@ pub(crate) async fn import_corpus(args: &ImportCorpusOpts) -> anyhow::Result<()>
         serde_json::from_reader(f).context("could not deserialize corpus export packet")?
     };
 
-    app::import_corpus_packet(&app, &packet).await?;
+    app::import_corpus_packet(&app, &packet)
+        .await
+        .context("import failed")?;
 
     Ok(())
 }

@@ -9,7 +9,7 @@ pub(crate) async fn read_media_from_path(
     db: &Database,
     media_path: &path::Path,
     trust_hashes: bool,
-) -> Result<ScannedData, ScanError> {
+) -> anyhow::Result<ScannedData> {
     let subtitles = extract_subtitles(media_path)?;
     let media_hash = if trust_hashes {
         match db.get_storage_by_path(media_path).await {
@@ -40,7 +40,7 @@ pub(crate) async fn read_media_from_path(
 }
 
 /// find/extract subtitles for a given piece of media
-fn extract_subtitles(media_path: &path::Path) -> Result<ScannedSubtitles, ScanError> {
+fn extract_subtitles(media_path: &path::Path) -> anyhow::Result<ScannedSubtitles> {
     let srt_path = media_path.with_extension("srt");
     if !srt_path.exists() {
         return Ok(ScannedSubtitles::NotFound);
@@ -52,7 +52,7 @@ fn extract_subtitles(media_path: &path::Path) -> Result<ScannedSubtitles, ScanEr
     })
 }
 
-fn read_path_to_string<P: AsRef<path::Path>>(tpath: P) -> Result<String, ScanError> {
+fn read_path_to_string<P: AsRef<path::Path>>(tpath: P) -> anyhow::Result<String> {
     let tpath = tpath.as_ref();
     let mut f = std::fs::File::open(tpath)?;
     let mut v = Vec::new();

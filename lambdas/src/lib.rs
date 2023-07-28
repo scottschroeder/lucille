@@ -16,6 +16,8 @@ pub mod entrypoint {
 
     use crate::render::handle_render_request;
 
+    const EPHEMERAL_HEADER: &str = "x-ephemeral-store";
+
     /// This is the main body for the function.
     /// Write your code inside it.
     /// There are some code example in the following URLs:
@@ -26,9 +28,16 @@ pub mod entrypoint {
         let make_gif_request: Result<app::transcode::MakeGifRequest, serde_json::Error> =
             serde_json::from_slice(event.body());
 
+        let temporary = event
+            .headers()
+            .get(EPHEMERAL_HEADER)
+            .and_then(|h| h.to_str().ok())
+            .map(|s| matches!(s.to_lowercase().as_str(), "1" | "true"))
+            .unwrap_or(false);
+
         let mut response_text = String::new();
         if let Ok(req) = &make_gif_request {
-            match handle_render_request(req).await {
+            match handle_render_request(req, temporary).await {
                 Ok(s) => {
                     response_text.push_str(&s);
                 }
@@ -41,6 +50,7 @@ pub mod entrypoint {
         let resp = Response::builder()
             .status(200)
             .header("content-type", "text/html")
+            .header(EPHEMERAL_HEADER, if temporary { "true" } else { "false" })
             .body(response_text.into())
             .map_err(Box::new)?;
         Ok(resp)
@@ -48,10 +58,16 @@ pub mod entrypoint {
 }
 
 pub(crate) mod render {
+    use std::time::{Duration, SystemTime};
+
     use anyhow::Context;
     use app::transcode::MakeGifRequest;
+    use aws_sdk_s3::types::DateTime;
 
-    pub(crate) async fn handle_render_request(req: &MakeGifRequest) -> anyhow::Result<String> {
+    pub(crate) async fn handle_render_request(
+        req: &MakeGifRequest,
+        temporary: bool,
+    ) -> anyhow::Result<String> {
         log::info!("lucille requst: {:?}", req);
         let app = crate::common::build_app()
             .await
@@ -90,6 +106,12 @@ pub(crate) mod render {
             .key(&key)
             .content_type("image/gif")
             .body(buf.into())
+            .set_expires(temporary.then(|| {
+                let expire = SystemTime::now()
+                    .checked_add(Duration::from_secs(60 * 60))
+                    .unwrap();
+                DateTime::from(expire)
+            }))
             .send()
             .await
             .context("s3 put failure")?;

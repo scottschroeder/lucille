@@ -125,7 +125,7 @@ impl MediaProcessor {
     async fn process_single_media3(
         &self,
         media_path: &std::path::Path,
-    ) -> Result<ScannedMedia, ScanError> {
+    ) -> anyhow::Result<ScannedMedia> {
         extract::read_media_from_path(&self.db, media_path, self.trust_hashes)
             .await
             .map(|data| data.extract_metadata())

@@ -49,7 +49,7 @@ pub async fn check_local_file(
     db: &Database,
     hash: MediaHash,
     strategy: FileCheckStrategy,
-) -> Result<Option<(std::path::PathBuf, FileCheckOutcome)>, LucilleAppError> {
+) -> anyhow::Result<Option<(std::path::PathBuf, FileCheckOutcome)>> {
     let file_meta = match db.get_storage_by_hash(hash).await? {
         Some(f) => f,
         None => return Ok(None),

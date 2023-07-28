@@ -1,3 +1,4 @@
+use anyhow::Context;
 use std::{sync::Arc, time::Duration};
 
 use tokio::io::AsyncReadExt;
@@ -24,7 +25,7 @@ impl MediaSplittingStrategy {
         duration: Duration,
         encryption: Encryption,
         output: P,
-    ) -> Result<MediaSplittingStrategy, std::io::Error> {
+    ) -> anyhow::Result<MediaSplittingStrategy> {
         let hash_fs = HashFS::new(output)?;
         Ok(MediaSplittingStrategy {
             ffmpeg: bin,
@@ -54,7 +55,7 @@ pub struct MediaSplitter<'a> {
 
 #[async_trait::async_trait]
 impl<'a> MediaProcessor for MediaSplitter<'a> {
-    async fn process(&self) -> Result<Vec<ProcessedMedia>, ProcessingError> {
+    async fn process(&self) -> anyhow::Result<Vec<ProcessedMedia>> {
         let split = FFMpegMediaSplit::new(self.ffmpeg, self.source, self.target_duration)?;
         let outcome = split.run().await?;
         let mut res = Vec::with_capacity(outcome.records.len());
@@ -67,7 +68,7 @@ impl<'a> MediaProcessor for MediaSplitter<'a> {
             });
         }
         while let Some(join_res) = set.join_next().await {
-            let m = join_res.map_err(ProcessingError::from).and_then(|r| r)?;
+            let m = join_res.context("unable to join tokio task")??;
             res.push(m)
         }
         res.sort_by_key(|x| x.idx);
@@ -80,7 +81,7 @@ async fn handle_split_media(
     media_split: MediaSplitFile,
     encryption_settings: Encryption,
     fs: Arc<HashFS>,
-) -> Result<ProcessedMedia, ProcessingError> {
+) -> anyhow::Result<ProcessedMedia> {
     let (key, ciphertext) = {
         let mut f = tokio::io::BufReader::new(tokio::fs::File::open(media_split.path).await?);
         let mut buf = Vec::new();

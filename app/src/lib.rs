@@ -8,6 +8,7 @@ use lucille_core::{
 };
 
 use self::app::LucilleApp;
+use anyhow::Context;
 
 pub mod app;
 pub mod encryption;
@@ -71,10 +72,14 @@ pub async fn print_details_for_hash(
 pub async fn import_corpus_packet(
     app: &LucilleApp,
     packet: &CorpusExport,
-) -> Result<CorpusId, LucilleAppError> {
+) -> anyhow::Result<CorpusId> {
     let CorpusExport { title, content } = packet;
 
-    let corpus = app.db.get_or_add_corpus(title).await?;
+    let corpus = app
+        .db
+        .get_or_add_corpus(title)
+        .await
+        .context("creating corpus")?;
     let corpus_id = corpus.id.unwrap();
 
     for chapter in content {
