@@ -24,6 +24,7 @@ pub mod transcode;
 pub const DEFAULT_INDEX_WINDOW_SIZE: usize = 5;
 
 #[derive(Debug, thiserror::Error)]
+#[deprecated(note = "use anyhow")]
 pub enum LucilleAppError {
     #[error(transparent)]
     Io(#[from] std::io::Error),

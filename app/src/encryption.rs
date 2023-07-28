@@ -6,6 +6,7 @@ pub use easyaes::unscramble;
 use lucille_core::encryption_config::KeyData;
 
 #[derive(Debug, thiserror::Error)]
+#[deprecated(note = "use anyhow")]
 pub enum EncryptionError {
     #[error(transparent)]
     Aead(#[from] aes_gcm::Error),

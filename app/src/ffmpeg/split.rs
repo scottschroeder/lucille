@@ -10,6 +10,7 @@ use super::{FFMpegBinary, FFmpegArg, FFmpegCommand};
 const CSV_FILE_NAME: &str = "split_records.csv";
 
 #[derive(Debug, thiserror::Error)]
+#[deprecated(note = "use anyhow")]
 pub enum MediaSplitError {
     #[error("transcode error, exit {0}")]
     Transcode(i32),

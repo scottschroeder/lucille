@@ -7,6 +7,7 @@ use lucille_core::encryption_config::KeyData;
 pub use splitter::{MediaSplitter, MediaSplittingStrategy};
 
 #[derive(Debug, thiserror::Error)]
+#[deprecated(note = "use anyhow")]
 pub enum ProcessingError {
     #[error(transparent)]
     Io(#[from] std::io::Error),

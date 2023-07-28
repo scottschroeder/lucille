@@ -29,6 +29,7 @@ const DEFAULT_CONFIG_FILE: &str = "lucille.toml";
 type ExtConfigBuilder = config::ConfigBuilder<config::builder::DefaultState>;
 
 #[derive(Debug, thiserror::Error)]
+#[deprecated(note = "use anyhow")]
 pub enum ConfigError {
     #[error(transparent)]
     ConfigError(#[from] config::ConfigError),

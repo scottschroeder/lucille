@@ -13,6 +13,7 @@ const GIF_DEFAULT_WIDTH: u32 = 480;
 const GIF_DEFAULT_FONT: u32 = 28;
 
 #[derive(Debug, thiserror::Error)]
+#[deprecated(note = "use anyhow")]
 pub enum GifTranscodeError {
     #[error("transcode error, exit {0}")]
     Transcode(i32),

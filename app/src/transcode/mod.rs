@@ -9,6 +9,7 @@ use crate::{app::LucilleApp, ffmpeg::gif::FFMpegCmdAsyncResult, LucilleAppError}
 mod make_gif;
 
 #[derive(Debug, thiserror::Error)]
+#[deprecated(note = "use anyhow")]
 pub enum RequestError {
     #[error("invalid request: {_0}")]
     Invalid(String),
