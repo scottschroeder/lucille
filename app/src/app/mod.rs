@@ -1,3 +1,4 @@
+use anyhow::Context;
 use std::path::Path;
 
 use database::Database;
@@ -19,29 +20,27 @@ pub struct LucilleBuilder {
 }
 
 impl LucilleBuilder {
-    pub fn new_with_user_dirs() -> Result<Self, ConfigError> {
+    pub fn new_with_user_dirs() -> anyhow::Result<Self> {
         Ok(LucilleBuilder {
             config: lucille_config::ConfigBuilder::new_with_user_dirs()?.load_environment(true),
         })
     }
 
-    pub fn new_with_root(root: &Path) -> Result<Self, ConfigError> {
+    pub fn new_with_root(root: &Path) -> anyhow::Result<Self> {
         Ok(LucilleBuilder {
             config: lucille_config::ConfigBuilder::new_with_root(root)?.load_environment(true),
         })
     }
 
     #[deprecated(note = "use the same function on the internal `config` object")]
-    pub fn config_file(self, config_file: Option<&Path>) -> Result<Self, ConfigError> {
+    pub fn config_file(self, config_file: Option<&Path>) -> anyhow::Result<Self> {
         self.update(|c| c.config_file(config_file))
     }
 
     fn update(
         self,
-        f: impl FnOnce(
-            lucille_config::ConfigBuilder,
-        ) -> Result<lucille_config::ConfigBuilder, ConfigError>,
-    ) -> Result<Self, ConfigError> {
+        f: impl FnOnce(lucille_config::ConfigBuilder) -> anyhow::Result<lucille_config::ConfigBuilder>,
+    ) -> anyhow::Result<Self> {
         let LucilleBuilder {
             config: config_builder,
         } = self;
@@ -52,39 +51,41 @@ impl LucilleBuilder {
     }
 
     #[deprecated(note = "use the same function on the internal `config` object")]
-    pub fn index_root(self, index_root: Option<&Path>) -> Result<Self, ConfigError> {
+    pub fn index_root(self, index_root: Option<&Path>) -> anyhow::Result<Self> {
         self.update(|c| c.index_root(index_root))
     }
 
     #[deprecated(note = "use the same function on the internal `config` object")]
-    pub fn database_path(self, database_path: Option<&Path>) -> Result<Self, ConfigError> {
+    pub fn database_path(self, database_path: Option<&Path>) -> anyhow::Result<Self> {
         self.update(|c| c.database_path(database_path))
     }
 
     #[deprecated(note = "use the same function on the internal `config` object")]
-    pub fn media_root(self, media_root: Option<&Path>) -> Result<Self, ConfigError> {
+    pub fn media_root(self, media_root: Option<&Path>) -> anyhow::Result<Self> {
         self.update(|c| c.media_root(media_root))
     }
 
     #[deprecated(note = "use the same function on the internal `config` object")]
-    pub fn ffmpeg_override(self, ffmpeg: Option<&Path>) -> Result<Self, ConfigError> {
+    pub fn ffmpeg_override(self, ffmpeg: Option<&Path>) -> anyhow::Result<Self> {
         self.update(|c| c.ffmpeg_override(ffmpeg))
     }
 
-    pub async fn build(self) -> Result<LucilleApp, LucilleAppError> {
+    pub async fn build(self) -> anyhow::Result<LucilleApp> {
         let Self {
             config: config_builder,
         } = self;
-        let config = config_builder.build()?;
+        let config = config_builder.build().context("create config_builder")?;
 
-        let db_opts = config.database_connection_opts()?;
+        let db_opts = config
+            .database_connection_opts()
+            .context("create database opts")?;
         let mut db_builder = database::DatabaseBuider::default();
-        db_builder.add_opts(db_opts)?;
-        db_builder.connect().await?;
-        db_builder.migrate().await?;
-        let (db, _) = db_builder.into_parts()?;
+        db_builder.add_opts(db_opts).context("add db opts")?;
+        db_builder.connect().await.context("connect to db")?;
+        db_builder.migrate().await.context("migrate db schema")?;
+        let (db, _) = db_builder.into_parts().context("database state error")?;
 
-        let hashfs = HashFS::new(config.media_root())?;
+        let hashfs = HashFS::new(config.media_root()).context("create hashfs from media_root")?;
         let mut app = LucilleApp::new_with_hashfs(db, config, hashfs);
 
         #[cfg(feature = "aws-sdk")]
@@ -139,7 +140,7 @@ impl LucilleApp {
         }
     }
 
-    pub fn search_service(&self, index_uuid: Uuid) -> Result<SearchService, LucilleAppError> {
+    pub fn search_service(&self, index_uuid: Uuid) -> anyhow::Result<SearchService> {
         let index_dir = self.config.index_root().join(index_uuid.to_string());
         log::debug!("loading search index from: {:?}", index_dir.as_path());
         let index = SearchIndex::open_in_dir(index_uuid, index_dir)?;

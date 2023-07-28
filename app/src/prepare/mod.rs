@@ -35,7 +35,7 @@ pub enum Encryption {
 
 #[async_trait::async_trait]
 pub trait MediaProcessor {
-    async fn process(&self) -> Result<Vec<ProcessedMedia>, ProcessingError>;
+    async fn process(&self) -> anyhow::Result<Vec<ProcessedMedia>>;
 }
 
 #[cfg(test)]
@@ -60,7 +60,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl MediaProcessor for TestProcessor {
-        async fn process(&self) -> Result<Vec<ProcessedMedia>, ProcessingError> {
+        async fn process(&self) -> anyhow::Result<Vec<ProcessedMedia>> {
             let mut s = Duration::default();
             Ok((0..self.output_len)
                 .map(|idx| {

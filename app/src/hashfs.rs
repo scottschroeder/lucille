@@ -1,5 +1,6 @@
 use std::{path::PathBuf, str::FromStr};
 
+use anyhow::Context;
 use lucille_core::{hash::HashIo, metadata::MediaHash};
 use tokio::io::{AsyncBufRead, AsyncRead};
 
@@ -25,7 +26,7 @@ fn hash_path(hash: MediaHash) -> (String, String) {
 }
 
 /// Get the sha2 hash for a media path
-pub(crate) async fn compute_hash(fname: &std::path::Path) -> Result<MediaHash, std::io::Error> {
+pub(crate) async fn compute_hash(fname: &std::path::Path) -> anyhow::Result<MediaHash> {
     log::trace!("compute hash for {:?}", fname);
     let mut r = tokio::io::BufReader::new(tokio::fs::File::open(fname).await?);
     let mut hasher = HashIo::new(tokio::io::sink());
@@ -35,14 +36,19 @@ pub(crate) async fn compute_hash(fname: &std::path::Path) -> Result<MediaHash, s
 }
 
 impl HashFS {
-    pub fn new<P: Into<PathBuf>>(p: P) -> Result<HashFS, std::io::Error> {
+    pub fn new<P: Into<PathBuf>>(p: P) -> anyhow::Result<HashFS> {
         let root: PathBuf = p.into();
-        let root = root.canonicalize()?;
+        std::fs::create_dir_all(&root)
+            .with_context(|| format!("could not create dirs for {:?}", root))?;
+        let root = root
+            .canonicalize()
+            .with_context(|| format!("could not canonicalize {:?}", root))?;
         let tmp = root.join(TMP_DIR);
-        std::fs::create_dir_all(&tmp)?;
+        std::fs::create_dir_all(&tmp)
+            .with_context(|| format!("could not create dirs for {:?}", tmp))?;
         Ok(HashFS { root, tmp })
     }
-    pub async fn reader(&self, hash: MediaHash) -> Result<impl AsyncBufRead, std::io::Error> {
+    pub async fn reader(&self, hash: MediaHash) -> anyhow::Result<impl AsyncBufRead> {
         Ok(tokio::io::BufReader::new(
             tokio::fs::File::open(self.get_file_path(hash)).await?,
         ))
@@ -77,7 +83,7 @@ impl HashFS {
         d.join(f)
     }
 
-    pub async fn remove(&self, hash: MediaHash) -> Result<(), std::io::Error> {
+    pub async fn remove(&self, hash: MediaHash) -> anyhow::Result<()> {
         let p = self.get_file_path(hash);
         log::trace!("rm {:?}", p);
         tokio::fs::remove_file(&p).await?;
