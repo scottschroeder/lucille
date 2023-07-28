@@ -1,0 +1,20 @@
+name: Rust Checks
+on: [workflow_dispatch]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Build Lambda
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build Docker Image
+        run: make build-lambda-docker
+      - name: Build Lambdas
+        run: make build-lambda
+      - name: Tree
+        run: tree || ls target/*
