@@ -1,9 +1,5 @@
 #![allow(clippy::uninlined_format_args)]
-use std::{
-    path::{self},
-    str::FromStr,
-    time::Duration,
-};
+use std::{path, str::FromStr};
 
 use lucille_core::{
     metadata::{EpisodeMetadata, MediaHash, MediaMetadata},
@@ -15,8 +11,6 @@ pub use self::build::{
     DatabaseBuider, DatabaseConnectState, DatabaseSource, LucilleDbConnectOptions, MigrationRecord,
 };
 
-const POOL_TIMEOUT: Duration = Duration::from_secs(30);
-const POOL_MAX_CONN: u32 = 2;
 pub const DATABASE_ENV_VAR: &str = "DATABASE_URL";
 
 mod build;
@@ -65,7 +59,7 @@ pub fn db_env() -> Result<Option<String>, DatabaseError> {
     }
 }
 
-pub async fn drop_everything_PROBABLY_DONT_USE(url: &str) -> Result<(), DatabaseError> {
+pub async fn drop_everything_sqlx(url: &str) -> Result<(), DatabaseError> {
     use sqlx::migrate::MigrateDatabase;
     log::warn!("dropping database at {}", url);
     Ok(sqlx::Sqlite::drop_database(url).await?)

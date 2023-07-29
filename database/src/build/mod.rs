@@ -7,7 +7,7 @@ pub use connect::LucilleDbConnectOptions;
 pub(crate) use migration::get_db_migration_status;
 pub use migration::{LucilleMigrationManager, MigrationRecord};
 
-use crate::{drop_everything_PROBABLY_DONT_USE, Database, DatabaseError};
+use crate::{drop_everything_sqlx, Database, DatabaseError};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DatabaseConnectState {
@@ -102,7 +102,7 @@ impl DatabaseBuider {
                 .await
                 .map(|_| self.migration = None)
         } else if let Some(opts) = &self.opts {
-            drop_everything_PROBABLY_DONT_USE(&opts.source.to_url()).await
+            drop_everything_sqlx(&opts.source.to_url()).await
         } else {
             Err(DatabaseError::NoDatabaseSpecified)
         }

@@ -43,7 +43,7 @@ pub struct MediaSplitFile {
     pub start: Duration,
 }
 
-fn ffmpeg_output_to_file_records(root: &Path) -> Result<Vec<MediaSplitFile>, MediaSplitError> {
+fn ffmpeg_output_to_file_records(root: &Path) -> anyhow::Result<Vec<MediaSplitFile>> {
     Ok(output_csv_reader(root.join(CSV_FILE_NAME).as_path())?
         .into_iter()
         .map(|(name, start, _)| MediaSplitFile {
@@ -53,13 +53,13 @@ fn ffmpeg_output_to_file_records(root: &Path) -> Result<Vec<MediaSplitFile>, Med
         .collect())
 }
 
-fn output_csv_reader(p: &Path) -> Result<Vec<FFMpegCSVFormat>, MediaSplitError> {
+fn output_csv_reader(p: &Path) -> anyhow::Result<Vec<FFMpegCSVFormat>> {
     let f = std::fs::File::open(p).map_err(MediaSplitError::CSVRead)?;
     parse_csv_to_records(f)
 }
 
 type FFMpegCSVFormat = (String, f64, f64);
-fn parse_csv_to_records<R: Read>(r: R) -> Result<Vec<FFMpegCSVFormat>, MediaSplitError> {
+fn parse_csv_to_records<R: Read>(r: R) -> anyhow::Result<Vec<FFMpegCSVFormat>> {
     let mut rdr = csv::ReaderBuilder::new().has_headers(false).from_reader(r);
     // Instead of creating an iterator with the `records` method, we create
     // an iterator with the `deserialize` method.
@@ -89,7 +89,7 @@ impl FFMpegMediaSplit {
         bin: &FFMpegBinary,
         src: P,
         duration: Duration,
-    ) -> Result<FFMpegMediaSplit, MediaSplitError> {
+    ) -> anyhow::Result<FFMpegMediaSplit> {
         let root = tempfile::tempdir()?;
         Ok(FFMpegMediaSplit::build_cmd(
             bin.clone(),
@@ -104,7 +104,7 @@ impl FFMpegMediaSplit {
         src: P,
         duration: Duration,
         output: O,
-    ) -> Result<FFMpegMediaSplit, MediaSplitError> {
+    ) -> anyhow::Result<FFMpegMediaSplit> {
         let output = output.into();
         std::fs::create_dir_all(&output)?;
 
@@ -142,12 +142,12 @@ impl FFMpegMediaSplit {
         FFMpegMediaSplit { root, cmd }
     }
 
-    pub async fn run(self) -> Result<FFMpegSplitOutcome, MediaSplitError> {
+    pub async fn run(self) -> anyhow::Result<FFMpegSplitOutcome> {
         let FFMpegMediaSplit { root, cmd } = self;
         let mut child = cmd.spawn().await?;
         let exit = child.wait().await?;
         if !exit.success() {
-            return Err(MediaSplitError::Transcode(exit.code().unwrap_or(1)));
+            anyhow::bail!("transcode error, ffmpeg exit {:?}", exit.code());
         }
 
         let records = ffmpeg_output_to_file_records(root.path())?;

@@ -136,7 +136,7 @@ impl FFMpegGifTranscoder {
         bin: FFMpegBinary,
         subs: &[Subtitle],
         settings: &GifSettings,
-    ) -> Result<FFMpegGifTranscoder, GifTranscodeError> {
+    ) -> anyhow::Result<FFMpegGifTranscoder> {
         let root = tempfile::tempdir().map_err(GifTranscodeError::SubtitlePrep)?;
         let srt_path = root.path().join("subtitles.srt");
         let media_path = root.path().join("media.mkv");
@@ -214,7 +214,7 @@ impl FFMpegGifTranscoder {
     pub async fn launch(
         self,
         mut input: Box<dyn AsyncRead + Unpin + Send>,
-    ) -> Result<FFMpegCmdAsyncResult, GifTranscodeError> {
+    ) -> anyhow::Result<FFMpegCmdAsyncResult> {
         let tmp = self.root;
         {
             let mut media_file = tokio::fs::File::create(&self.media_path).await?;
@@ -254,7 +254,7 @@ pub struct FFMpegCmdAsyncResult {
 }
 
 impl FFMpegCmdAsyncResult {
-    pub async fn wait(self) -> Result<(), GifTranscodeError> {
+    pub async fn wait(self) -> anyhow::Result<()> {
         if self.stdout.is_some() {
             panic!("you must call (and consume) .output() before waiting");
         }
@@ -263,10 +263,8 @@ impl FFMpegCmdAsyncResult {
         log::trace!("ffmpeg complete after {:?}: {:?}", self.begin.elapsed(), st);
         if st.success() {
             Ok(())
-        } else if let Some(code) = st.code() {
-            Err(GifTranscodeError::FFMpegCmd(code))
         } else {
-            Err(GifTranscodeError::FFMpegCmd(-1))
+            Err(anyhow::anyhow!("ffmpeg failure, exit {:?}", st.code()))
         }
     }
 
@@ -298,7 +296,7 @@ fn get_cut_times(subs: &[Subtitle], cut_selection: &GifTimeSelection) -> (Durati
     (start_time, end_time)
 }
 
-fn create_filter(settings: &GifSettings, srt_file: &str) -> Result<String, std::fmt::Error> {
+fn create_filter(settings: &GifSettings, srt_file: &str) -> anyhow::Result<String> {
     use std::fmt::Write;
     let mut filter = String::new();
 

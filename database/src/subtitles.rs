@@ -77,8 +77,6 @@ impl Database {
         &self,
         corpus_id: CorpusId,
     ) -> Result<(HashSet<i64>, Vec<ContentData>), DatabaseError> {
-        log::warn!("deprecated function that tries to grab the latest srt for files");
-
         let cid = corpus_id.get();
 
         let mut collector = HashMap::new();

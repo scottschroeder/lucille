@@ -4,7 +4,7 @@ use tokio::io::AsyncRead;
 #[cfg(feature = "aws-sdk")]
 pub(crate) use self::s3_media_root::S3MediaBackend;
 pub(crate) use self::{db_storage::DbStorageBackend, local_media_root::MediaRootBackend};
-use crate::{app::LucilleApp, LucilleAppError};
+use crate::app::LucilleApp;
 
 /// Turn media hashes into contents we can consume
 
@@ -27,10 +27,7 @@ impl CascadingMediaBackend {
     pub(crate) fn push_back(&mut self, backend: impl StorageBackend + Send + Sync + 'static) {
         self.inner.push(Box::new(backend))
     }
-    pub(crate) async fn get_media_by_hash(
-        &self,
-        hash: MediaHash,
-    ) -> Result<MediaReader, LucilleAppError> {
+    pub(crate) async fn get_media_by_hash(&self, hash: MediaHash) -> anyhow::Result<MediaReader> {
         for backend in &self.inner {
             log::trace!("looking up media {} from {}", hash, backend.name());
             if let Some(rdr) = backend.get_media_by_hash(hash).await? {
@@ -40,7 +37,7 @@ impl CascadingMediaBackend {
                 });
             }
         }
-        Err(LucilleAppError::MissingVideoSource)
+        anyhow::bail!("could not find media source for {}", hash);
     }
 }
 
@@ -49,12 +46,12 @@ pub(crate) trait StorageBackend: std::fmt::Debug {
     async fn get_media_by_hash(
         &self,
         hash: MediaHash,
-    ) -> Result<Option<Box<dyn AsyncRead + Unpin + Send>>, LucilleAppError>;
+    ) -> anyhow::Result<Option<Box<dyn AsyncRead + Unpin + Send>>>;
     fn cache_control(&self) -> BackendCacheControl;
     fn name(&self) -> &'static str;
 }
 
-fn wrap_io_notfound<T>(e: std::io::Error) -> Result<Option<T>, LucilleAppError> {
+fn wrap_io_notfound<T>(e: std::io::Error) -> anyhow::Result<Option<T>> {
     match e.kind() {
         std::io::ErrorKind::NotFound => Ok(None),
         _ => Err(e.into()),
@@ -90,7 +87,7 @@ mod db_storage {
         async fn get_media_by_hash(
             &self,
             hash: MediaHash,
-        ) -> Result<Option<Box<dyn AsyncRead + Unpin + Send>>, LucilleAppError> {
+        ) -> anyhow::Result<Option<Box<dyn AsyncRead + Unpin + Send>>> {
             let media = self
                 .db
                 .get_storage_by_hash(hash)
@@ -116,7 +113,7 @@ mod local_media_root {
     use tokio::io::AsyncRead;
 
     use super::{wrap_io_notfound, BackendCacheControl, StorageBackend};
-    use crate::{hashfs::HashFS, LucilleAppError};
+    use crate::hashfs::HashFS;
 
     #[derive(Debug)]
     pub(crate) struct MediaRootBackend {
@@ -134,7 +131,7 @@ mod local_media_root {
         async fn get_media_by_hash(
             &self,
             hash: MediaHash,
-        ) -> Result<Option<Box<dyn AsyncRead + Unpin + Send>>, LucilleAppError> {
+        ) -> anyhow::Result<Option<Box<dyn AsyncRead + Unpin + Send>>> {
             let path = self.inner.get_file_path(hash);
             match tokio::fs::File::open(&path).await {
                 Ok(f) => Ok(Some(Box::new(f))),
@@ -177,7 +174,7 @@ mod s3_media_root {
         async fn get_s3_from_hash(
             &self,
             hash: MediaHash,
-        ) -> Result<Option<Box<dyn AsyncRead + Unpin + Send>>, LucilleAppError> {
+        ) -> anyhow::Result<Option<Box<dyn AsyncRead + Unpin + Send>>> {
             let obj = download_object(&self.client, &self.media_bucket, &hash.to_string())
                 .await
                 .map_err(map_s3_err)?;
@@ -199,7 +196,7 @@ mod s3_media_root {
         async fn get_media_by_hash(
             &self,
             hash: MediaHash,
-        ) -> Result<Option<Box<dyn AsyncRead + Unpin + Send>>, LucilleAppError> {
+        ) -> anyhow::Result<Option<Box<dyn AsyncRead + Unpin + Send>>> {
             self.get_s3_from_hash(hash).await
         }
         fn cache_control(&self) -> BackendCacheControl {
@@ -227,11 +224,11 @@ mod s3_media_root {
 pub async fn get_reader_for_segment(
     app: &LucilleApp,
     media_segment: &MediaSegment,
-) -> Result<Box<dyn AsyncRead + Unpin + Send>, LucilleAppError> {
+) -> anyhow::Result<Box<dyn AsyncRead + Unpin + Send>> {
     let mut content = app.storage.get_media_by_hash(media_segment.hash).await?;
     // let mut content = get_reader_for_hash(app, media_segment.hash).await?;
     if let Some(key_data) = &media_segment.key {
-        return Ok(crate::encryption::decryptor(key_data, &mut content.rdr).await?);
+        return crate::encryption::decryptor(key_data, &mut content.rdr).await;
     }
     Ok(content.rdr)
 }

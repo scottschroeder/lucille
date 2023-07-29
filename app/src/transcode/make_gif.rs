@@ -1,16 +1,17 @@
+use anyhow::Context;
+
 use super::{MakeGifRequest, RequestError};
 use crate::{
     app::LucilleApp,
     ffmpeg::gif::{FFMpegCmdAsyncResult, FFMpegGifTranscoder, GifSettings},
-    LucilleAppError,
 };
 
 pub async fn handle_make_gif_request(
     app: &LucilleApp,
     request: &MakeGifRequest,
-) -> Result<FFMpegCmdAsyncResult, LucilleAppError> {
+) -> anyhow::Result<FFMpegCmdAsyncResult> {
     if request.segments.len() != 1 {
-        return Err(RequestError::Invalid("gifs must be exactly `1` segment".to_string()).into());
+        anyhow::bail!("not supported: gifs must contain exactly 1 segment")
     }
     let subsegment = &request.segments[0];
     let srt_uuid = subsegment.srt_uuid;
@@ -29,11 +30,11 @@ pub async fn handle_make_gif_request(
 
     let transcoder = FFMpegGifTranscoder::build_cmd(app.config.ffmpeg(), clip_subs, &settings)
         .await
-        .map_err(RequestError::GifTranscodeError)?;
+        .context("could not build transcoder command")?;
     let res = transcoder
         .launch(input)
         .await
-        .map_err(RequestError::GifTranscodeError)?;
+        .context("could not execute transcoder command")?;
 
     Ok(res)
 }

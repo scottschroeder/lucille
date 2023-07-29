@@ -57,7 +57,7 @@ pub async fn get_surrounding_media(
     media_view_id: MediaViewId,
     start: Duration,
     end: Duration,
-) -> Result<(Duration, Box<dyn AsyncRead + Unpin + Send>), LucilleAppError> {
+) -> anyhow::Result<(Duration, Box<dyn AsyncRead + Unpin + Send>)> {
     // find segments that match our window
     let segments = app.db.get_media_segment_by_view(media_view_id).await?;
     let target_segments = cut_relevant_segments(&segments, start, end);

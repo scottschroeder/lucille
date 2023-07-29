@@ -42,10 +42,7 @@ pub enum LucilleAppError {
     RequestError(#[from] crate::transcode::RequestError),
 }
 
-pub async fn print_details_for_hash(
-    app: &LucilleApp,
-    hash: MediaHash,
-) -> Result<(), LucilleAppError> {
+pub async fn print_details_for_hash(app: &LucilleApp, hash: MediaHash) -> anyhow::Result<()> {
     // Lookup chapter with hash
     let mut chapter = app.db.get_chapter_by_hash(hash).await?;
 
@@ -120,7 +117,7 @@ pub async fn import_corpus_packet(
 pub async fn export_corpus_packet(
     app: &LucilleApp,
     corpus_id: CorpusId,
-) -> Result<CorpusExport, LucilleAppError> {
+) -> anyhow::Result<CorpusExport> {
     let title = app.db.get_corpus(corpus_id).await?.title;
     let (_, content) = app.db.get_all_subs_for_corpus(corpus_id).await?;
     //
@@ -150,7 +147,7 @@ pub async fn index_subtitles(
     app: &LucilleApp,
     corpus_id: CorpusId,
     max_window: Option<usize>,
-) -> Result<search::SearchIndex, LucilleAppError> {
+) -> anyhow::Result<search::SearchIndex> {
     log::info!("performing index for {}", corpus_id);
 
     let (srts, all_subs) = app.db.get_all_subs_for_corpus(corpus_id).await?;
