@@ -1,13 +1,12 @@
-use anyhow::Context;
 use std::path::Path;
 
+use anyhow::Context;
 use database::Database;
 use lucille_core::uuid::Uuid;
 use search::SearchIndex;
 
 use crate::{
     hashfs::HashFS, search_manager::SearchService, storage::backend::CascadingMediaBackend,
-    LucilleAppError,
 };
 
 mod lucille_config;

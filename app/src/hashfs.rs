@@ -186,7 +186,10 @@ mod test {
         let (fpath, hash) = hfs.write(&mut source).await.unwrap();
         let expected_path = root.path().join(format!("e2/29/{}", TEST_HASH));
 
-        assert_eq!(fpath, expected_path);
+        assert_eq!(
+            fpath.canonicalize().unwrap(),
+            expected_path.canonicalize().unwrap()
+        );
         assert_eq!(hash, expected_hash);
         assert!(expected_path.exists());
 

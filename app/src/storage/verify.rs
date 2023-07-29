@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use database::Database;
 use lucille_core::metadata::MediaHash;
 
-use crate::{hashfs::compute_hash, LucilleAppError};
+use crate::hashfs::compute_hash;
 
 /// When checking local files, this enum describes
 /// how carefully to verify integrity

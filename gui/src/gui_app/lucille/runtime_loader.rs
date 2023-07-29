@@ -97,7 +97,7 @@ impl LucilleConfigLoader {
                     SimpleMsgAndRetryUi {
                         header: "Error initializing the configuration loader",
                         body: "",
-                        err: Some(anyhow::Error::from(e)),
+                        err: Some(e),
                     }
                     .ui(ui, &mut self.manual_loading);
                 }

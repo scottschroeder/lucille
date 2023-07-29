@@ -1,8 +1,7 @@
-use anyhow::Context;
 use std::path::{Path, PathBuf};
 
+use anyhow::Context;
 use camino::{Utf8Path, Utf8PathBuf};
-use database::DatabaseError;
 
 const QUALIFIER: &str = "io";
 const ORGANIZATION: &str = "vauntware";

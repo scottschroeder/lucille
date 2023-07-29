@@ -2,7 +2,7 @@ use std::{io::Read, path};
 
 use database::Database;
 
-use super::{ScanError, ScannedData, ScannedSubtitles};
+use super::{ScannedData, ScannedSubtitles};
 use crate::hashfs::compute_hash;
 
 pub(crate) async fn read_media_from_path(

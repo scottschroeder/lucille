@@ -1,4 +1,5 @@
 #![allow(clippy::uninlined_format_args)]
+use anyhow::Context;
 use lucille_core::{
     export::{CorpusExport, MediaExport, ViewOptions},
     identifiers::CorpusId,
@@ -8,7 +9,6 @@ use lucille_core::{
 };
 
 use self::app::LucilleApp;
-use anyhow::Context;
 
 pub mod app;
 pub mod encryption;

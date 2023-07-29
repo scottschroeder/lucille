@@ -1,9 +1,9 @@
-use anyhow::Context;
 use std::{sync::Arc, time::Duration};
 
+use anyhow::Context;
 use tokio::io::AsyncReadExt;
 
-use super::{Encryption, MediaProcessor, ProcessedMedia, ProcessingError};
+use super::{Encryption, MediaProcessor, ProcessedMedia};
 use crate::{
     ffmpeg::{
         split::{FFMpegMediaSplit, MediaSplitFile},
