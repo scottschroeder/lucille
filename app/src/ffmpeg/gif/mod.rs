@@ -1,4 +1,4 @@
-use std::{io, path::PathBuf, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use anyhow::Context;
 use lucille_core::Subtitle;
@@ -12,21 +12,6 @@ use super::{
 const GIF_DEFAULT_FPS: u32 = 12;
 const GIF_DEFAULT_WIDTH: u32 = 480;
 const GIF_DEFAULT_FONT: u32 = 28;
-
-#[derive(Debug, thiserror::Error)]
-#[deprecated(note = "use anyhow")]
-pub enum GifTranscodeError {
-    #[error("transcode error, exit {0}")]
-    Transcode(i32),
-    #[error(transparent)]
-    FFMpeg(#[from] io::Error),
-    #[error("ffmpeg error: exit {}", _0)]
-    FFMpegCmd(i32),
-    #[error("failure to prepare subtitles")]
-    SubtitlePrep(#[source] io::Error),
-    #[error(transparent)]
-    Tokio(#[from] tokio::task::JoinError),
-}
 
 #[derive(Debug)]
 pub enum GifType {

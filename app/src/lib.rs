@@ -23,25 +23,6 @@ pub mod transcode;
 
 pub const DEFAULT_INDEX_WINDOW_SIZE: usize = 5;
 
-#[derive(Debug, thiserror::Error)]
-#[deprecated(note = "use anyhow")]
-pub enum LucilleAppError {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error(transparent)]
-    Database(#[from] database::DatabaseError),
-    #[error(transparent)]
-    Config(#[from] app::ConfigError),
-    #[error("failed to build search index")]
-    BuildIndexError(#[from] search::error::TError),
-    #[error("could not find video source")]
-    MissingVideoSource,
-    #[error(transparent)]
-    Encryption(#[from] crate::encryption::EncryptionError),
-    #[error(transparent)]
-    RequestError(#[from] crate::transcode::RequestError),
-}
-
 pub async fn print_details_for_hash(app: &LucilleApp, hash: MediaHash) -> anyhow::Result<()> {
     // Lookup chapter with hash
     let mut chapter = app.db.get_chapter_by_hash(hash).await?;

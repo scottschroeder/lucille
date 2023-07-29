@@ -11,7 +11,7 @@ use crate::{
 
 mod lucille_config;
 
-pub use lucille_config::{ConfigBuilder, ConfigError, LucilleConfig};
+pub use lucille_config::{ConfigBuilder, LucilleConfig};
 
 #[derive(Debug)]
 pub struct LucilleBuilder {

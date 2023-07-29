@@ -6,19 +6,6 @@ mod splitter;
 use lucille_core::encryption_config::KeyData;
 pub use splitter::{MediaSplitter, MediaSplittingStrategy};
 
-#[derive(Debug, thiserror::Error)]
-#[deprecated(note = "use anyhow")]
-pub enum ProcessingError {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error(transparent)]
-    Split(#[from] crate::ffmpeg::split::MediaSplitError),
-    #[error(transparent)]
-    TokioJoinError(#[from] tokio::task::JoinError),
-    #[error(transparent)]
-    EncryptionError(#[from] crate::encryption::EncryptionError),
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProcessedMedia {
     pub idx: usize,

@@ -9,13 +9,6 @@ mod insert;
 mod metadata;
 mod scan;
 
-#[derive(Debug, thiserror::Error)]
-#[deprecated(note = "use anyhow")]
-pub enum ScanError {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-}
-
 pub enum ScannedSubtitles {
     NotFound,
     Error(subrip::Error),

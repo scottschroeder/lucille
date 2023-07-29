@@ -5,22 +5,11 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Context;
+
 use super::{FFMpegBinary, FFmpegArg, FFmpegCommand};
 
 const CSV_FILE_NAME: &str = "split_records.csv";
-
-#[derive(Debug, thiserror::Error)]
-#[deprecated(note = "use anyhow")]
-pub enum MediaSplitError {
-    #[error("transcode error, exit {0}")]
-    Transcode(i32),
-    #[error(transparent)]
-    FFMpeg(#[from] std::io::Error),
-    #[error(transparent)]
-    CSVRead(std::io::Error),
-    #[error(transparent)]
-    CSVParse(#[from] csv::Error),
-}
 
 #[derive(Debug)]
 pub(crate) enum OutputDirectory {
@@ -54,7 +43,7 @@ fn ffmpeg_output_to_file_records(root: &Path) -> anyhow::Result<Vec<MediaSplitFi
 }
 
 fn output_csv_reader(p: &Path) -> anyhow::Result<Vec<FFMpegCSVFormat>> {
-    let f = std::fs::File::open(p).map_err(MediaSplitError::CSVRead)?;
+    let f = std::fs::File::open(p).with_context(|| format!("could not read csv file {:?}", p))?;
     parse_csv_to_records(f)
 }
 

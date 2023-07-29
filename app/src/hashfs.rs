@@ -153,7 +153,6 @@ mod test {
     use std::{collections::HashMap, io::Read, str::FromStr};
 
     use lucille_core::hash::Sha2Hash;
-    use tokio::io::AsyncReadExt;
 
     use super::*;
     const TEST_DATA: &str = "the quick brown fox jumped over the lazy log\n";

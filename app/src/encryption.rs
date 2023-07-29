@@ -1,20 +1,8 @@
-use aes_gcm::aes::cipher::InvalidLength;
 use tokio::io::AsyncReadExt;
 pub(crate) mod easyaes;
 
 pub use easyaes::unscramble;
 use lucille_core::encryption_config::KeyData;
-
-#[derive(Debug, thiserror::Error)]
-#[deprecated(note = "use anyhow")]
-pub enum EncryptionError {
-    #[error(transparent)]
-    Aead(#[from] aes_gcm::Error),
-    #[error(transparent)]
-    InvalidLength(#[from] InvalidLength),
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-}
 
 pub async fn decryptor<T: tokio::io::AsyncRead + Unpin>(
     cfg: &KeyData,

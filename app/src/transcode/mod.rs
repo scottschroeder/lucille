@@ -8,17 +8,6 @@ use crate::{app::LucilleApp, ffmpeg::gif::FFMpegCmdAsyncResult};
 
 mod make_gif;
 
-#[derive(Debug, thiserror::Error)]
-#[deprecated(note = "use anyhow")]
-pub enum RequestError {
-    #[error("invalid request: {_0}")]
-    Invalid(String),
-    #[error("transcoder could not find a media_view")]
-    NoMediaView,
-    #[error(transparent)]
-    GifTranscodeError(#[from] crate::ffmpeg::gif::GifTranscodeError),
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubSegment {
     pub srt_uuid: Uuid,

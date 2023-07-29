@@ -2,8 +2,6 @@ use lucille_core::uuid::Uuid;
 use search::SearchIndex;
 use serde::{Deserialize, Serialize};
 
-use crate::LucilleAppError;
-
 const DEFAULT_WINDOW: usize = 5;
 const DEFAULT_MAX_RESPONSES: usize = 5;
 
@@ -53,7 +51,7 @@ impl SearchService {
     pub async fn search_and_rank<'r>(
         &self,
         request: SearchRequest<'r>,
-    ) -> Result<SearchResponse, LucilleAppError> {
+    ) -> anyhow::Result<SearchResponse> {
         let scores = self.index.search(request.query, request.get_window())?;
 
         // TODO what does this actually do? nothing? I think its nothing...

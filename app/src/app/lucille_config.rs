@@ -27,17 +27,6 @@ const DEFAULT_CONFIG_FILE: &str = "lucille.toml";
 
 type ExtConfigBuilder = config::ConfigBuilder<config::builder::DefaultState>;
 
-#[derive(Debug, thiserror::Error)]
-#[deprecated(note = "use anyhow")]
-pub enum ConfigError {
-    #[error(transparent)]
-    ConfigError(#[from] config::ConfigError),
-    #[error("unable to get user home directory")]
-    NoUserHome,
-    #[error("path is not utf8: {:?}", _0)]
-    NonUtf8Path(PathBuf),
-}
-
 #[derive(Debug, Clone)]
 pub struct ConfigBuilder {
     config_dir: Utf8PathBuf,
