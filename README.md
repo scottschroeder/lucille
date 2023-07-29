@@ -7,3 +7,11 @@ Lucille scans media, extracts subtitles, and creates a searchable index. You can
 ## Status
 
 This project is in its infancy. It works, but that's about it.
+
+
+
+## Sqlx
+
+```
+cargo install -f sqlx-cli --version 0.6.2
+```

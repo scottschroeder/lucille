@@ -370,6 +370,24 @@
     },
     "query": "\n            SELECT \n                id, title\n            FROM \n                corpus\n         "
   },
+  "3a6e10d081d36c3d8b0f3d1e555ee3ac3c04f1f83bc619b3aac0665447c98c05": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "\n                    SELECT \n                        name\n                    FROM \n                        sqlite_schema\n                "
+  },
   "46538b323c853bee45a63b25b3914f88a08948c245355581de822cdee23f737d": {
     "describe": {
       "columns": [
@@ -531,6 +549,24 @@
       }
     },
     "query": "\n                SELECT \n                    media_view.id, media_view.chapter_id, media_view.name\n                FROM media_view\n                JOIN chapter\n                  ON chapter.id = media_view.chapter_id\n                WHERE\n                    chapter.corpus_id = ?\n                ORDER BY\n                    media_view.id DESC\n         "
+  },
+  "7ccb6c55cd637e83bb833da235f70f4b1bd9e63a47bb6ccb359f5b0222f13a5c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "\n            SELECT \n                name\n            FROM \n                sqlite_schema\n            WHERE \n                type ='table' AND \n                name NOT LIKE 'sqlite_%';\n         "
   },
   "7cce8eb7d12be371c45c959a27b0e6b65e4e4bcfc07b40456811d1afc8230e80": {
     "describe": {

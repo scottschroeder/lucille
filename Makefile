@@ -5,7 +5,9 @@ CARGO_OPTS =
 
 VERSION=$(shell grep -Em1 "^version" Cargo.toml | sed -r 's/.*"(.*)".*/\1/')
 RUSTC_VERSION=$(shell rustc -V)
-NAME := lucille BUILD_DIR := ./build
+NAME := lucille
+BUILD_DIR := ./build
+TMP_DATABASE := sqlite://.tmp.db
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
@@ -26,7 +28,7 @@ fix:
 	cargo fix --allow-staged
 	cargo clippy --fix --allow-staged --allow-dirty
 
-test:
+test: sqlx-data.json
 	cargo test
 
 
@@ -50,10 +52,10 @@ schema.sql: scripts/dump_schema.sh sqlx-init
 	./scripts/dump_schema.sh > schema.sql
 
 sqlx-init: $(MIGRATIONS)
-	cargo sqlx database setup --source database/migrations
+	DATABASE_URL=$(TMP_DATABASE) cargo sqlx database setup --source database/migrations
 
 sqlx-data.json: $(DATABASE_SRC) sqlx-init
-	cargo sqlx prepare --merged
+	DATABASE_URL=$(TMP_DATABASE) cargo sqlx prepare --merged -- --all-targets --all-features
 
 build-docker:
 	docker build . -t rust_cross_compile/windows -f Dockerfile.windows
