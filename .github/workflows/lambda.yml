@@ -16,6 +16,11 @@ jobs:
         run: make build-lambda-docker
       - name: Build Lambdas
         run: make build-lambda
+      - name: S3 Upload render.zip
+        env:
+          AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
+          AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+        run: aws s3 cp ./target/lambda/release/render.zip ${{ secrets.RENDER_ARTIFACT_UPLOAD_DIR }}/dev/render.zip
       - name: Upload render lambda
         uses: actions/upload-artifact@v2
         with:

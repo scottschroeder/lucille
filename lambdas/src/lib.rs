@@ -106,6 +106,7 @@ pub(crate) mod render {
             .key(&key)
             .content_type("image/gif")
             .body(buf.into())
+            .set_tagging(temporary.then(|| "Ephemeral=true".to_owned()))
             .set_expires(temporary.then(|| {
                 let expire = SystemTime::now()
                     .checked_add(Duration::from_secs(60 * 60))
