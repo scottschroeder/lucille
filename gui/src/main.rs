@@ -21,5 +21,6 @@ fn main() {
         "Lucille",
         native_options,
         Box::new(|cc| Box::new(gui::ShellApp::new(cc))),
-    );
+    )
+    .expect("failed to run eframe");
 }

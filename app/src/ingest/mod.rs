@@ -81,14 +81,14 @@ pub struct MediaProcessor {
 pub use insert::add_content_to_corpus;
 pub use scan::scan_media_paths;
 
-use crate::{app::LucilleApp, LucilleAppError};
+use crate::app::LucilleApp;
 
 impl MediaProcessor {
     pub async fn ingest<P: AsRef<std::path::Path>>(
         &self,
         root: P,
         corpus: Option<&Corpus>,
-    ) -> Result<(), LucilleAppError> {
+    ) -> anyhow::Result<()> {
         let content = self.scan_and_process(root).await?;
 
         add_content_to_corpus(&self.db, corpus, content).await
@@ -96,7 +96,7 @@ impl MediaProcessor {
     async fn scan_and_process<P: AsRef<std::path::Path>>(
         &self,
         root: P,
-    ) -> std::io::Result<Vec<ScannedMedia>> {
+    ) -> anyhow::Result<Vec<ScannedMedia>> {
         let media_paths = scan::scan_media_paths(root)?;
         Ok(self.process_all_media(&media_paths).await)
     }

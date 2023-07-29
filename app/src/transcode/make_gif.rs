@@ -1,6 +1,6 @@
 use anyhow::Context;
 
-use super::{MakeGifRequest, RequestError};
+use super::MakeGifRequest;
 use crate::{
     app::LucilleApp,
     ffmpeg::gif::{FFMpegCmdAsyncResult, FFMpegGifTranscoder, GifSettings},
@@ -22,7 +22,7 @@ pub async fn handle_make_gif_request(
 
     let target_media_view = crate::media_view::get_media_view_for_transcode(app, srt_uuid)
         .await?
-        .ok_or_else(|| RequestError::NoMediaView)?;
+        .context("no media view found")?;
 
     let (segment_start, input) =
         crate::media_view::get_surrounding_media(app, target_media_view.id, start, end).await?;

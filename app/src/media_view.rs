@@ -9,12 +9,12 @@ use lucille_core::{
 };
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use crate::{app::LucilleApp, LucilleAppError};
+use crate::app::LucilleApp;
 
 pub async fn get_media_view_for_transcode(
     app: &LucilleApp,
     srt_uuid: Uuid,
-) -> Result<Option<MediaView>, LucilleAppError> {
+) -> anyhow::Result<Option<MediaView>> {
     let views = app.db.get_media_views_for_srt(srt_uuid).await?;
     let priorities = app.config.media_view_priority();
     Ok(select_best_media_view(&priorities, views))
@@ -36,7 +36,7 @@ pub async fn get_media_view_in_corpus(
     db: &Database,
     corpus_id: CorpusId,
     view_name: &str,
-) -> Result<Vec<(ChapterExport, Option<MediaView>)>, LucilleAppError> {
+) -> anyhow::Result<Vec<(ChapterExport, Option<MediaView>)>> {
     let all_chapters = db.get_active_chapters_for_corpus(corpus_id).await?;
     let mut results = Vec::with_capacity(all_chapters.len());
 

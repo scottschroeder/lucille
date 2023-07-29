@@ -78,7 +78,7 @@ impl ConfigBuilder {
 
     pub fn new_with_user_dirs() -> anyhow::Result<Self> {
         let dirs = directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APP)
-            .ok_or(ConfigError::NoUserHome)?;
+            .context("could not create project dirs")?;
         let data_dir = camino_path(dirs.data_dir())?;
         let config_dir = camino_path(dirs.config_dir())?.to_path_buf();
         let config_builder = new_config_builder(data_dir);
@@ -168,7 +168,10 @@ impl ConfigBuilder {
         }
 
         let lucille_cfg = LucilleConfig {
-            inner: self.config_builder.build().map_err(ConfigError::from)?,
+            inner: self
+                .config_builder
+                .build()
+                .context("could not build lucille config")?,
         };
         log::trace!("{:#?}", lucille_cfg);
         Ok(lucille_cfg)

@@ -59,12 +59,12 @@ fn wrap_io_notfound<T>(e: std::io::Error) -> anyhow::Result<Option<T>> {
 }
 
 mod db_storage {
+    use anyhow::Context;
     use database::Database;
     use lucille_core::MediaHash;
     use tokio::io::AsyncRead;
 
     use super::{wrap_io_notfound, BackendCacheControl, StorageBackend};
-    use crate::LucilleAppError;
 
     pub(crate) struct DbStorageBackend {
         db: Database,
@@ -92,7 +92,7 @@ mod db_storage {
                 .db
                 .get_storage_by_hash(hash)
                 .await?
-                .ok_or_else(|| LucilleAppError::MissingVideoSource)?;
+                .with_context(|| format!("missing video source for hash {}", hash))?;
             match tokio::fs::File::open(&media.path).await {
                 Ok(f) => Ok(Some(Box::new(f))),
                 Err(e) => wrap_io_notfound(e),
@@ -154,7 +154,6 @@ mod s3_media_root {
     use tokio::io::AsyncRead;
 
     use super::{BackendCacheControl, StorageBackend};
-    use crate::LucilleAppError;
 
     #[derive(Debug)]
     pub(crate) struct S3MediaBackend {
@@ -182,13 +181,13 @@ mod s3_media_root {
         }
     }
 
-    fn map_s3_err(e: SdkError<GetObjectError>) -> LucilleAppError {
+    fn map_s3_err(e: SdkError<GetObjectError>) -> anyhow::Error {
         let s_e = e.into_service_error();
         if let aws_sdk_s3::error::GetObjectErrorKind::NoSuchKey(_) = s_e.kind {
+            anyhow::anyhow!("missing video source from s3: Not Found")
         } else {
-            log::warn!("s3 error: {}", s_e);
+            anyhow::anyhow!("missing video source from s3: {}", s_e)
         }
-        LucilleAppError::MissingVideoSource
     }
 
     #[async_trait::async_trait]

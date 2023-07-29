@@ -1,5 +1,6 @@
 use std::{io, path::PathBuf, time::Duration};
 
+use anyhow::Context;
 use lucille_core::Subtitle;
 use tokio::io::{AsyncRead, AsyncWriteExt};
 
@@ -137,33 +138,23 @@ impl FFMpegGifTranscoder {
         subs: &[Subtitle],
         settings: &GifSettings,
     ) -> anyhow::Result<FFMpegGifTranscoder> {
-        let root = tempfile::tempdir().map_err(GifTranscodeError::SubtitlePrep)?;
+        let root = tempfile::tempdir().context("could not create tmpdir")?;
         let srt_path = root.path().join("subtitles.srt");
         let media_path = root.path().join("media.mkv");
-        let path_arg = srt_path.to_str().ok_or_else(|| {
-            GifTranscodeError::SubtitlePrep(io::Error::new(
-                io::ErrorKind::Other,
-                "path was not utf8",
-            ))
-        })?;
-        let media_path_arg = media_path.to_str().ok_or_else(|| {
-            GifTranscodeError::SubtitlePrep(io::Error::new(
-                io::ErrorKind::Other,
-                "path was not utf8",
-            ))
-        })?;
+        let path_arg = srt_path.to_str().context("path was not utf8")?;
+        let media_path_arg = media_path.to_str().context("path was not utf8")?;
 
         let (sub_offset_start, _) = settings.cut_selection.content_cut_times(subs);
 
         let mut f = tokio::fs::File::create(&srt_path)
             .await
-            .map_err(GifTranscodeError::SubtitlePrep)?;
+            .with_context(|| format!("could not create srt file {:?}", srt_path))?;
 
         for sub in offset_subs(sub_offset_start, subs) {
             let s = format!("{}", sub);
             f.write_all(s.as_bytes())
                 .await
-                .map_err(GifTranscodeError::SubtitlePrep)?;
+                .context("could not write subtitles to srt file")?;
         }
 
         let mut cmd = bin.build_command();
@@ -184,9 +175,7 @@ impl FFMpegGifTranscoder {
         cmd.args.push(FFmpegArg::plain(media_path_arg));
         // cmd.args.push(FFmpegArg::plain("pipe:0"));
 
-        let filter = create_filter(settings, path_arg).map_err(|e| {
-            GifTranscodeError::SubtitlePrep(io::Error::new(io::ErrorKind::Other, e))
-        })?;
+        let filter = create_filter(settings, path_arg)?;
         cmd.args.push(FFmpegArg::plain("-filter_complex"));
         cmd.args.push(FFmpegArg::plain(filter));
 

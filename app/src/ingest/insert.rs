@@ -8,7 +8,6 @@ use lucille_core::{
 };
 
 use super::{ScannedMedia, ScannedSubtitles};
-use crate::LucilleAppError;
 
 const ORIGINAL_MEDIA_VIEW: &str = "original";
 
@@ -16,7 +15,7 @@ pub async fn add_content_to_corpus(
     db: &Database,
     corpus: Option<&Corpus>,
     content: Vec<ScannedMedia>,
-) -> Result<(), LucilleAppError> {
+) -> anyhow::Result<()> {
     let corpus = corpus.expect("guess content name todo");
 
     let corpus_id = if let Some(id) = corpus.id {
@@ -35,7 +34,7 @@ pub(crate) async fn add_scanned_media_to_db(
     db: &Database,
     corpus_id: CorpusId,
     media: &ScannedMedia,
-) -> Result<ChapterId, LucilleAppError> {
+) -> anyhow::Result<ChapterId> {
     log::trace!("insert media into db: {:?}", media);
     let (title, season, episode) = match &media.metadata {
         lucille_core::metadata::MediaMetadata::Episode(e) => (
@@ -72,7 +71,7 @@ async fn check_if_hash_is_chapter_original(
     db: &Database,
     chapter_id: ChapterId,
     hash: MediaHash,
-) -> Result<bool, LucilleAppError> {
+) -> anyhow::Result<bool> {
     match db.get_chapter_by_hash(hash).await? {
         Some(ch) => {
             if ch.id != chapter_id {
